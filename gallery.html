@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AWS Gurukul — Diagram Gallery</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>📊</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main id="app" style="max-width:1000px;margin:0 auto;padding:24px 18px 80px">
+    <section class="hero">
+      <h1>📊 Concept Diagram <span class="glow">Gallery</span></h1>
+      <p>Har level ka signature visual, ek jagah. (App mein yeh level intro par aur play ke doraan toggle se dikhte hain.)</p>
+    </section>
+    <div id="g"></div>
+  </main>
+  <script src="visuals.js"></script>
+  <script>
+    const g = document.getElementById('g');
+    for (const id in VISUALS) {
+      const v = VISUALS[id];
+      const sec = document.createElement('section');
+      sec.innerHTML =
+        '<div class="crumb" style="margin-top:26px">' + id + '</div>' +
+        '<div class="diagram hero"><div class="dg-title">📊 ' + v.t + '</div>' + v.html + '</div>';
+      g.appendChild(sec);
+    }
+  </script>
+</body>
+</html>

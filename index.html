@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AWS Gurukul — AWS Solutions Architect seekho, khel khel mein</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='80' font-size='80'>🛕</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="topbar"></header>
+  <main id="app"></main>
+  <!-- Engine (load order CRITICAL — games.js MUST come before awscli.js & app.js) -->
+  <script src="core.js"></script>
+  <script src="data-core.js"></script>
+  <script src="visuals.js"></script>
+  <script src="games.js"></script>
+  <script src="awscli.js"></script>
+  <!-- Content (har track apni file mein — nayi cheez seekhi? bas data file mein level add karo) -->
+  <script src="data-beginner.js"></script>
+  <script src="data-intermediate.js"></script>
+  <script src="data-advanced.js"></script>
+  <script src="data-architect.js"></script>
+  <!-- Screens (last — boot happens here) -->
+  <script src="app.js"></script>
+</body>
+</html>

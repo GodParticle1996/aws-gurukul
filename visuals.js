@@ -1,0 +1,941 @@
+/* =====================================================================
+   AWS Gurukul — Concept Visuals
+   Har level ka ek signature diagram, style.css ke .dg-* primitives se.
+   Pure HTML/CSS/emoji — koi dependency nahi.
+   Entry: { t: chhota title, html: diagram markup }
+   Hotspot games ke liye clickable nodes par data-hs="<target>" hota hai.
+   ===================================================================== */
+
+const VISUALS = {
+
+  /* ================= TRACK 1 — BEGINNER ================= */
+
+  cloud101: {
+    t: 'On-prem vs Cloud — aur Region/AZ ka khel',
+    html: `
+      <div class="dg-split">
+        <div class="dg-box is-bad"><span class="bx-label">🏚️ On-prem (apna server)</span>
+          <div class="dg-col">
+            <div class="dg-node is-bad"><span class="ni">🖥️</span><span class="nl">Server kharido</span><span class="ns">3-6 weeks lead time</span></div>
+            <span class="dg-pill bad">💰 capacity guess — zyada ya kam?</span>
+            <span class="dg-pill bad">🔧 hardware maintenance tumhara</span>
+            <span class="dg-pill bad">⚡ scaling = nayi machine kharido</span>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">☁️ Cloud (AWS)</span>
+          <div class="dg-col">
+            <div class="dg-node is-good pulse"><span class="ni">🚀</span><span class="nl">Minutes mein launch</span><span class="ns">pay-as-you-go</span></div>
+            <span class="dg-pill good">💰 pay for what you use</span>
+            <span class="dg-pill good">🔧 AWS manages hardware</span>
+            <span class="dg-pill good">⚡ scaling = API call (seconds)</span>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:14px">
+        <div class="dg-box is-accent"><span class="bx-label">🌍 Region: us-east-1</span>
+          <div class="dg-flow">
+            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">AZ-a</span><span class="ns">data center</span></div>
+            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">AZ-b</span><span class="ns">data center</span></div>
+            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">AZ-c</span><span class="ns">data center</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Region</b> = geography (country/area). <b>AZ</b> = uss region ke andar alag data center. Multi-AZ = failure survive. <b>Shared responsibility:</b> AWS cloud ka security, tumhare data ka security tumhara.</div>`,
+  },
+
+  iam: {
+    t: 'IAM — kaun kya kar sakta hai?',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node is-bad" data-hs="root"><span class="ni">👑</span><span class="nl">Root user</span><span class="ns">sab power — band karo!</span></div>
+        <div class="dg-link"><span class="dg-pill bad">MFA on, use rarely</span><div class="dg-arrow bad"></div></div>
+        <div class="dg-col">
+          <div class="dg-box is-accent"><span class="bx-label">🔐 IAM</span>
+            <div class="dg-flow">
+              <div class="dg-node is-accent" data-hs="user"><span class="ni">👤</span><span class="nl">User</span><span class="ns">1 insaan</span></div>
+              <div class="dg-node is-gold" data-hs="role"><span class="ni">🎭</span><span class="nl">Role</span><span class="ns">temporary power</span></div>
+              <div class="dg-node" data-hs="group"><span class="ni">👥</span><span class="nl">Group</span><span class="ns">users ka dabba</span></div>
+            </div>
+            <div class="dg-flow" style="margin-top:10px">
+              <div class="dg-node is-good" data-hs="policy"><span class="ni">📜</span><span class="nl">Policy</span><span class="ns">JSON rules: Allow/Deny</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Least privilege</b> — sirf utna power jitna zaroori. Role = app ko temporary power dene ka tarika (EC2 ko S3 access chahiye? role lagao). <b>Root user daily use mat karo!</b></div>`,
+  },
+
+  ec2: {
+    t: 'EC2 — virtual machine AWS par',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-node is-accent pulse"><span class="ni">🖥️</span><span class="nl">EC2 Instance</span><span class="ns">t2.micro / m5.large</span></div>
+          <div class="dg-stack" style="margin-top:8px">
+            <span class="dg-pill acc" data-hs="ami">AMI = image (OS + software)</span>
+            <span class="dg-pill acc" data-hs="type">Instance type = CPU/RAM size</span>
+            <span class="dg-pill gold" data-hs="keypair">Key pair = SSH access</span>
+          </div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">attach</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node" data-hs="ebs"><span class="ni">💾</span><span class="nl">EBS Volume</span><span class="ns">persistent disk</span></div>
+          <div class="dg-node is-good" data-hs="sg"><span class="ni">🛡️</span><span class="nl">Security Group</span><span class="ns">firewall</span></div>
+        </div>
+      </div>
+      <div class="dg-cap">EC2 = tumhari virtual machine. <b>AMI</b> = OS+software ka image, <b>instance type</b> = CPU/RAM, <b>EBS</b> = disk (instance mara toh bhi disk rehta), <b>Security Group</b> = firewall (allow rules, deny default).</div>`,
+  },
+
+  s3: {
+    t: 'S3 — object storage, files ka mighty dabba',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-node is-accent pulse" data-hs="bucket"><span class="ni">🪣</span><span class="nl">S3 Bucket</span><span class="ns">globally unique naam</span></div>
+          <div class="dg-col" style="margin-top:8px">
+            <div class="dg-node" data-hs="key"><span class="ni">📄</span><span class="nl">object</span><span class="ns">key + data + metadata</span></div>
+            <div class="dg-node" data-hs="key"><span class="ni">🖼️</span><span class="nl">object</span><span class="ns">key = path/filename</span></div>
+            <div class="dg-node" data-hs="key"><span class="ni">🎬</span><span class="nl">object</span><span class="ns">5 TB tak</span></div>
+          </div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">permissions</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node is-good" data-hs="policy"><span class="ni">📜</span><span class="nl">Bucket Policy</span><span class="ns">who can access</span></div>
+          <div class="dg-node is-gold" data-hs="encryption"><span class="ni">🔒</span><span class="nl">Encryption</span><span class="ns">SSE-S3 / SSE-KMS</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Bucket</b> = top-level container (globally unique naam). <b>Key</b> = file ka path. <b>Object</b> = file + metadata. S3 = 11 nines durability (99.999999999%). Static website host bhi kar sakte ho!</div>`,
+  },
+
+  vpcbasics: {
+    t: 'VPC — tumhare cloud ka private network',
+    html: `
+      <div class="dg-box is-accent"><span class="bx-label">🌐 VPC 10.0.0.0/16</span>
+        <div class="dg-split">
+          <div class="dg-box is-good"><span class="bx-label">AZ-a · Public subnet</span>
+            <div class="dg-flow">
+              <div class="dg-node is-good" data-hs="igw"><span class="ni">🌍</span><span class="nl">IGW</span><span class="ns">internet gateway</span></div>
+              <div class="dg-arrow good flow"></div>
+              <div class="dg-node"><span class="ni">🖥️</span><span class="nl">EC2 web</span><span class="ns">public IP</span></div>
+            </div>
+          </div>
+          <div class="dg-box is-gold" data-hs="privatesubnet"><span class="bx-label">AZ-b · Private subnet</span>
+            <div class="dg-flow">
+              <div class="dg-node is-muted"><span class="ni">🗄️</span><span class="nl">RDS / EC2</span><span class="ns">no public IP</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="dg-flow" style="margin-top:8px">
+          <div class="dg-node" data-hs="rt"><span class="ni">🗺️</span><span class="nl">Route Table</span><span class="ns">traffic kahan jaaye</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>VPC</b> = tumhara private network (CIDR block). <b>Subnet</b> = AZ ke andar. <b>Public</b> subnet = IGW se internet. <b>Private</b> subnet = no direct internet. <b>Route table</b> = traffic rules.</div>`,
+  },
+
+  rds: {
+    t: 'RDS — managed database, tension-free',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-box is-good"><span class="bx-label">AZ-a (Primary)</span>
+            <div class="dg-node is-good pulse" data-hs="primary"><span class="ni">🗄️</span><span class="nl">RDS Primary</span><span class="ns">writes + reads</span></div>
+          </div>
+        </div>
+        <div class="dg-link"><span class="dg-pill good">sync replication</span><div class="dg-arrow good flow two"></div></div>
+        <div class="dg-col">
+          <div class="dg-box is-gold"><span class="bx-label">AZ-b (Standby)</span>
+            <div class="dg-node is-gold" data-hs="standby"><span class="ni">🗄️</span><span class="nl">Standby</span><span class="ns">failover ke liye</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill good" data-hs="multiaz">Multi-AZ = automatic failover</span>
+        <span class="dg-pill acc" data-hs="readreplica">Read Replica = scaling reads (async)</span>
+        <span class="dg-pill gold" data-hs="backup">Automated backups + snapshots</span>
+      </div>
+      <div class="dg-cap"><b>Multi-AZ</b> = primary mara toh standby promote (DR). <b>Read Replica</b> = read load baantna (scaling). <b>Managed</b> = AWS patches, backups, replication — tum sirf schema dekho.</div>`,
+  },
+
+  elbasg: {
+    t: 'ELB + Auto Scaling — traffic handle karo automatically',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">👤</span><span class="nl">Users</span></div>
+        <div class="dg-link"><span class="dg-pill acc">DNS</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-node is-accent pulse" data-hs="alb"><span class="ni">⚖️</span><span class="nl">ALB</span><span class="ns">Application Load Balancer</span></div>
+        <div class="dg-down flow"></div>
+        <div class="dg-box is-good"><span class="bx-label" data-hs="asg">Auto Scaling Group</span>
+          <div class="dg-flow">
+            <div class="dg-node is-good" data-hs="instance"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">healthy</span></div>
+            <div class="dg-node is-good" data-hs="instance"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">healthy</span></div>
+            <div class="dg-node is-bad" data-hs="instance"><span class="ni">💀</span><span class="nl">EC2</span><span class="ns">health fail</span></div>
+            <div class="dg-node is-good pulse"><span class="ni">✨</span><span class="nl">EC2</span><span class="ns">auto-spawn</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>ALB</b> = Layer-7 load balancer (HTTP/HTTPS), traffic healthy targets par baantta hai. <b>ASG</b> = CPU high → instances add; traffic kam → remove. Mara hua instance replace. <b>Health checks</b> = target fail → traffic band.</div>`,
+  },
+
+  boss1: {
+    t: 'Boss — 3-tier web architecture (complete)',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">🌐</span><span class="nl">Users</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-box is-accent"><span class="bx-label">🌐 VPC (Multi-AZ)</span>
+          <div class="dg-stack" style="margin-top:8px">
+            <div class="dg-flow">
+              <div class="dg-node is-accent pulse"><span class="ni">⚖️</span><span class="nl">ALB</span><span class="ns">public subnets</span></div>
+            </div>
+            <div class="dg-flow">
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-a</span></div>
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-b</span></div>
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-c</span></div>
+            </div>
+            <div class="dg-flow">
+              <div class="dg-arrow good" style="flex-basis:30px"></div>
+              <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Primary</span><span class="ns">AZ-a</span></div>
+              <div class="dg-arrow good two" style="flex-basis:30px"></div>
+              <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Standby</span><span class="ns">AZ-b (failover)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap">Boss architecture: <b>Users → ALB (public) → EC2 ASG (Multi-AZ, private) → RDS Multi-AZ</b>. Ek AZ down bhi app chalegi. Yehi SAA exam ka bread-and-butter hai!</div>`,
+  },
+
+  /* ================= TRACK 2 — INTERMEDIATE ================= */
+
+  vpcdeep: {
+    t: 'VPC Deep Dive — private subnet se internet kaise?',
+    html: `
+      <div class="dg-box is-accent"><span class="bx-label">🌐 VPC</span>
+        <div class="dg-split">
+          <div class="dg-box is-good"><span class="bx-label">Public subnet (AZ-a)</span>
+            <div class="dg-flow">
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2 (web)</span><span class="ns">public IP</span></div>
+              <div class="dg-arrow good flow"></div>
+              <div class="dg-node is-good" data-hs="nat"><span class="ni">🌍</span><span class="nl">NAT GW</span><span class="ns">outbound only</span></div>
+            </div>
+          </div>
+          <div class="dg-box is-gold"><span class="bx-label">Private subnet (AZ-b)</span>
+            <div class="dg-flow">
+              <div class="dg-node is-muted" data-hs="privinstance"><span class="ni">🗄️</span><span class="nl">EC2 (app)</span><span class="ns">no public IP</span></div>
+              <div class="dg-arrow gold flow"></div>
+              <span class="dg-pill gold">→ NAT GW → IGW → internet (patches!)</span>
+            </div>
+          </div>
+        </div>
+        <div class="dg-flow" style="margin-top:8px">
+          <span class="dg-pill acc" data-hs="nacl">NACL = subnet-level firewall (stateless)</span>
+          <span class="dg-pill good">SG = instance-level (stateful)</span>
+        </div>
+      </div>
+      <div class="dg-cap"><b>NAT Gateway</b> = private subnet ko outbound internet deta (patches/downloads) bina public IP diye. Inbound block. <b>VPC Peering</b> = 2 VPC connect. <b>Transit Gateway</b> = hub-and-spoke (bahut VPCs).</div>`,
+  },
+
+  route53: {
+    t: 'Route 53 — DNS + routing policies',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">🌐</span><span class="nl">user types</span><span class="ns">app.com</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent pulse" data-hs="r53"><span class="ni">📡</span><span class="nl">Route 53</span><span class="ns">hosted zone</span></div>
+        <div class="dg-down flow"></div>
+        <div class="dg-split">
+          <div class="dg-node is-good" data-hs="simple"><span class="ni">➡️</span><span class="nl">Simple</span><span class="ns">one record</span></div>
+          <div class="dg-node is-gold" data-hs="weighted"><span class="ni">⚖️</span><span class="nl">Weighted</span><span class="ns">10%/90% split</span></div>
+          <div class="dg-node is-accent" data-hs="latency"><span class="ni">⚡</span><span class="nl">Latency</span><span class="ns">closest region</span></div>
+          <div class="dg-node is-bad" data-hs="failover"><span class="ni">🔄</span><span class="nl">Failover</span><span class="ns">primary down → secondary</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Route 53</b> = AWS ka DNS (port 53). Routing policies: <b>Simple</b> (1 record), <b>Weighted</b> (A/B testing), <b>Latency</b> (closest region), <b>Failover</b> (DR), <b>Geolocation</b> (country-based). Health checks bhi.</div>`,
+  },
+
+  cloudfront: {
+    t: 'CloudFront — CDN, content edge par',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-node"><span class="ni">👤</span><span class="nl">User (India)</span></div>
+          <div class="dg-arrow flow"></div>
+          <div class="dg-node is-accent pulse" data-hs="edge"><span class="ni">📍</span><span class="nl">Edge (Mumbai)</span><span class="ns">cache hit ⚡</span></div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">cache miss?</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node is-gold" data-hs="origin"><span class="ni">🗄️</span><span class="nl">Origin</span><span class="ns">S3 / ALB</span></div>
+          <span class="dg-pill gold">us-east-1 (far)</span>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="distribution">Distribution = CDN config</span>
+        <span class="dg-pill good" data-hs="behavior">Cache behavior = rules per path</span>
+        <span class="dg-pill gold" data-hs="signedurl">Signed URLs = private content</span>
+      </div>
+      <div class="dg-cap"><b>CloudFront</b> = content ko 400+ edge locations par cache karta hai. User ko nearest edge se milta hai = fast. Origin (S3/ALB) se sirf cache miss par laata hai. <b>Signed URLs</b> = premium/private content access.</div>`,
+  },
+
+  s3adv: {
+    t: 'S3 Storage Classes — cost vs access frequency',
+    html: `
+      <div class="dg-ladder">
+        <div class="dg-rung"><span class="lv">$</span><span class="cmd">S3 Standard</span><span class="q">frequent access · 99.99% avail</span></div>
+        <div class="dg-rung"><span class="lv">$$</span><span class="cmd">S3 Standard-IA</span><span class="q">infrequent · cheaper storage, pricier retrieve</span></div>
+        <div class="dg-rung"><span class="lv">$$$</span><span class="cmd">S3 One Zone-IA</span><span class="q">1 AZ only · 99.5% · cheapest IA</span></div>
+        <div class="dg-rung g"><span class="lv">¢¢</span><span class="cmd">S3 Glacier</span><span class="q">archive · 1-5 min to 12 hrs retrieve</span></div>
+        <div class="dg-rung g"><span class="lv">¢</span><span class="cmd">S3 Glacier Deep Archive</span><span class="q">cheapest · 12 hrs retrieve (compliance)</span></div>
+        <div class="dg-rung a"><span class="lv">→</span><span class="cmd">Lifecycle rule</span><span class="q">30 din → IA · 90 din → Glacier · auto!</span></div>
+      </div>
+      <div class="dg-cap"><b>Lifecycle rules</b> = automatically move objects Standard → IA → Glacier based on age. <b>Replication</b> (CRR/SSR) = cross-region/cross-account backup. <b>Encryption</b>: SSE-S3 (default), SSE-KMS (keys), SSE-C (your keys).</div>`,
+  },
+
+  efs: {
+    t: 'Block vs File vs Object — aur hybrid ka pul',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-box is-accent"><span class="bx-label">🧱 Block — EBS</span>
+          <div class="dg-col">
+            <div class="dg-node is-accent" data-hs="ebs"><span class="ni">💽</span><span class="nl">EBS volume</span><span class="ns">1 AZ · 1 EC2 at a time</span></div>
+            <span class="dg-pill acc">OS disk, database ka data</span>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">📁 File — EFS / FSx</span>
+          <div class="dg-col">
+            <div class="dg-node is-good pulse" data-hs="efs"><span class="ni">📁</span><span class="nl">EFS (NFS)</span><span class="ns">multi-AZ · 1000s EC2 ek saath</span></div>
+            <div class="dg-node is-gold" data-hs="fsx"><span class="ni">🪟</span><span class="nl">FSx</span><span class="ns">Windows (SMB) · Lustre (HPC)</span></div>
+            <span class="dg-pill good">shared web content, CMS uploads</span>
+          </div>
+        </div>
+        <div class="dg-box is-gold"><span class="bx-label">🪣 Object — S3</span>
+          <div class="dg-col">
+            <div class="dg-node is-gold" data-hs="s3obj"><span class="ni">🪣</span><span class="nl">S3 bucket</span><span class="ns">unlimited · HTTP API</span></div>
+            <span class="dg-pill gold">backups, media, static site, data lake</span>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:14px">
+        <div class="dg-node is-muted"><span class="ni">🏢</span><span class="nl">On-prem</span><span class="ns">data center</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node" data-hs="sgw"><span class="ni">🌉</span><span class="nl">Storage Gateway</span><span class="ns">hybrid: local cache + AWS backend</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node" data-hs="datasync"><span class="ni">🚚</span><span class="nl">DataSync</span><span class="ns">online bulk copy (network)</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-bad" data-hs="snowball"><span class="ni">❄️</span><span class="nl">Snowball</span><span class="ns">offline truck — PB scale</span></div>
+      </div>
+      <div class="dg-cap"><b>EBS</b> = ek EC2 ki hard disk (1 AZ). <b>EFS</b> = shared NFS drive, multi-AZ, hazaar EC2 ek saath mount. <b>FSx</b> = Windows SMB ya Lustre HPC. <b>S3</b> = object, API se. Hybrid: <b>Storage Gateway</b> (ongoing), <b>DataSync</b> (network bulk), <b>Snowball</b> (offline PB).</div>`,
+  },
+
+  events: {
+    t: 'Event-driven — EventBridge routes, Step Functions orchestrate',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">🛒</span><span class="nl">Order service</span><span class="ns">event publish</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-box is-accent"><span class="bx-label">🔔 EventBridge (event bus)</span>
+          <div class="dg-col">
+            <div class="dg-node is-accent pulse" data-hs="bus"><span class="ni">🚌</span><span class="nl">default / custom bus</span><span class="ns">sab events yahan aate hain</span></div>
+            <div class="dg-flow">
+              <div class="dg-node is-good" data-hs="rule"><span class="ni">🧭</span><span class="nl">Rule</span><span class="ns">event pattern match</span></div>
+              <div class="dg-node is-gold" data-hs="schedule"><span class="ni">⏰</span><span class="nl">Schedule rule</span><span class="ns">cron(0 3 * * ? *)</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-col">
+          <div class="dg-node is-good" data-hs="target"><span class="ni">⚡</span><span class="nl">Target: Lambda</span></div>
+          <div class="dg-node is-good" data-hs="target"><span class="ni">📨</span><span class="nl">Target: SQS</span></div>
+        </div>
+      </div>
+      <div class="dg-box is-gold" style="margin-top:14px"><span class="bx-label">🪜 Step Functions — state machine (workflow)</span>
+        <div class="dg-flow">
+          <div class="dg-node is-good" data-hs="sfn"><span class="ni">1️⃣</span><span class="nl">ValidateOrder</span></div>
+          <div class="dg-arrow flow"></div>
+          <div class="dg-node is-good" data-hs="sfn"><span class="ni">2️⃣</span><span class="nl">ChargePayment</span><span class="ns">Retry 3x + Catch</span></div>
+          <div class="dg-arrow flow"></div>
+          <div class="dg-node is-good" data-hs="sfn"><span class="ni">3️⃣</span><span class="nl">ShipOrder</span></div>
+          <div class="dg-arrow bad"></div>
+          <div class="dg-node is-bad" data-hs="compensate"><span class="ni">↩️</span><span class="nl">RefundPayment</span><span class="ns">Catch → compensate (Saga)</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>EventBridge</b> = router (kaun sunega). <b>Step Functions</b> = orchestrator (kya kis order mein, retry/catch ke saath). Rule bina <b>target</b> ke = event match hota hai par jaata kahin nahi — sabse common bug.</div>`,
+  },
+
+  lambda: {
+    t: 'Lambda + API Gateway — serverless!',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">📱</span><span class="nl">Client</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent pulse" data-hs="apigw"><span class="ni">🚪</span><span class="nl">API Gateway</span><span class="ns">HTTP endpoint</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-gold" data-hs="lambda"><span class="ni">⚡</span><span class="nl">Lambda</span><span class="ns">function</span></div>
+        <div class="dg-down flow"></div>
+        <div class="dg-node is-good"><span class="ni">🗄️</span><span class="nl">DynamoDB</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="coldstart">Cold start = first invocation slow</span>
+        <span class="dg-pill gold" data-hs="trigger">Triggers: API GW, S3, DynamoDB streams, EventBridge</span>
+        <span class="dg-pill good" data-hs="bill">Bill = ms × memory × invocations</span>
+      </div>
+      <div class="dg-cap"><b>Lambda</b> = code chalao bina server manage kiye. Triggers se invoke. <b>Cold start</b> = pehli baar slow (container spin-up). <b>API Gateway</b> = HTTP endpoint jo Lambda ko route karta hai. Pay-per-invocation — idle = $0.</div>`,
+  },
+
+  dynamodb: {
+    t: 'DynamoDB — NoSQL at scale',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node is-accent pulse" data-hs="table"><span class="ni">📊</span><span class="nl">Table</span><span class="ns">Users</span></div>
+        <div class="dg-col" style="margin-top:8px">
+          <div class="dg-node is-good" data-hs="item"><span class="ni">📋</span><span class="nl">Item</span><span class="ns">user_id: 42 (partition key)</span></div>
+          <div class="dg-flow">
+            <div class="dg-node" data-hs="attr"><span class="ni">🔑</span><span class="nl">Attributes</span><span class="ns">name, email, age</span></div>
+            <div class="dg-node is-gold" data-hs="sortkey"><span class="ni">🔢</span><span class="nl">Sort key</span><span class="ns">created_at</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="rcu">RCU = read capacity units</span>
+        <span class="dg-pill acc" data-hs="wcu">WCU = write capacity units</span>
+        <span class="dg-pill gold" data-hs="gsi">GSI = secondary index (different key)</span>
+        <span class="dg-pill good" data-hs="dax">DAX = in-memory cache (microseconds)</span>
+      </div>
+      <div class="dg-cap"><b>Partition key</b> = data kaise baanta. <b>Sort key</b> = uske andar order. <b>RCU/WCU</b> = capacity (ya on-demand). <b>GSI</b> = dusre attribute se query. <b>DAX</b> = cache. Single-digit ms latency, any scale.</div>`,
+  },
+
+  sqssns: {
+    t: 'SQS / SNS / Kinesis — decoupling ka shastra',
+    html: `
+      <div class="dg-split">
+        <div class="dg-box is-accent"><span class="bx-label">📨 SQS (queue)</span>
+          <div class="dg-col">
+            <div class="dg-node is-accent" data-hs="producer"><span class="ni">📤</span><span class="nl">Producer</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-node is-gold pulse" data-hs="queue"><span class="ni">📥</span><span class="nl">Queue</span><span class="ns">messages line</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-node is-accent" data-hs="consumer"><span class="ni">📥</span><span class="nl">Consumer</span><span class="ns">pull & process</span></div>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">📡 SNS (pub/sub)</span>
+          <div class="dg-col">
+            <div class="dg-node is-good" data-hs="publisher"><span class="ni">📢</span><span class="nl">Publisher</span></div>
+            <div class="dg-arrow good flow"></div>
+            <div class="dg-node is-gold pulse" data-hs="topic"><span class="ni">📡</span><span class="nl">Topic</span><span class="ns">fan-out</span></div>
+            <div class="dg-flow">
+              <span class="dg-pill good">SQS</span><span class="dg-pill good">Lambda</span><span class="dg-pill good">Email</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>SQS</b> = queue (1 message → 1 consumer, pull model, at-least-once). <b>SNS</b> = pub/sub (1 message → many subscribers, push, fan-out). <b>Kinesis</b> = real-time streaming (shards, order matters). Decouple = producer consumer se independent.</div>`,
+  },
+
+  security: {
+    t: 'Security Deep Dive — encryption + protection layers',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">🌍</span><span class="nl">Internet</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-bad" data-hs="waf"><span class="ni">🛡️</span><span class="nl">WAF + Shield</span><span class="ns">L7 attacks, DDoS</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent"><span class="ni">⚖️</span><span class="nl">CloudFront</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-box is-good"><span class="bx-label">VPC</span>
+          <div class="dg-flow">
+            <div class="dg-node is-good" data-hs="sg"><span class="ni">🛡️</span><span class="nl">SG + NACL</span></div>
+            <div class="dg-node is-gold" data-hs="kms"><span class="ni">🔑</span><span class="nl">KMS</span><span class="ns">encryption keys</span></div>
+            <div class="dg-node" data-hs="secrets"><span class="ni">🤫</span><span class="nl">Secrets Mgr</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="guardduty">GuardDuty = threat detection (ML)</span>
+        <span class="dg-pill good" data-hs="macie">Macie = PII in S3 scan</span>
+        <span class="dg-pill gold" data-hs="cloudtrail">CloudTrail = API audit log</span>
+      </div>
+      <div class="dg-cap"><b>KMS</b> = encryption key management. <b>WAF</b> = web app firewall (SQLi, XSS). <b>Shield</b> = DDoS. <b>GuardDuty</b> = ML-based threats. <b>Secrets Manager</b> = credentials rotation. Defense in depth = layers par layers.</div>`,
+  },
+
+  boss2: {
+    t: 'Boss — Multi-AZ resilient e-commerce',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">🌐</span><span class="nl">Global users</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent pulse"><span class="ni">📡</span><span class="nl">Route 53</span><span class="ns">latency routing</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-gold"><span class="ni">📍</span><span class="nl">CloudFront</span><span class="ns">edge cache</span></div>
+        <div class="dg-down flow"></div>
+        <div class="dg-box is-good"><span class="bx-label">VPC Multi-AZ (us-east-1)</span>
+          <div class="dg-stack">
+            <div class="dg-flow"><div class="dg-node is-accent"><span class="ni">⚖️</span><span class="nl">ALB</span></div></div>
+            <div class="dg-flow">
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2 ASG</span><span class="ns">3 AZs</span></div>
+              <div class="dg-node is-gold"><span class="ni">⚡</span><span class="nl">ElastiCache</span><span class="ns">Redis</span></div>
+            </div>
+            <div class="dg-flow">
+              <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Multi-AZ</span></div>
+              <div class="dg-node is-good"><span class="ni">🪣</span><span class="nl">S3 (images)</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap">Production e-commerce: <b>Route 53 → CloudFront → ALB → ASG (multi-AZ) → ElastiCache + RDS Multi-AZ + S3</b>. Caching = fast, multi-AZ = survive failure, decoupled = scale parts independently.</div>`,
+  },
+
+  /* ================= TRACK 3 — ADVANCED ================= */
+
+  wellarch: {
+    t: 'Well-Architected Framework — 6 pillars',
+    html: `
+      <div class="dg-grid">
+        <div class="dg-rung g"><span class="lv">1</span><span class="cmd">Operational Excellence</span><span class="q">run & monitor, IaC, small frequent changes</span></div>
+        <div class="dg-rung a"><span class="lv">2</span><span class="cmd">Security</span><span class="q">least privilege, all layers, encrypt</span></div>
+        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Reliability</span><span class="q">multi-AZ, auto-recover, test failures</span></div>
+        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Performance</span><span class="q">right resource, scale to demand</span></div>
+        <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Cost Optimization</span><span class="q">pay for value, rightsize, reserved</span></div>
+        <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Sustainability</span><span class="q">min resources, max benefit</span></div>
+      </div>
+      <div class="dg-cap"><b>Well-Architected Tool</b> = AWS ka free tool jo tumhari architecture ko 6 pillars par review karta hai. Har pillar ke design principles + best practices. SAA exam ki atma yahin hai.</div>`,
+  },
+
+  orgs: {
+    t: 'AWS Organizations — OU tree aur SCP guardrails',
+    html: `
+      <div class="dg-col">
+        <div class="dg-node is-gold" data-hs="mgmt"><span class="ni">👑</span><span class="nl">Management account</span><span class="ns">billing + org root · yahan workload MAT chalao</span></div>
+        <div class="dg-down flow"></div>
+        <div class="dg-flow">
+          <div class="dg-box is-accent"><span class="bx-label">🗂️ OU: Production</span>
+            <div class="dg-col">
+              <div class="dg-node is-accent" data-hs="account"><span class="ni">🏦</span><span class="nl">prod-web</span><span class="ns">222222222222</span></div>
+              <div class="dg-node is-accent" data-hs="account"><span class="ni">🏦</span><span class="nl">prod-data</span><span class="ns">333333333333</span></div>
+              <span class="dg-pill bad" data-hs="scp">SCP: deny region ≠ ap-south-1/us-east-1</span>
+            </div>
+          </div>
+          <div class="dg-box is-good"><span class="bx-label">🗂️ OU: Sandbox</span>
+            <div class="dg-col">
+              <div class="dg-node is-good" data-hs="account"><span class="ni">🧪</span><span class="nl">dev-sandbox</span><span class="ns">444444444444</span></div>
+              <span class="dg-pill bad" data-hs="scp">SCP: deny expensive instance types</span>
+            </div>
+          </div>
+          <div class="dg-box is-bad"><span class="bx-label">🗂️ OU: Security</span>
+            <div class="dg-col">
+              <div class="dg-node is-bad" data-hs="account"><span class="ni">🔍</span><span class="nl">log-archive</span><span class="ns">org CloudTrail sink</span></div>
+              <div class="dg-node is-bad" data-hs="account"><span class="ni">🛡️</span><span class="nl">audit</span><span class="ns">read-only cross-account role</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:14px">
+        <span class="dg-pill bad" data-hs="scp">SCP = maximum permission (guardrail), grant NAHI karti</span>
+        <span class="dg-pill acc" data-hs="ct">Control Tower = landing zone one-click</span>
+        <span class="dg-pill gold" data-hs="billing">Consolidated billing = volume discount + shared RI/Savings Plans</span>
+      </div>
+      <div class="dg-cap"><b>Account = blast radius ki deewar.</b> Prod, dev, security alag accounts. <b>SCP</b> OU par lagti hai aur ceiling set karti hai — effective permission = SCP ∩ IAM policy. Admin bhi SCP ke bahar kuch nahi kar sakta.</div>`,
+  },
+
+  dr: {
+    t: 'Disaster Recovery — 4 strategies by RTO/RPO',
+    html: `
+      <div class="dg-ladder">
+        <div class="dg-rung g"><span class="lv">1</span><span class="cmd">Backup & Restore</span><span class="q">RPO: hrs · RTO: hrs · cheapest</span></div>
+        <div class="dg-rung a"><span class="lv">2</span><span class="cmd">Pilot Light</span><span class="q">RPO: mins · core running, scale on DR</span></div>
+        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Warm Standby</span><span class="q">RPO: secs · scaled-down replica running</span></div>
+        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Multi-Site Active-Active</span><span class="q">RPO: 0 · full dual, instant failover · $$$</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="rto">RTO = Recovery Time Objective (kitni der down)</span>
+        <span class="dg-pill gold" data-hs="rpo">RPO = Recovery Point Objective (kitna data loss)</span>
+      </div>
+      <div class="dg-cap"><b>RTO</b> = how fast you recover. <b>RPO</b> = how much data you lose. Backup&Restore cheapest/slowest. Multi-Site priciest/instant. Choice = cost vs downtime tradeoff.</div>`,
+  },
+
+  advnet: {
+    t: 'Advanced Networking — Direct Connect + PrivateLink',
+    html: `
+      <div class="dg-split">
+        <div class="dg-box is-accent"><span class="bx-label">🏢 On-prem datacenter</span>
+          <div class="dg-flow">
+            <div class="dg-node is-accent" data-hs="dx"><span class="ni">🔌</span><span class="nl">Direct Connect</span><span class="ns">dedicated line · 1/10 Gbps</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-node is-gold" data-hs="tgw"><span class="ni">🌐</span><span class="nl">Transit Gateway</span><span class="ns">hub</span></div>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">AWS</span>
+          <div class="dg-flow">
+            <div class="dg-node is-good"><span class="ni">🌐</span><span class="nl">VPC-A</span></div>
+            <div class="dg-node is-good"><span class="ni">🌐</span><span class="nl">VPC-B</span></div>
+            <div class="dg-node is-good"><span class="ni">🌐</span><span class="nl">VPC-C</span></div>
+          </div>
+          <div class="dg-flow" style="margin-top:8px">
+            <div class="dg-node is-gold" data-hs="privatelink"><span class="ni">🔗</span><span class="nl">PrivateLink</span><span class="ns">private access to service</span></div>
+            <div class="dg-node" data-hs="endpoint"><span class="ni">🔌</span><span class="nl">VPC Endpoint</span><span class="ns">no public internet</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Direct Connect</b> = dedicated line on-prem → AWS (consistent, private, no internet). <b>Transit Gateway</b> = hub connecting many VPCs + on-prem. <b>PrivateLink</b> = access AWS services privately (no public IP). <b>VPC Endpoint</b> = gateway to AWS service.</div>`,
+  },
+
+  containers: {
+    t: 'Containers — ECS / EKS / ECR',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node is-accent" data-hs="ecr"><span class="ni">📦</span><span class="nl">ECR</span><span class="ns">image registry</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-split">
+          <div class="dg-box is-good"><span class="bx-label">ECS (AWS native)</span>
+            <div class="dg-flow">
+              <div class="dg-node is-good" data-hs="fargate"><span class="ni">🚀</span><span class="nl">Fargate</span><span class="ns">serverless</span></div>
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">you manage</span></div>
+            </div>
+          </div>
+          <div class="dg-box is-gold"><span class="bx-label">EKS (Kubernetes)</span>
+            <div class="dg-node is-gold" data-hs="eks"><span class="ni">☸️</span><span class="nl">EKS</span><span class="ns">managed K8s</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill good" data-hs="fargate">Fargate = no EC2 to manage (serverless containers)</span>
+        <span class="dg-pill gold" data-hs="eks">EKS = portability, multi-cloud K8s</span>
+        <span class="dg-pill acc">Lambda vs containers = long-running/stateful → containers</span>
+      </div>
+      <div class="dg-cap"><b>ECR</b> = store container images. <b>ECS</b> = AWS's container orchestrator (Fargate = serverless, EC2 = you manage). <b>EKS</b> = managed Kubernetes. Use containers for long-running/stateful/multi-cloud. Lambda for short/event-driven.</div>`,
+  },
+
+  iac: {
+    t: 'Infrastructure as Code — CloudFormation vs Terraform',
+    html: `
+      <div class="dg-split">
+        <div class="dg-box is-accent"><span class="bx-label">CloudFormation (AWS)</span>
+          <div class="dg-col">
+            <div class="dg-node is-accent" data-hs="template"><span class="ni">📄</span><span class="nl">Template (YAML/JSON)</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-node is-gold" data-hs="stack"><span class="ni">📚</span><span class="nl">Stack</span><span class="ns">resources group</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-node is-good"><span class="ni">✨</span><span class="nl">Resources created</span></div>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">Terraform (HashiCorp)</span>
+          <div class="dg-col">
+            <div class="dg-node is-good" data-hs="tfconfig"><span class="ni">📄</span><span class="nl">.tf (HCL)</span></div>
+            <div class="dg-arrow good flow"></div>
+            <div class="dg-node is-gold"><span class="ni">🗺️</span><span class="nl">State file</span><span class="ns">tfstate</span></div>
+            <div class="dg-arrow good flow"></div>
+            <div class="dg-node is-good"><span class="ni">✨</span><span class="nl">Multi-cloud</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>IaC</b> = infrastructure code mein (Git-tracked, repeatable). <b>CloudFormation</b> = AWS-only, free, stacks. <b>Terraform</b> = multi-cloud, state file, HCL. <b>Drift detection</b> = console vs code difference. No more manual clicks!</div>`,
+  },
+
+  cost: {
+    t: 'Cost Optimization — pay less, same value',
+    html: `
+      <div class="dg-ladder">
+        <div class="dg-rung g"><span class="lv">1</span><span class="cmd">Right-size</span><span class="q">CPU/RAM monitor, big instance → small</span></div>
+        <div class="dg-rung a"><span class="lv">2</span><span class="cmd">Reserved / Savings Plans</span><span class="q">1-3 yr commit, up to 72% off</span></div>
+        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Spot Instances</span><span class="q">90% off · interruptible workloads (batch)</span></div>
+        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Cost Allocation Tags</span><span class="q">team/project cost breakdown</span></div>
+        <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Lifecycle + S3 classes</span><span class="q">old data → Glacier (auto)</span></div>
+        <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Auto Scaling</span><span class="q">scale down at night = $ saved</span></div>
+      </div>
+      <div class="dg-cap"><b>On-demand</b> = expensive (default). <b>Reserved/Savings</b> = commit for discount. <b>Spot</b> = spare capacity, can be killed (batch jobs). <b>Cost Explorer</b> + <b>Budgets</b> = track & alert. Well-Architected Cost pillar.</div>`,
+  },
+
+  observability: {
+    t: 'Observability — metrics, logs, traces, audit',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-node is-accent" data-hs="cwmetrics"><span class="ni">📊</span><span class="nl">CloudWatch Metrics</span><span class="ns">numbers over time</span></div>
+          <div class="dg-node is-gold" data-hs="cwlogs"><span class="ni">📜</span><span class="nl">CloudWatch Logs</span><span class="ns">app output</span></div>
+          <div class="dg-node is-bad" data-hs="alarm"><span class="ni">🚨</span><span class="nl">Alarms</span><span class="ns">threshold → SNS</span></div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">debug</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node is-good" data-hs="xray"><span class="ni">🔍</span><span class="nl">X-Ray</span><span class="ns">distributed tracing</span></div>
+          <div class="dg-node" data-hs="cloudtrail"><span class="ni">👁️</span><span class="nl">CloudTrail</span><span class="ns">API audit</span></div>
+          <div class="dg-node is-gold" data-hs="flowlogs"><span class="ni">🌐</span><span class="nl">VPC Flow Logs</span><span class="ns">network traffic</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Metrics</b> = numbers (CPU, latency). <b>Logs</b> = text. <b>Traces (X-Ray)</b> = request ka poora safar across services. <b>CloudTrail</b> = kaunne API call kiye (security). <b>Flow Logs</b> = network. Observability = debugging superpower.</div>`,
+  },
+
+  migration: {
+    t: 'Migration — 7Rs strategy',
+    html: `
+      <div class="dg-grid">
+        <div class="dg-rung g"><span class="lv">1</span><span class="cmd">Rehost ("lift & shift")</span><span class="q">as-is move · fastest · least refactor</span></div>
+        <div class="dg-rung a"><span class="lv">2</span><span class="cmd">Replatform ("lift & reshape")</span><span class="q">minor tweaks (e.g. RDS vs self-managed)</span></div>
+        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Refactor / Re-architect</span><span class="q">reimagine (monolith → microservices)</span></div>
+        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Repurchase</span><span class="q">move to SaaS (e.g. CRM → Salesforce)</span></div>
+        <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Retain</span><span class="q">keep on-prem (compliance, not worth)</span></div>
+        <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Retire</span><span class="q">app no longer needed — turn off</span></div>
+        <div class="dg-rung g"><span class="lv">7</span><span class="cmd">Relocate</span><span class="q">move within AWS (e.g. VMware to EC2)</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:10px">
+        <span class="dg-pill acc" data-hs="dms">DMS = Database Migration Service</span>
+        <span class="dg-pill gold" data-hs="mgh">Migration Hub = track all migrations</span>
+      </div>
+      <div class="dg-cap"><b>7Rs</b> = strategy per app. <b>Rehost</b> = quick win. <b>Refactor</b> = long-term best. <b>DMS</b> = DB migration (homogeneous/heterogeneous). <b>Migration Hub</b> = central tracking.</div>`,
+  },
+
+  finalboss: {
+    t: 'Final Boss — Senior Solutions Architect Gauntlet',
+    html: `
+      <div class="dg-ladder">
+        <div class="dg-rung"><span class="lv">1</span><span class="cmd">Design: scalable web app</span><span class="q">multi-AZ, ALB, ASG, cache, RDS</span></div>
+        <div class="dg-rung"><span class="lv">2</span><span class="cmd">Harden: security</span><span class="q">least privilege, KMS, WAF, GuardDuty</span></div>
+        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Optimize: cost</span><span class="q">reserved, spot, rightsize, lifecycle</span></div>
+        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Recover: DR plan</span><span class="q">RTO/RPO, Multi-Site, backups</span></div>
+        <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Observe: monitoring</span><span class="q">CloudWatch + X-Ray + CloudTrail</span></div>
+        <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Migrate: 7Rs decision</span><span class="q">per-app strategy, DMS</span></div>
+        <div class="dg-rung"><span class="lv">🎤</span><span class="cmd">Interview Marathon</span><span class="q">architecture + incident + hands-on</span></div>
+        <div class="dg-rung a"><span class="lv">👑</span><span class="cmd">Mahaguru Certificate</span><span class="q">SAA ready!</span></div>
+      </div>
+      <div class="dg-cap">Yehi hai senior architect ka din: design → secure → optimize → recover → observe → migrate. Har pillar ek challenge. Pass = tum SAA exam ready ho!</div>`,
+  },
+
+  /* ================= TRACK 4 — ARCHITECT (Nirnay Path) ================= */
+
+  compute: {
+    t: 'Compute chuno — Lambda vs Fargate vs ECS/EC2 vs Batch',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node is-good" data-hs="lambda"><span class="ni">⚡</span><span class="nl">Lambda</span><span class="ns">event/spiky · &lt;15 min · idle=$0</span></div>
+        <div class="dg-node is-accent" data-hs="fargate"><span class="ni">📦</span><span class="nl">Fargate</span><span class="ns">container, no server mgmt · steady</span></div>
+        <div class="dg-node is-gold" data-hs="ec2"><span class="ni">🖥️</span><span class="nl">EC2 / ASG</span><span class="ns">full control · GPU · always-on heavy</span></div>
+        <div class="dg-node" data-hs="batch"><span class="ni">🧮</span><span class="nl">Batch / Spot</span><span class="ns">bulk offline jobs · sasta</span></div>
+      </div>
+      <div class="dg-split" style="margin-top:14px">
+        <div class="dg-box is-good"><span class="bx-label">✅ Lambda kab</span>
+          <div class="dg-col">
+            <span class="dg-pill good">spiky/event-driven traffic (S3 upload, API burst)</span>
+            <span class="dg-pill good">idle time zyada — pay-per-invoke</span>
+            <span class="dg-pill bad" data-hs="lambdano">❌ &gt;15 min job, heavy steady load (mehnga), &lt;10ms latency chahiye</span>
+          </div>
+        </div>
+        <div class="dg-box is-accent"><span class="bx-label">✅ Fargate/ECS kab</span>
+          <div class="dg-col">
+            <span class="dg-pill acc">long-running service, steady traffic</span>
+            <span class="dg-pill acc">container hai, par node manage nahi karna</span>
+            <span class="dg-pill bad" data-hs="ec2yes">❌ GPU/very-high-throughput/licensing → EC2</span>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>Sawal poocho:</b> traffic spiky hai ya steady? Job kitni lambi? Server manage karne ki fursat hai? <b>Default: Lambda (spiky) → Fargate (steady service) → EC2 (control/GPU) → Batch+Spot (bulk).</b> Har jagah <b>Graviton</b> = ~20% sasta, <b>Spot</b> = ~70% sasta fault-tolerant loads par.</div>`,
+  },
+
+  datastore: {
+    t: 'Data store chuno — right tool for the shape',
+    html: `
+      <div class="dg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="dg-box is-accent"><span class="bx-label">🗄️ Relational</span>
+          <div class="dg-col">
+            <span class="dg-pill acc" data-hs="rds">RDS / Aurora — joins, transactions, complex queries</span>
+            <span class="dg-pill">Aurora = MySQL/PG compat, auto-scale storage, 15 replicas</span>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">🔑 Key-value / NoSQL</span>
+          <div class="dg-col">
+            <span class="dg-pill good" data-hs="dynamo">DynamoDB — single-digit ms, infinite scale, known access pattern</span>
+            <span class="dg-pill bad" data-hs="dynamono">❌ ad-hoc analytical queries, joins</span>
+          </div>
+        </div>
+        <div class="dg-box is-gold"><span class="bx-label">⚡ Cache</span>
+          <div class="dg-col">
+            <span class="dg-pill gold" data-hs="cache">ElastiCache (Redis) / DAX — sub-ms, hot reads</span>
+            <span class="dg-pill">read-heavy, DB ko relief</span>
+          </div>
+        </div>
+        <div class="dg-box is-muted"><span class="bx-label">📊 Analytics</span>
+          <div class="dg-col">
+            <span class="dg-pill" data-hs="warehouse">Redshift — big scans/BI · Athena — S3 par SQL, serverless</span>
+            <span class="dg-pill">OLAP, columnar, reporting</span>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="s3">S3 — objects/media/data-lake (DB nahi!)</span>
+        <span class="dg-pill">OLTP (transactions) ≠ OLAP (analytics) — alag tools</span>
+      </div>
+      <div class="dg-cap"><b>Data ka shape decide karta hai, popularity nahi.</b> Rishtey+transactions = RDS/Aurora. Known key-based access at scale = DynamoDB. Hot reads = cache. Bade scans/BI = Redshift/Athena. <b>Ek app aksar 3-4 stores use karti hai</b> — "sab DynamoDB" ya "sab RDS" dono galat hain.</div>`,
+  },
+
+  messaging: {
+    t: 'Decouple kaise — SQS vs SNS vs Kinesis vs Step Functions',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node is-accent" data-hs="sqs"><span class="ni">📨</span><span class="nl">SQS</span><span class="ns">queue · 1 consumer group · buffer+retry</span></div>
+        <div class="dg-node is-good" data-hs="sns"><span class="ni">📢</span><span class="nl">SNS</span><span class="ns">pub/sub fan-out · push · N subscribers</span></div>
+        <div class="dg-node is-gold" data-hs="kinesis"><span class="ni">🌊</span><span class="nl">Kinesis</span><span class="ns">ordered stream · replay · many readers</span></div>
+        <div class="dg-node" data-hs="sfn"><span class="ni">🪜</span><span class="nl">Step Functions</span><span class="ns">workflow · retry/catch · saga</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <div class="dg-box is-gold"><span class="bx-label">🍟 Classic combo: SNS + SQS fan-out</span>
+          <div class="dg-flow">
+            <div class="dg-node"><span class="ni">🛒</span><span class="nl">Order</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-node is-good" data-hs="fanout"><span class="ni">📢</span><span class="nl">SNS topic</span></div>
+            <div class="dg-arrow flow"></div>
+            <div class="dg-col">
+              <div class="dg-node is-accent"><span class="ni">📨</span><span class="nl">email-queue</span></div>
+              <div class="dg-node is-accent"><span class="ni">📨</span><span class="nl">analytics-queue</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>SQS</b> = kaam ek baar ho (buffer/retry). <b>SNS</b> = ek event, kai subscribers (fan-out). <b>Kinesis</b> = ordered + replayable stream (clickstream/IoT, kai consumers same data). <b>Step Functions</b> = multi-step workflow with rollback. <b>Sync call ko async bana do</b> — checkout tez + resilient.</div>`,
+  },
+
+  eventbridge: {
+    t: 'EventBridge & Pipes — event backbone',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node"><span class="ni">🛠️</span><span class="nl">Producers</span><span class="ns">apps · AWS services · SaaS</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-box is-accent"><span class="bx-label">🔔 EventBridge Bus</span>
+          <div class="dg-col">
+            <div class="dg-node is-accent pulse" data-hs="bus"><span class="ni">🚌</span><span class="nl">Event bus</span><span class="ns">default / custom / partner</span></div>
+            <div class="dg-flow">
+              <div class="dg-node is-good" data-hs="rule"><span class="ni">🧭</span><span class="nl">Rule</span><span class="ns">content pattern match</span></div>
+              <div class="dg-node is-gold" data-hs="schedule"><span class="ni">⏰</span><span class="nl">Scheduler</span><span class="ns">cron/rate</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-good" data-hs="target"><span class="ni">🎯</span><span class="nl">Targets</span><span class="ns">Lambda · SQS · SFN · 20+</span></div>
+      </div>
+      <div class="dg-box is-gold" style="margin-top:14px"><span class="bx-label">🔧 EventBridge Pipes — point-to-point ETL glue</span>
+        <div class="dg-flow">
+          <div class="dg-node" data-hs="psource"><span class="ni">📥</span><span class="nl">Source</span><span class="ns">SQS/Kinesis/DDB stream</span></div>
+          <div class="dg-arrow flow"></div>
+          <div class="dg-node is-bad" data-hs="pfilter"><span class="ni">🧹</span><span class="nl">Filter</span><span class="ns">chhaan lo</span></div>
+          <div class="dg-arrow flow"></div>
+          <div class="dg-node is-gold" data-hs="penrich"><span class="ni">✨</span><span class="nl">Enrich</span><span class="ns">Lambda/API se data jodo</span></div>
+          <div class="dg-arrow flow"></div>
+          <div class="dg-node is-good" data-hs="ptarget"><span class="ni">🎯</span><span class="nl">Target</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>EventBridge Bus</b> = many-to-many router (content-based rules, SaaS/AWS events, schema registry). <b>Pipes</b> = ek source→ek target ka managed glue with filter+enrich — woh "SQS se padho, transform karo, bhejo" wala Lambda <b>khatam</b> kar deta hai. <b>SNS</b> se farak: EventBridge content par filter karta hai + schema/replay deta hai.</div>`,
+  },
+
+  logsetl: {
+    t: 'Log analytics ETL — CloudWatch → Firehose → OpenSearch',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node is-muted" data-hs="cwlogs"><span class="ni">📜</span><span class="nl">CloudWatch Logs</span><span class="ns">Lambda/ECS/app logs yahan</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent" data-hs="subfilter"><span class="ni">🔎</span><span class="nl">Subscription Filter</span><span class="ns">pattern → real-time stream</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-gold" data-hs="firehose"><span class="ni">🚿</span><span class="nl">Kinesis Firehose</span><span class="ns">buffer + transform, no code</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-good" data-hs="opensearch"><span class="ni">🔍</span><span class="nl">OpenSearch</span><span class="ns">index + Dashboards</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <div class="dg-down flow"></div>
+        <div class="dg-node" data-hs="s3backup"><span class="ni">🪣</span><span class="nl">S3 (raw backup)</span><span class="ns">Firehose ka doosra haath — Athena se query, cheap archive</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="metricfilter">Metric Filter — log se metric+alarm (count of ERROR)</span>
+        <span class="dg-pill gold">Firehose = fully managed (no shards to manage) · near-real-time (buffer)</span>
+        <span class="dg-pill bad">❌ CloudWatch Logs Insights theek hai chhote ke liye — bade/cross-service search par OpenSearch</span>
+      </div>
+      <div class="dg-cap"><b>Pipeline:</b> Logs → <b>Subscription Filter</b> (real-time tap) → <b>Firehose</b> (managed buffer+transform) → <b>OpenSearch</b> (search/dashboards) + <b>S3</b> (sasta raw backup, Athena se query). <b>Firehose kyun, Kinesis Streams nahi?</b> — Firehose fully managed, shards nahi sambhalne, seedha delivery. Sirf custom real-time processing chahiye toh Kinesis Streams.</div>`,
+  },
+
+  edge: {
+    t: 'Edge & Network — ALB vs NLB vs API GW, CloudFront vs GA',
+    html: `
+      <div class="dg-split">
+        <div class="dg-box is-accent"><span class="bx-label">🚦 Load balancer / entry</span>
+          <div class="dg-col">
+            <span class="dg-pill acc" data-hs="alb">ALB — L7 (HTTP), path/host routing, WAF</span>
+            <span class="dg-pill gold" data-hs="nlb">NLB — L4 (TCP/UDP), ultra-low latency, static IP, millions rps</span>
+            <span class="dg-pill good" data-hs="apigw">API Gateway — REST/HTTP APIs, auth/throttle/keys, serverless</span>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">🌍 Global reach</span>
+          <div class="dg-col">
+            <span class="dg-pill good" data-hs="cloudfront">CloudFront — CDN, cache static+dynamic, edge</span>
+            <span class="dg-pill" data-hs="ga">Global Accelerator — anycast IP, non-HTTP/TCP, fast failover</span>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill bad" data-hs="nlbno">❌ L7 path routing chahiye? NLB nahi, ALB</span>
+        <span class="dg-pill bad" data-hs="cfno">❌ cacheable content? CloudFront; ❌ raw TCP game server? Global Accelerator</span>
+      </div>
+      <div class="dg-cap"><b>ALB</b> = HTTP smart routing (microservices, path-based). <b>NLB</b> = raw speed/TCP/static-IP. <b>API Gateway</b> = managed API front (auth, throttle, Lambda). <b>CloudFront</b> = cache + HTTPS edge (websites, media). <b>Global Accelerator</b> = non-cacheable global TCP/UDP with instant failover. Wrong pick = latency, cost, ya missing features.</div>`,
+  },
+
+  costdec: {
+    t: 'Cost traps — sasta lagta, mehnga nikla',
+    html: `
+      <div class="dg-grid" style="grid-template-columns:1fr 1fr">
+        <div class="dg-box is-bad"><span class="bx-label">💸 Chhupe kharche</span>
+          <div class="dg-col">
+            <span class="dg-pill bad" data-hs="nat">NAT Gateway — per-GB + hourly; S3/DDB ke liye VPC endpoint use karo</span>
+            <span class="dg-pill bad" data-hs="egress">Data egress — internet + cross-AZ transfer</span>
+            <span class="dg-pill bad" data-hs="idle">Idle resources — un-attached EBS, old snapshots, idle RDS</span>
+          </div>
+        </div>
+        <div class="dg-box is-good"><span class="bx-label">💰 Lever</span>
+          <div class="dg-col">
+            <span class="dg-pill good" data-hs="commit">Savings Plans / RI — steady load −40-70%</span>
+            <span class="dg-pill good" data-hs="spot">Spot — fault-tolerant/batch −70-90%</span>
+            <span class="dg-pill good" data-hs="lifecycle">S3 lifecycle + Graviton + right-size</span>
+          </div>
+        </div>
+      </div>
+      <div class="dg-flow" style="margin-top:12px">
+        <span class="dg-pill acc" data-hs="breakeven">Lambda sasta jab spiky/idle; steady 24×7 par Fargate/EC2 sasta (break-even socho)</span>
+      </div>
+      <div class="dg-cap"><b>"Serverless hamesha sasta" — myth.</b> Lambda spiky par sasta, steady heavy par mehnga. Sabse bade chhupe bill: <b>NAT Gateway</b>, <b>cross-AZ/egress transfer</b>, <b>idle/orphaned</b> resources. Levers: <b>commit</b> (SP/RI) steady par, <b>Spot</b> fault-tolerant par, <b>lifecycle+right-size</b> hamesha. Cost = architecture decision, baad ki safai nahi.</div>`,
+  },
+
+  resilience: {
+    t: 'Resilience — fault tolerance & blast radius',
+    html: `
+      <div class="dg-ladder">
+        <div class="dg-rung g" data-hs="multiaz"><span class="lv">1</span><span class="cmd">Multi-AZ</span><span class="q">AZ fail survive — baseline for prod (RDS Multi-AZ, ASG across AZs)</span></div>
+        <div class="dg-rung a" data-hs="decouple"><span class="lv">2</span><span class="cmd">Decouple + queue</span><span class="q">consumer gira → messages SQS mein safe, retry</span></div>
+        <div class="dg-rung g" data-hs="idempotent"><span class="lv">3</span><span class="cmd">Retry + backoff + idempotency</span><span class="q">at-least-once = duplicate; idempotent bnao</span></div>
+        <div class="dg-rung a" data-hs="degrade"><span class="lv">4</span><span class="cmd">Graceful degradation</span><span class="q">recommendations down → default feed dikhao, error nahi</span></div>
+        <div class="dg-rung g" data-hs="multiregion"><span class="lv">5</span><span class="cmd">Multi-region (DR)</span><span class="q">RTO/RPO ke hisaab se: backup→pilot light→warm→active-active</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:10px">
+        <span class="dg-pill bad" data-hs="singlepoint">❌ Single-AZ prod DB, ek Lambda sab kuch, sync chain — ek fail = sab fail</span>
+        <span class="dg-pill acc" data-hs="blast">Blast radius chhota rakho — alag accounts/AZ/cell</span>
+      </div>
+      <div class="dg-cap"><b>Fault tolerance = maan lo cheezein tootengi.</b> Multi-AZ baseline, decouple taaki ek component gire toh baaki chale, retry+idempotency (at-least-once duplicates deta hai), graceful degradation (feature gaya ≠ app gaya), aur cost ke hisaab se DR strategy. <b>Blast radius</b> = ek galti kitna tod sakti hai — use chhota rakho.</div>`,
+  },
+
+  archboss: {
+    t: 'Final Boss — PixShare global architecture',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-node" data-hs="user"><span class="ni">📱</span><span class="nl">Users (global)</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-good"><span class="ni">🌍</span><span class="nl">CloudFront + S3</span><span class="ns">media/static</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent"><span class="ni">🚪</span><span class="nl">API GW / ALB</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-gold"><span class="ni">⚡</span><span class="nl">Lambda / Fargate</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:10px">
+        <div class="dg-node"><span class="ni">🖼️</span><span class="nl">S3 upload</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-good"><span class="ni">📢</span><span class="nl">SNS/EventBridge</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-accent"><span class="ni">📨</span><span class="nl">SQS → thumbnails</span></div>
+        <div class="dg-arrow flow"></div>
+        <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">DynamoDB + Aurora + ElastiCache</span></div>
+      </div>
+      <div class="dg-flow" style="margin-top:10px">
+        <span class="dg-pill acc">Logs → Firehose → OpenSearch + S3</span>
+        <span class="dg-pill good">Multi-AZ · Savings Plans + Spot · Well-Architected</span>
+      </div>
+      <div class="dg-cap">Sab kuch ek saath: <b>compute + storage/DB + messaging + events + observability + edge + cost + resilience</b>. Har layer ka service <b>requirement, cost aur blast-radius</b> ke hisaab se chuna gaya. Yehi Decision Architect ka kaam hai.</div>`,
+  },
+};
