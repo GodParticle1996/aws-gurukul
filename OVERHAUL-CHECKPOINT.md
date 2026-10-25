@@ -1,8 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-25
 
-**Phase A complete: all 8 Beginner levels are overhauled.** Levels 7 `elbasg` and 8 `boss1`
-meet the per-level definition of done. Required end-of-track question is pending; next implementation after
-that checkpoint is **Intermediate 1 `vpcdeep`** (master plan §5.B1). All eight initial preferences are recorded.
+**Phase A complete; Phase B through Intermediate 1 `vpcdeep` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate 2 `route53`** (master plan §5.B2), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -24,18 +23,80 @@ Round 2 answered on 2026-10-25:
 8. **Extras:** all four — resume + export/import, glossary/search, Lab Hub, printable Kab kya cheatsheet.
    Offline PWA and the daily 10-minute plan were not selected.
 
-All eight initial preference questions are answered. Beginner is complete; ask the required track checkpoint before Intermediate 1 `vpcdeep`.
+Beginner track checkpoint answered on 2026-10-25: **Continue — Intermediate 1 vpcdeep shuru karo (Recommended)**.
+Continue Intermediate levels in order with per-level summaries and local commits, as already selected.
 Two-part level UX is selected and scheduled with Phase E, in the chosen levels-first order.
 
 Exam check on 2026-10-25: the current [official AWS exam guide](https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03.html)
 lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement found in the official-source check.
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
-Level 7 local commit: **c04494a**. Level 8 is delivered in a separate local commit with this checkpoint.
+Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
 Per-level commits are authorized. No push/deployment. `git log -3 --oneline` shows the baseline and two level commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 181 stages, 50/50 terminal missions,
-32 interactive labs, 8 real-lab projects. Focused suites: 471 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 185 stages, 51/51 terminal missions,
+36 interactive labs, 9 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture checks.
+
+## Intermediate 1 `vpcdeep` loop completed
+
+1. Read old full level and VISUALS entry. Removed fictional incident labeled real, N² peer count, duplicate NACL/SG basics,
+   always-zonal NAT claim, guaranteed production choice and history-only terminal. Kept `vpcdeep` ID.
+2. New `data-int-1-vpcdeep.js`: 8 question/analogy cards, 4 myths, playbook/decision tree/tables, 9 exam cues,
+   dryrun → flowlab → bins → order → triage → state-changing terminal → lab09 → 8 bonus MCQs;
+   4 interview MCQs + terminal, 8 flashcards, explicit optional billable AWS work/cleanup.
+3. Ran Moto first: two public zonal NATs/EIPs + same-AZ app defaults; S3 gateway endpoint automatically adds managed
+   prefix-list routes; endpoint table association repair 2→1→2; Interface endpoint PrivateDNS=true and 2 ENIs;
+   peer pending-acceptance→active with two-sided routes; S3 Flow Log subscription ACTIVE metadata.
+4. Added lab09 setup/exercises/cleanup scripts and README from captured results. Actual repo replay passed.
+   Cleanup verifies no live lab VPCs/endpoints/EIPs. Moto retains endpoints as State=deleted tombstones; final query
+   excludes deleted metadata. Prefix-list CIDRs were null in Moto, not real AWS IP inventory.
+5. Simulator now models NAT allocation/creation/waiters/deletion/EIP release, endpoint route associations and managed
+   prefix-list routes, Interface ENI/DNS/SG metadata, peer activation/deletion/two-sided routes, S3 Flow Log subscription.
+   Invalid edits atomic; strict flags, dry-run, token replays, CIDR overlap, nonparticipant routes and malformed queries guarded.
+   IDs deterministic, deletion leaves blackhole route state, released EIP IDs not reused. Interface DNS choice is explicit
+   in this bounded model; other endpoint/TGW/regional/NAT64/IPv6 runtime types are not claimed.
+6. Thirteen-command solution needs every action and wins only on command 13. Same-public-subnet NAT, shared NAT-a,
+   private NAT host subnet, missing route/acceptance/waiter, one-table/wrong-region endpoint, broad DB rule and deleting/stopping
+   apps, extra allocations and world-open app ingress fail. Only the planned two NATs/two EIPs/one S3 endpoint/one peer are accepted. Interview needs endpoint repair and Flow Log subscription. Original private reader/apps/local routes retained.
+7. Extended `validate-network.js` to **973 checks** (502 added), including all **192 NAT budget settings**, old 198 subnet
+   settings, every omitted action, parser inputs, token replay, pending/deleted state, managed route add/remove, overlap,
+   dry-run, blackholes, diagram geometry/styles and clean replays. Full validator passes: **51/51** terminal missions.
+8. Validator uses explicit `solution` arrays when present: prior hint-command deduplication incorrectly removed one of two
+   identical allocate-address commands. Runnable hints still agree with explicit solution; old hint-based missions continue passing.
+9. Old block removed and file registered in index/validator. Existing privateaccess/vpcconnect trees already link `vpcdeep`;
+   corrected related tree claims and concept visual (own-AZ NAT vs Regional NAT, no automatic safe transit, no always-use endpoint).
+10. Inspected intro, dryrun, default/solved planner, solved terminal and lesson screenshots at 1280px/360px. Fixed dark
+    unstyled subnet labels and touching nodes. Browser **34 samples**, all eight lesson cards per width, both inline questions,
+    documented slider settings and thirteen-command keyboard solve pass; zero console/page errors and document overflow.
+    14 quiz/triage/interview MCQs: **0 length-bias flags**, positions **3/4/4/3**. Pronoun lint and diff whitespace clean.
+
+Evidence: `/tmp/aws-gurukul-vpcdeep/{SETUP,EXERCISES,EXTRA,CLEANUP,INITIAL-ROUTE,REPO-SETUP,REPO-EXERCISES,
+REPO-REPAIR,REPO-CLEANUP,FINAL-VALIDATE}.txt`, `BROWSER-REPORT.json`, `screenshots/`.
+One automatic approval-review timeout occurred before cleanup execution; one short-command retry succeeded.
+No pending approval, no shared Moto reset, Docker, real AWS, installs, agents or push.
+
+Plan decisions / limits: payment **outbound verification**, not inbound webhook, uses NAT. Regional NAT exists and gets a
+separate card/exam cue; current lab explicitly zonal. Gateway prefix routes are endpoint-managed, not manually created with
+fake S3 `create-route --vpc-endpoint-id` syntax. Lab FlowLogStatus ACTIVE proves subscription config, not packet/log delivery.
+The NAT board fixes minimum S3/internet demand, requires one NAT per active AZ and endpoint, and states a hypothetical
+aggregate $0.02/GB cross-AZ allowance (not universal billing). Approx example $77.50/month = ₹6,820/month includes two NATs,
+two public IPv4 and 100 GB NAT internet processing; S3/storage/requests, transfer/logs/taxes extra. Two-part UX remains Phase E.
+
+Sources checked this session:
+- [Gateway endpoint routing/longest prefix](https://docs.aws.amazon.com/vpc/latest/privatelink/gateway-endpoints.html)
+- [S3 gateway endpoint limits and cost](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html)
+- [Zonal NAT basics](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-basics.html)
+- [Regional NAT configuration](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html)
+- [NAT and IPv4 pricing](https://aws.amazon.com/vpc/pricing/)
+- [PrivateLink/Interface endpoint pricing](https://aws.amazon.com/privatelink/pricing/)
+- [Interface DNS/SG/ENI prerequisites](https://docs.aws.amazon.com/vpc/latest/privatelink/create-interface-endpoint.html)
+- [Real endpoint CLI flags/policy](https://docs.aws.amazon.com/cli/latest/reference/ec2/create-vpc-endpoint.html)
+- [PrivateLink service sharing](https://docs.aws.amazon.com/vpc/latest/privatelink/privatelink-share-your-services.html)
+- [Peering non-transitivity, overlap and both routes](https://docs.aws.amazon.com/vpc/latest/peering/vpc-peering-basics.html)
+- [TGW pricing example](https://aws.amazon.com/transit-gateway/pricing/)
+- [IPv6 egress-only IGW](https://docs.aws.amazon.com/vpc/latest/userguide/egress-only-internet-gateway.html)
+- [Flow Logs metadata/destinations/cost](https://docs.aws.amazon.com/vpc/latest/userguide/flow-logs.html)
+- [Reachability Analyzer configuration analysis](https://docs.aws.amazon.com/vpc/latest/reachability/what-is-reachability-analyzer.html)
 
 ## Level 8 loop completed
 

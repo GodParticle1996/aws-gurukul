@@ -206,31 +206,21 @@ const VISUALS = {
   /* ================= TRACK 2 — INTERMEDIATE ================= */
 
   vpcdeep: {
-    t: 'VPC Deep Dive — private subnet se internet kaise?',
+    t: 'VPC Deep Dive — destination ke hisaab se path chuno',
     html: `
-      <div class="dg-box is-accent"><span class="bx-label">🌐 VPC</span>
-        <div class="dg-split">
-          <div class="dg-box is-good"><span class="bx-label">Public subnet (AZ-a)</span>
-            <div class="dg-flow">
-              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2 (web)</span><span class="ns">public IP</span></div>
-              <div class="dg-arrow good flow"></div>
-              <div class="dg-node is-good" data-hs="nat"><span class="ni">🌍</span><span class="nl">NAT GW</span><span class="ns">outbound only</span></div>
-            </div>
-          </div>
-          <div class="dg-box is-gold"><span class="bx-label">Private subnet (AZ-b)</span>
-            <div class="dg-flow">
-              <div class="dg-node is-muted" data-hs="privinstance"><span class="ni">🗄️</span><span class="nl">EC2 (app)</span><span class="ns">no public IP</span></div>
-              <div class="dg-arrow gold flow"></div>
-              <span class="dg-pill gold">→ NAT GW → IGW → internet (patches!)</span>
-            </div>
-          </div>
+      <div class="dg-split">
+        <div class="dg-box is-good"><span class="bx-label">Zonal egress · each active AZ</span>
+          <div class="dg-flow"><div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">Private app</span><span class="ns">no public IPv4</span></div>
+          <div class="dg-arrow good flow"></div><div class="dg-node is-gold"><span class="ni">🔁</span><span class="nl">Own AZ NAT</span><span class="ns">public subnet + EIP</span></div></div>
+          <div class="dg-flow"><span class="dg-pill good">NAT subnet route → IGW → internet</span></div>
         </div>
-        <div class="dg-flow" style="margin-top:8px">
-          <span class="dg-pill acc" data-hs="nacl">NACL = subnet-level firewall (stateless)</span>
-          <span class="dg-pill good">SG = instance-level (stateful)</span>
+        <div class="dg-box is-accent"><span class="bx-label">Service / network path</span>
+          <div class="dg-stack"><span class="dg-pill good">Same-region S3/DynamoDB → gateway endpoint</span>
+          <span class="dg-pill acc">Supported service → interface endpoint ENIs</span>
+          <span class="dg-pill gold">Analytics VPC ↔ active peer + both routes</span></div>
         </div>
       </div>
-      <div class="dg-cap"><b>NAT Gateway</b> = private subnet ko outbound internet deta (patches/downloads) bina public IP diye. Inbound block. <b>VPC Peering</b> = 2 VPC connect. <b>Transit Gateway</b> = hub-and-spoke (bahut VPCs).</div>`,
+      <div class="dg-cap">Destination decide karta hai: <b>internet egress</b>, <b>service endpoint</b> ya <b>private VPC route</b>. Zonal NAT per-AZ dependency hai; <b>Regional NAT</b> current automatic multi-AZ alternative hai. Endpoint/peer state alone IAM, DNS, packet delivery ya app success prove nahi karta.</div>`,
   },
 
   route53: {

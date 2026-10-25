@@ -53,6 +53,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `06-rds-recovery` | 🗄️ RDS | Multi-AZ + 7-day backups, managed-password metadata, snapshot, separate reporting replica, new-instance restore; actual SQL/failover emulator nahi chalata |
 | `07-alb-asg-selfheal` | ⚖️ ALB + ASG | launch template, 2-AZ ASG, desired capacity, instance replacement, health/policy/draining metadata; no actual HTTP or metric-driven scaling |
 | `08-three-tier-terraform` | 🏆 Boss architecture | connected two-AZ Terraform stack, scoped SG chain, instance role, ALB/ASG/RDS/S3, per-AZ egress, API review and destroy |
+| `09-nat-endpoint-peering` | 🌐 VPC Deep Dive | zonal NAT/EIP, managed S3 prefix routes, interface ENIs, active peer + two routes, Flow Log metadata and cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

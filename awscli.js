@@ -493,6 +493,17 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds'].includes(service)) {
       const specs = {
         ec2: {
+          'allocate-address': ['domain', 'dry-run!', 'no-dry-run!'], 'release-address': ['allocation-id', 'dry-run!', 'no-dry-run!'],
+          'create-nat-gateway': ['subnet-id','allocation-id','connectivity-type','client-token', 'dry-run!', 'no-dry-run!'], 'delete-nat-gateway': ['nat-gateway-id', 'dry-run!', 'no-dry-run!'], 'describe-nat-gateways': ['nat-gateway-ids*','filters*'],
+          'create-vpc-endpoint': ['vpc-id','vpc-endpoint-type','service-name','route-table-ids*','subnet-ids*','security-group-ids*','private-dns-enabled!','no-private-dns-enabled!','policy-document','client-token', 'dry-run!', 'no-dry-run!'],
+          'modify-vpc-endpoint': ['vpc-endpoint-id','add-route-table-ids*','remove-route-table-ids*','add-subnet-ids*','remove-subnet-ids*','add-security-group-ids*','remove-security-group-ids*','private-dns-enabled!','no-private-dns-enabled!','policy-document', 'dry-run!', 'no-dry-run!'],
+          'describe-vpc-endpoints': ['vpc-endpoint-ids*','filters*'], 'delete-vpc-endpoints': ['vpc-endpoint-ids*', 'dry-run!', 'no-dry-run!'], 'describe-prefix-lists': ['prefix-list-ids*','filters*'],
+          'create-vpc-peering-connection': ['vpc-id','peer-vpc-id','peer-region', 'dry-run!', 'no-dry-run!'], 'accept-vpc-peering-connection': ['vpc-peering-connection-id', 'dry-run!', 'no-dry-run!'], 'delete-vpc-peering-connection': ['vpc-peering-connection-id', 'dry-run!', 'no-dry-run!'], 'describe-vpc-peering-connections': ['vpc-peering-connection-ids*','filters*'],
+          'create-flow-logs': ['resource-type','resource-ids*','traffic-type','log-destination-type','log-destination', 'dry-run!', 'no-dry-run!'], 'describe-flow-logs': ['flow-log-ids*','filters*'], 'delete-flow-logs': ['flow-log-ids*', 'dry-run!', 'no-dry-run!'],
+          'wait': ['nat-gateway-ids*'],
+          'create-route': ['route-table-id','destination-cidr-block','destination-prefix-list-id','gateway-id','nat-gateway-id','vpc-peering-connection-id','vpc-endpoint-id','dry-run!'],
+          'replace-route': ['route-table-id','destination-cidr-block','gateway-id','nat-gateway-id','vpc-peering-connection-id','dry-run!'],
+          'delete-route': ['route-table-id','destination-cidr-block','destination-prefix-list-id','dry-run!'],
           'describe-security-groups': ['group-ids*', 'group-names*', 'filters*'],
           'authorize-security-group-ingress': ['group-id', 'group-name', 'protocol', 'port', 'cidr', 'source-group', 'ip-permissions', 'dry-run!', 'no-dry-run!'],
           'revoke-security-group-ingress': ['group-id', 'group-name', 'protocol', 'port', 'cidr', 'source-group', 'ip-permissions', 'dry-run!', 'no-dry-run!'],
@@ -634,6 +645,150 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       }
       while (a.instances.length < a.desired) { const newId = addGroupInstance(a); activity(a, 'Launching a new EC2 instance: ' + newId, { newId }); }
       while (a.instances.length > a.desired) { const id = a.instances[a.instances.length - 1]; removeGroupInstance(a, id); activity(a, 'Terminating EC2 instance: ' + id, { oldId: id }); }
+    }
+
+    // VPC deep-dive API subset. Metadata transitions are modeled, not packet simulation.
+    if (service === 'ec2' && ['create-nat-gateway','delete-nat-gateway','describe-nat-gateways','wait','create-vpc-endpoint','modify-vpc-endpoint','delete-vpc-endpoints','describe-vpc-endpoints','describe-prefix-lists','create-vpc-peering-connection','accept-vpc-peering-connection','delete-vpc-peering-connection','describe-vpc-peering-connections','create-flow-logs','describe-flow-logs','delete-flow-logs','release-address'].includes(op)) {
+      const vpc = id => list('vpcs').find(v => v.id === id);
+      const sub = id => list('subnets').find(v => v.id === id);
+      const next = (key, prefix, coll) => {
+        let id; do { sim[key] = (sim[key] || 0) + 1; id = prefix + String(sim[key]).padStart(9, '0'); } while (list(coll).some(x => x.id === id)); return id;
+      };
+      const select = (coll, arg, filterKeys) => {
+        let rows = list(coll); const ids = flags(arg);
+        if (ids.some(id => !rows.some(x => x.id === id))) throw Error(`InvalidParameterValue: one or more --${arg} IDs do not exist`);
+        if (ids.length) rows = rows.filter(x => ids.includes(x.id));
+        for (const f of flags('filters')) {
+          const m = f.match(/^Name=([^,]+),Values=(.+)$/);
+          if (!m || !Object.prototype.hasOwnProperty.call(filterKeys, m[1])) throw Error('InvalidParameterValue: unsupported or malformed filter; omit --filters to inspect full metadata');
+          rows = rows.filter(x => m[2].split(',').includes(String(filterKeys[m[1]](x))));
+        }
+        return rows;
+      };
+      const natJSON = n => ({ NatGatewayId:n.id, VpcId:sub(n.subnetId) && sub(n.subnetId).vpcId, SubnetId:n.subnetId, State:n.state, ConnectivityType:n.connectivityType || 'public', NatGatewayAddresses:n.allocationId ? [{AllocationId:n.allocationId,PublicIp:n.publicIp}] : [] });
+      const endpointJSON = e => ({VpcEndpointId:e.id,VpcEndpointType:e.type,VpcId:e.vpcId,ServiceName:e.serviceName,State:e.state,RouteTableIds:e.routeTableIds||[],SubnetIds:e.subnetIds||[],PrivateDnsEnabled:!!e.privateDnsEnabled,NetworkInterfaceIds:e.networkInterfaceIds||[],Groups:(e.sgIds||[]).map(id=>({GroupId:id})),PolicyDocument:JSON.stringify(e.policy||{Statement:[{Effect:'Allow',Principal:'*',Action:'*',Resource:'*'}]})});
+      const peerJSON = p => ({VpcPeeringConnectionId:p.id,Status:{Code:p.state},RequesterVpcInfo:{VpcId:p.requester,CidrBlock:(vpc(p.requester)||{}).cidr},AccepterVpcInfo:{VpcId:p.accepter,CidrBlock:(vpc(p.accepter)||{}).cidr}});
+      const flowJSON = f => ({FlowLogId:f.id,ResourceId:f.resourceId,TrafficType:f.trafficType,FlowLogStatus:f.state,LogDestinationType:f.destinationType,LogDestination:f.destination});
+      const updateEndpointRoutes = e => {
+        for (const rt of networkTables()) rt.routes = rt.routes.filter(r => r.target !== e.id);
+        if (e.type === 'Gateway' && e.state !== 'deleted') for (const id of e.routeTableIds) networkTables().find(t=>t.id===id).routes.push({prefixListId:e.prefixListId,target:e.id,type:'endpoint',state:'active',managed:true});
+      };
+      try {
+        if(toks.includes('--dry-run')&&!op.startsWith('describe-')) {print('err','DryRunOperation: Request would have succeeded, but DryRun flag is set.');return;}
+        if (op === 'describe-nat-gateways') return resultJson({NatGateways:select('natGateways','nat-gateway-ids',{'vpc-id':n=>(sub(n.subnetId)||{}).vpcId,'state':n=>n.state,'subnet-id':n=>n.subnetId}).map(natJSON)});
+        if (op === 'describe-vpc-endpoints') return resultJson({VpcEndpoints:select('vpcEndpoints','vpc-endpoint-ids',{'vpc-id':e=>e.vpcId,'vpc-endpoint-state':e=>e.state,'service-name':e=>e.serviceName}).map(endpointJSON)});
+        if (op === 'describe-vpc-peering-connections') return resultJson({VpcPeeringConnections:select('vpcPeerings','vpc-peering-connection-ids',{'status-code':p=>p.state,'requester-vpc-info.vpc-id':p=>p.requester,'accepter-vpc-info.vpc-id':p=>p.accepter}).map(peerJSON)});
+        if (op === 'describe-flow-logs') return resultJson({FlowLogs:select('flowLogs','flow-log-ids',{'resource-id':f=>f.resourceId,'flow-log-id':f=>f.id}).map(flowJSON)});
+        if (op === 'describe-prefix-lists') {
+          const region=sim.account.region||'us-east-1';
+          for(const service of ['s3','dynamodb']) if(!list('prefixLists').some(p=>p.name===`com.amazonaws.${region}.${service}`))list('prefixLists').push({id:'pl-'+service,name:`com.amazonaws.${region}.${service}`});
+          return resultJson({PrefixLists:select('prefixLists','prefix-list-ids',{'prefix-list-name':p=>p.name}).map(p=>({PrefixListId:p.id,PrefixListName:p.name,Cidrs:p.cidrs||[]}))});
+        }
+        if (op === 'release-address') {
+          const id=flag('allocation-id'), a=list('addresses').find(a=>a.allocationId===id);
+          if(!a) throw Error('InvalidAllocationID.NotFound: allocation ID does not exist');
+          if(a.natId||a.instanceId) throw Error('InvalidIPAddress.InUse: disassociate/delete the associated resource before releasing this address');
+          sim.account.addresses=list('addresses').filter(x=>x!==a); return print('ok','');
+        }
+        if(op==='wait') {
+          const waiter=toks[3];
+          if(!['nat-gateway-available','nat-gateway-deleted'].includes(waiter)) throw Error('Simulator models nat-gateway-available and nat-gateway-deleted EC2 waiters here');
+          const ids=flags('nat-gateway-ids'); if(!ids.length) throw Error('aws: error: --nat-gateway-ids is required');
+          const nats=ids.map(id=>list('natGateways').find(n=>n.id===id));
+          if(nats.some(n=>!n)) throw Error('InvalidNatGatewayID.NotFound: NAT ID does not exist');
+          if(nats.some(n=>waiter==='nat-gateway-available' ? !['pending','available'].includes(n.state) : !['deleting','deleted'].includes(n.state))) throw Error('WaiterError: NAT is not in a state that can satisfy this waiter');
+          nats.forEach(n=>{n.state=waiter.endsWith('available')?'available':'deleted';if(n.state==='deleted') {const a=list('addresses').find(a=>a.allocationId===n.allocationId);if(a) delete a.natId;}});
+          print('sys','Simulator waiter reconciled NAT metadata immediately; real AWS polls asynchronously.'); return;
+        }
+        if(op==='create-nat-gateway') {
+          const subnet=sub(flag('subnet-id')), type=flag('connectivity-type')||'public', a=list('addresses').find(a=>a.allocationId===flag('allocation-id'));
+          if(!subnet) throw Error('InvalidSubnetID.NotFound: subnet ID does not exist');
+          if(!['public','private'].includes(type)) throw Error('InvalidParameterValue: ConnectivityType must be public or private');
+          if(type==='public'&&!a) throw Error('InvalidAllocationID.NotFound: public NAT requires an existing --allocation-id');
+          if(type==='private'&&flag('allocation-id')) throw Error('InvalidParameterCombination: private NAT does not use an Elastic IP');
+          const token=flag('client-token'), existing=token&&list('natGateways').find(n=>n.clientToken===token);
+          if(existing) {if(existing.subnetId!==subnet.id||(existing.allocationId||null)!==flag('allocation-id')||existing.connectivityType!==type) throw Error('IdempotentParameterMismatch: client token was used with different parameters');return resultJson({NatGateway:natJSON(existing)});}
+          if(a&&(a.natId||a.instanceId)) throw Error('Resource.AlreadyAssociated: Elastic IP is already associated');
+          const n={id:next('natSeq','nat-','natGateways'),subnetId:subnet.id,allocationId:a&&a.allocationId,publicIp:a&&a.publicIp,connectivityType:type,state:'pending',clientToken:token};
+          list('natGateways').push(n); if(a) a.natId=n.id; return resultJson({NatGateway:natJSON(n)});
+        }
+        if(op==='delete-nat-gateway') {
+          const n=list('natGateways').find(n=>n.id===flag('nat-gateway-id'));if(!n) throw Error('InvalidNatGatewayID.NotFound: NAT ID does not exist');
+          if(n.state!=='deleted') n.state='deleting';
+          networkTables().forEach(rt=>rt.routes.forEach(r=>{if(r.target===n.id)r.state='blackhole';}));return resultJson({NatGatewayId:n.id});
+        }
+        if(op==='create-vpc-endpoint'||op==='modify-vpc-endpoint') {
+          const modifying=op==='modify-vpc-endpoint', old=modifying&&list('vpcEndpoints').find(e=>e.id===flag('vpc-endpoint-id')&&e.state!=='deleted');
+          if(modifying&&!old) throw Error('InvalidVpcEndpointId.NotFound: endpoint ID does not exist');
+          const type=old?old.type:(flag('vpc-endpoint-type')||'Gateway'), vid=old?old.vpcId:flag('vpc-id'), v=vpc(vid), serviceName=old?old.serviceName:flag('service-name');
+          const region=sim.account.region||'us-east-1';
+          if(!v) throw Error('InvalidVpcID.NotFound: VPC does not exist');
+          if(!['Gateway','Interface'].includes(type)) throw Error('Simulator models Gateway and Interface endpoint types here');
+          const gatewayService=['s3','dynamodb'].find(x=>serviceName===`com.amazonaws.${region}.${x}`);
+          if(type==='Gateway'&&!gatewayService) throw Error('InvalidServiceName: Gateway endpoint supports same-region S3 or DynamoDB in this simulator');
+          if(type==='Interface'&&!['secretsmanager','ssm','ssmmessages','ec2messages','ecr.api','ecr.dkr','kms','sqs','logs','sts'].some(x=>serviceName===`com.amazonaws.${region}.${x}`)) throw Error('Simulator: service endpoint not modeled; supported local AWS Interface services include secretsmanager, ssm, ecr.api, ecr.dkr, kms, sqs, logs and sts');
+          const nextIDs=(current,add,remove)=>[...new Set([...current.filter(x=>!remove.includes(x)),...add])];
+          const routes=modifying?nextIDs(old.routeTableIds||[],flags('add-route-table-ids'),flags('remove-route-table-ids')):flags('route-table-ids');
+          const subs=modifying?nextIDs(old.subnetIds||[],flags('add-subnet-ids'),flags('remove-subnet-ids')):flags('subnet-ids');
+          const groups=modifying?nextIDs(old.sgIds||[],flags('add-security-group-ids'),flags('remove-security-group-ids')):flags('security-group-ids');
+          if(routes.some(id=>!networkTables().some(t=>t.id===id&&t.vpcId===vid))) throw Error('InvalidRouteTableID.NotFound: endpoint route tables must exist in the same VPC');
+          if(subs.some(id=>!sub(id)||sub(id).vpcId!==vid)||new Set(subs.map(id=>sub(id).az)).size!==subs.length) throw Error('InvalidSubnet: interface endpoint uses at most one existing subnet per AZ in the same VPC');
+          if(groups.some(id=>!list('securityGroups').some(g=>g.id===id&&g.vpcId===vid))) throw Error('InvalidGroup.NotFound: endpoint security groups must exist in the same VPC');
+          if(type==='Gateway'&&(subs.length||groups.length)) throw Error('InvalidParameterCombination: Gateway endpoint uses route tables, not subnet/SG ENIs');
+          if(type==='Interface'&&(routes.length||!subs.length)) throw Error('InvalidParameterCombination: Interface endpoint needs subnet IDs, not route table IDs');
+          if(toks.includes('--private-dns-enabled')&&toks.includes('--no-private-dns-enabled')) throw Error('InvalidParameterCombination: private DNS flags are mutually exclusive');
+          if(type==='Interface'&&!modifying&&!toks.includes('--private-dns-enabled')&&!toks.includes('--no-private-dns-enabled'))throw Error('Simulator: specify --private-dns-enabled or --no-private-dns-enabled explicitly for Interface endpoints.');
+          const privateDNS=toks.includes('--private-dns-enabled')?true:toks.includes('--no-private-dns-enabled')?false:old?old.privateDnsEnabled:false;
+          if(type==='Gateway'&&privateDNS) throw Error('InvalidParameterCombination: private DNS toggle is modeled only for Interface endpoints');
+          if(privateDNS&&(!v.dnsSupport||!v.dnsHostnames)) throw Error('InvalidParameter: private DNS requires enableDnsSupport and enableDnsHostnames');
+          let policy=old&&old.policy;
+          if(flag('policy-document')) {try{policy=JSON.parse(flag('policy-document'));}catch(e){throw Error('InvalidPolicyDocument: policy must be valid JSON');} if(!policy||typeof policy!=='object'||!Array.isArray(policy.Statement))throw Error('InvalidPolicyDocument: policy needs a Statement array');}
+          const token=flag('client-token'), prior=token&&list('vpcEndpoints').find(e=>e.clientToken===token);
+          if(prior){if(prior.vpcId!==vid||prior.serviceName!==serviceName||JSON.stringify(prior.routeTableIds)!==JSON.stringify(routes)||JSON.stringify(prior.subnetIds)!==JSON.stringify(subs)||prior.type!==type||JSON.stringify(prior.sgIds)!==JSON.stringify(groups)||prior.privateDnsEnabled!==privateDNS||JSON.stringify(prior.policy)!==JSON.stringify(policy))throw Error('IdempotentParameterMismatch: endpoint client token parameters changed');return resultJson({VpcEndpoint:endpointJSON(prior)});}
+          if(type==='Gateway') for(const id of routes) if(networkTables().find(t=>t.id===id).routes.some(r=>r.prefixListId&&r.target!==(old&&old.id)&&list('vpcEndpoints').some(e=>e.id===r.target&&e.serviceName===serviceName&&e.state!=='deleted'))) throw Error('RouteAlreadyExists: route table already uses another endpoint for this service');
+          const e=old||{id:next('endpointSeq','vpce-','vpcEndpoints'),clientToken:token};
+          Object.assign(e,{type,vpcId:vid,serviceName,state:'available',routeTableIds:routes,subnetIds:subs,sgIds:groups,privateDnsEnabled:privateDNS,policy});
+          if(type==='Gateway') {
+            let p=list('prefixLists').find(p=>p.name===serviceName);if(!p){p={id:gatewayService==='s3'?'pl-s3':'pl-dynamodb',name:serviceName};list('prefixLists').push(p);}e.prefixListId=p.id;
+          } else e.networkInterfaceIds=subs.map((id,i)=>'eni-'+e.id.slice(5)+String(i).padStart(8,'0'));
+          if(!old)list('vpcEndpoints').push(e);updateEndpointRoutes(e);return resultJson(modifying?{Return:true}:{VpcEndpoint:endpointJSON(e)});
+        }
+        if(op==='delete-vpc-endpoints') {
+          const ids=flags('vpc-endpoint-ids');if(!ids.length)throw Error('aws: error: --vpc-endpoint-ids is required');
+          const endpoints=ids.map(id=>list('vpcEndpoints').find(e=>e.id===id));if(endpoints.some(e=>!e))throw Error('InvalidVpcEndpointId.NotFound: endpoint ID does not exist');
+          endpoints.forEach(e=>{e.state='deleted';updateEndpointRoutes(e);});return resultJson({Unsuccessful:[]});
+        }
+        if(op==='create-vpc-peering-connection') {
+          const a=vpc(flag('vpc-id')), b=vpc(flag('peer-vpc-id'));
+          if(!a||!b)throw Error('InvalidVpcID.NotFound: requester and peer VPC IDs must exist');
+          if(flag('peer-region')&&flag('peer-region')!==(sim.account.region||'us-east-1'))throw Error('Simulator models same-region peering here; real AWS also supports inter-region peering');
+          if(a===b)throw Error('InvalidParameterValue: a VPC cannot peer with itself');
+          const range=c=>{const canonical=ipv4Cidr(c);if(!canonical)throw Error('InvalidParameterValue: VPC IPv4 CIDR missing');const [ip,bits]=canonical.split('/'),start=ip.split('.').reduce((n,x)=>n*256+Number(x),0);return [start,start+2**(32-Number(bits))-1];};
+          const [a0,a1]=range(a.cidr),[b0,b1]=range(b.cidr);if(a0<=b1&&b0<=a1)throw Error('InvalidParameterValue: overlapping VPC CIDRs cannot be peered');
+          if(list('vpcPeerings').some(p=>p.state!=='deleted'&&[p.requester,p.accepter].includes(a.id)&&[p.requester,p.accepter].includes(b.id)))throw Error('VpcPeeringConnectionAlreadyExists: active or pending peer already exists');
+          const p={id:next('peerSeq','pcx-','vpcPeerings'),requester:a.id,accepter:b.id,state:'pending-acceptance'};list('vpcPeerings').push(p);return resultJson({VpcPeeringConnection:peerJSON(p)});
+        }
+        if(op==='accept-vpc-peering-connection'||op==='delete-vpc-peering-connection') {
+          const p=list('vpcPeerings').find(p=>p.id===flag('vpc-peering-connection-id'));if(!p)throw Error('InvalidVpcPeeringConnectionID.NotFound: peer ID does not exist');
+          if(op==='accept-vpc-peering-connection') {
+            if(p.state!=='pending-acceptance')throw Error('InvalidStateTransition: peer must be pending-acceptance');p.state='active';
+            networkTables().forEach(t=>t.routes.forEach(r=>{if(r.target===p.id)r.state='active';}));return resultJson({VpcPeeringConnection:peerJSON(p)});
+          }
+          p.state='deleted';networkTables().forEach(t=>t.routes.forEach(r=>{if(r.target===p.id)r.state='blackhole';}));return resultJson({Return:true});
+        }
+        if(op==='create-flow-logs') {
+          const resources=flags('resource-ids'), traffic=flag('traffic-type'), destinationType=flag('log-destination-type')||'cloud-watch-logs', destination=flag('log-destination');
+          if(flag('resource-type')!=='VPC'||!resources.length||resources.some(id=>!vpc(id)))throw Error('Simulator: Flow Log creation here requires --resource-type VPC and existing --resource-ids');
+          if(!['ALL','ACCEPT','REJECT'].includes(traffic))throw Error('InvalidParameterValue: traffic-type must be ALL, ACCEPT or REJECT');
+          if(destinationType!=='s3')throw Error('Simulator: S3 Flow Log destination is modeled here; CloudWatch needs a delivery role/log group');
+          const match=destination&&destination.match(/^arn:aws:s3:::([a-z0-9.-]+)(?:\/.*)?$/);if(!match||!list('buckets').some(b=>b.name===match[1]))throw Error('InvalidParameterValue: S3 log destination must name an existing lab bucket ARN');
+          const made=resources.map(resourceId=>({id:next('flowSeq','fl-','flowLogs'),resourceId,trafficType:traffic,state:'ACTIVE',destinationType,destination}));list('flowLogs').push(...made);return resultJson({FlowLogIds:made.map(f=>f.id),Unsuccessful:[]});
+        }
+        if(op==='delete-flow-logs') {
+          const ids=flags('flow-log-ids');if(!ids.length||ids.some(id=>!list('flowLogs').some(f=>f.id===id)))throw Error('InvalidFlowLogId.NotFound: existing --flow-log-ids required');
+          sim.account.flowLogs=list('flowLogs').filter(f=>!ids.includes(f.id));return resultJson({Unsuccessful:[]});
+        }
+      } catch(e) {print('err',e.message);return;}
     }
 
     switch (service) {
@@ -1214,7 +1369,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const snaps = list('snapshots');
           print('ok', prettyJson({ Snapshots: snaps.map(x => ({ SnapshotId: x.id, VolumeId: x.volumeId, VolumeSize: x.size, State: x.state || 'completed', Description: x.description || '' })) }));
         } else if (op === 'allocate-address') {
-          const n = list('addresses').length + 1;          // deterministic — hints/validator exact id likh sakein
+          if(toks.includes('--dry-run'))return print('err','DryRunOperation: Request would have succeeded, but DryRun flag is set.');
+          if(flag('domain')&&flag('domain')!=='vpc')return print('err','Simulator models VPC Elastic IP allocations; use --domain vpc.');
+          const n = sim.eipSeq = Math.max(sim.eipSeq || 0, ...list('addresses').map(a => Number((a.allocationId.match(/(\d+)$/) || [0,0])[1]) || 0)) + 1; // deterministic, never reuse released IDs
           const ip = `13.234.10.${4 + n}`;
           const id = 'eipalloc-' + String(n).padStart(9, '0');
           list('addresses').push({ allocationId: id, publicIp: ip, instanceId: null });
@@ -1244,7 +1401,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             const getters = {
               'vpc-id': rt => [rt.vpcId],
               'route-table-id': rt => [rt.id],
-              'route.gateway-id': rt => rt.routes.filter(r => !/^nat-/.test(r.target)).map(r => r.target),
+              'route.gateway-id': rt => rt.routes.filter(r => !/^(nat-|pcx-)/.test(r.target)).map(r => r.target),
+              'route.nat-gateway-id': rt => rt.routes.filter(r => /^nat-/.test(r.target)).map(r => r.target),
+              'route.vpc-peering-connection-id': rt => rt.routes.filter(r => /^pcx-/.test(r.target)).map(r => r.target),
               'association.subnet-id': rt => rt.associations.map(a => a.subnetId),
               'association.route-table-association-id': rt => rt.associations.map(a => a.id),
               'association.main': rt => rt.associations.map(a => String(!!a.main)),
@@ -1252,16 +1411,17 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             if (!Object.prototype.hasOwnProperty.call(getters, m[1])) return print('err', `InvalidParameterValue: filter '${m[1]}' is not supported in this simulator`);
             rts = rts.filter(rt => getters[m[1]](rt).some(value => values.includes(value)));
           }
-          print('ok', prettyJson({ RouteTables: rts.map(rt => ({
+          return resultJson({ RouteTables: rts.map(rt => ({
             RouteTableId: rt.id, VpcId: rt.vpcId,
-            Routes: rt.routes.map(r => ({ DestinationCidrBlock: r.destination,
-              [/^nat-/.test(r.target) ? 'NatGatewayId' : 'GatewayId']: r.target,
+            Routes: rt.routes.map(r => ({ ...(r.prefixListId ? {DestinationPrefixListId:r.prefixListId} : {DestinationCidrBlock:r.destination}),
+              [/^nat-/.test(r.target) ? 'NatGatewayId' : /^pcx-/.test(r.target) ? 'VpcPeeringConnectionId' : 'GatewayId']: r.target,
               State: r.state || 'active', Origin: r.target === 'local' ? 'CreateRouteTable' : 'CreateRoute' })),
             Associations: rt.associations.map(a => ({ Main: !!a.main, SubnetId: a.subnetId,
               RouteTableAssociationId: a.id, RouteTableId: rt.id, AssociationState: { State: 'associated' } })),
-          })) }));
-        } else if (op === 'create-route' || op === 'delete-route') {
+          })) });
+        } else if (op === 'create-route' || op === 'replace-route' || op === 'delete-route') {
           const id = flag('route-table-id'), destination = ipv4Cidr(flag('destination-cidr-block'));
+          if(flag('destination-prefix-list-id')||flag('vpc-endpoint-id')) return print('err','Simulator: S3/DynamoDB gateway prefix routes are managed through create/modify-vpc-endpoint route-table associations; manual endpoint-target routes are not modeled here.');
           if (!id || !flag('destination-cidr-block')) return print('err', 'error: --route-table-id and --destination-cidr-block are required');
           const rt = networkTables().find(t => t.id === id);
           if (!rt) return print('err', `InvalidRouteTableID.NotFound: The route table '${id}' does not exist`);
@@ -1274,22 +1434,28 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             rt.routes.splice(rt.routes.indexOf(existing), 1);
             return print('ok', ''); // AWS DeleteRoute has no response body.
           }
-          const targets = ['gateway-id', 'nat-gateway-id'].filter(name => flag(name));
-          if (targets.length !== 1) return print('err', 'InvalidParameterCombination: specify exactly one supported target, --gateway-id or --nat-gateway-id');
+          const targets = ['gateway-id', 'nat-gateway-id', 'vpc-peering-connection-id'].filter(name => flag(name));
+          if (targets.length !== 1) return print('err', 'InvalidParameterCombination: specify exactly one target: --gateway-id, --nat-gateway-id or --vpc-peering-connection-id');
           const target = flag(targets[0]);
           if (targets[0] === 'gateway-id') {
             const igw = list('internetGateways').find(g => g.id === target);
             if (!igw) return print('err', `InvalidInternetGatewayID.NotFound: Internet gateway '${target}' does not exist`);
             if (igw.vpcId !== rt.vpcId) return print('err', `InvalidParameterValue: gateway '${target}' is not attached to VPC '${rt.vpcId}'`);
+          } else if(targets[0]==='vpc-peering-connection-id') {
+            const peer=list('vpcPeerings').find(p=>p.id===target&&p.state!=='deleted');
+            if(!peer)return print('err','InvalidVpcPeeringConnectionID.NotFound: peering connection does not exist');
+            if(![peer.requester,peer.accepter].includes(rt.vpcId))return print('err','InvalidParameterValue: route table VPC must be a participant in this peer');
           } else {
             const nat = list('natGateways').find(g => g.id === target);
             if (!nat) return print('err', `InvalidNatGatewayID.NotFound: NAT gateway '${target}' does not exist`);
             const subnet = list('subnets').find(s => s.id === nat.subnetId);
             if (!subnet || subnet.vpcId !== rt.vpcId || (nat.state && nat.state !== 'available')) return print('err', 'InvalidParameterValue: NAT gateway must be available in the same VPC');
           }
-          if (existing) return print('err', `RouteAlreadyExists: The route identified by ${destination} already exists`);
+          if (existing && op !== 'replace-route') return print('err', `RouteAlreadyExists: The route identified by ${destination} already exists`);
+          if(op==='replace-route'&&(!existing||existing.target==='local'))return print('err','InvalidParameterValue: replace-route needs an existing nonlocal route');
           if (toks.includes('--dry-run')) return print('err', 'DryRunOperation: Request would have succeeded, but DryRun flag is set.');
-          rt.routes.push({ destination, target, type: targets[0] === 'gateway-id' ? 'igw' : 'nat', state: 'active' });
+          const route={destination,target,type:targets[0]==='gateway-id'?'igw':targets[0]==='nat-gateway-id'?'nat':'peering',state:targets[0]==='vpc-peering-connection-id'&&list('vpcPeerings').find(p=>p.id===target).state!=='active'?'blackhole':'active'};
+          if(existing)Object.assign(existing,route);else rt.routes.push(route);
           print('ok', prettyJson({ Return: true }));
         } else if (op === 'associate-route-table' || op === 'replace-route-table-association') {
           const id = flag('route-table-id'), tables = networkTables();
