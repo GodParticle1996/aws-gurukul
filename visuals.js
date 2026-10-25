@@ -32,15 +32,15 @@ const VISUALS = {
         </div>
       </div>
       <div class="dg-flow" style="margin-top:14px">
-        <div class="dg-box is-accent"><span class="bx-label">🌍 Region: us-east-1</span>
+        <div class="dg-box is-accent"><span class="bx-label">🌍 Region: ap-south-1 (Mumbai)</span>
           <div class="dg-flow">
-            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">AZ-a</span><span class="ns">data center</span></div>
-            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">AZ-b</span><span class="ns">data center</span></div>
-            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">AZ-c</span><span class="ns">data center</span></div>
+            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">ap-south-1a</span><span class="ns">alag bijli + network</span></div>
+            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">ap-south-1b</span><span class="ns">alag bijli + network</span></div>
+            <div class="dg-node is-accent" data-hs="az"><span class="ni">🏢</span><span class="nl">ap-south-1c</span><span class="ns">alag bijli + network</span></div>
           </div>
         </div>
       </div>
-      <div class="dg-cap"><b>Region</b> = geography (country/area). <b>AZ</b> = uss region ke andar alag data center. Multi-AZ = failure survive. <b>Shared responsibility:</b> AWS cloud ka security, tumhare data ka security tumhara.</div>`,
+      <div class="dg-cap"><b>Region</b> = shehar (data kahan rahega). <b>AZ</b> = shehar ke alag godown (ek gire toh doosra chale). Multi-AZ = AZ failure se bachav. <b>Shared responsibility:</b> datacenter AWS ka, data + access + config tumhara.AWS cloud ka security, tumhare data ka security tumhara.</div>`,
   },
 
   iam: {
@@ -129,11 +129,11 @@ const VISUALS = {
           <div class="dg-node" data-hs="rt"><span class="ni">🗺️</span><span class="nl">Route Table</span><span class="ns">traffic kahan jaaye</span></div>
         </div>
       </div>
-      <div class="dg-cap"><b>VPC</b> = tumhara private network (CIDR block). <b>Subnet</b> = AZ ke andar. <b>Public</b> subnet = IGW se internet. <b>Private</b> subnet = no direct internet. <b>Route table</b> = traffic rules.</div>`,
+      <div class="dg-cap"><b>VPC</b> = region ka isolated network. <b>Subnet</b> = exactly ek AZ. <b>Public subnet</b> = associated route table ka direct IGW route; auto public IP flag alag hai. EC2 internet reachability ko public IPv4, SG/NACL aur listening service bhi chahiye. Har table ka <b>local route = VPC CIDR 10.0.0.0/16</b>. DB ko local/private route + app-only SG do.</div>`,
   },
 
   rds: {
-    t: 'RDS — managed database, tension-free',
+    t: 'RDS Multi-AZ DB instance — one synchronous standby',
     html: `
       <div class="dg-flow">
         <div class="dg-col">
@@ -153,7 +153,7 @@ const VISUALS = {
         <span class="dg-pill acc" data-hs="readreplica">Read Replica = scaling reads (async)</span>
         <span class="dg-pill gold" data-hs="backup">Automated backups + snapshots</span>
       </div>
-      <div class="dg-cap"><b>Multi-AZ</b> = primary mara toh standby promote (DR). <b>Read Replica</b> = read load baantna (scaling). <b>Managed</b> = AWS patches, backups, replication — tum sirf schema dekho.</div>`,
+      <div class="dg-cap"><b>Multi-AZ DB instance</b>: one synchronous standby, automatic AZ failover; standby reporting reads serve nahi karta. <b>Multi-AZ DB cluster</b>: two readable standbys, alag deployment. <b>Read replica</b>: async readable copy, lag possible. Customer schema, queries, access, reconnect aur restore validation sambhalta hai.</div>`,
   },
 
   elbasg: {

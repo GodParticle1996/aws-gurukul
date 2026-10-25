@@ -55,7 +55,12 @@ AG.loadState = function () {
   } catch (e) { /* corrupted store — start fresh */ }
   return AG.defaultState();
 };
-AG.saveState = function () { localStorage.setItem(AG.STORE_KEY, JSON.stringify(AG.state)); };
+AG.saveState = function () {
+  // private window / storage full / blocked site data mein setItem throw karta hai —
+  // progress save na ho toh bhi app chalti rahe
+  try { localStorage.setItem(AG.STORE_KEY, JSON.stringify(AG.state)); }
+  catch (e) { if (!AG._saveWarned) { AG._saveWarned = true; console.warn('progress save nahi hua:', e.message); } }
+};
 AG.state = AG.loadState();
 
 /* ---------------- DOM helpers ---------------- */
@@ -79,7 +84,8 @@ AG.shake = function (node) {
   node.classList.add('shake');
 };
 AG.escapeHtml = function (s) {
-  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 };
 
 /* ---------------- XP & ranks ---------------- */
@@ -200,6 +206,10 @@ AG.trackOf = function (level) {
   return AG.tracks.find(t => (AG.levelSets[t.id] || []).includes(level));
 };
 AG.levelsOf = function (track) { return AG.levelSets[track.id] || []; };
+AG.findLevel = function (id) {
+  for (const t of AG.tracks) { const l = (AG.levelSets[t.id] || []).find(x => x.id === id); if (l) return l; }
+  return null;
+};
 AG.trackProgress = function (track) {
   const levels = AG.levelsOf(track);
   const done = levels.filter(l => AG.state.completed.includes(l.id)).length;

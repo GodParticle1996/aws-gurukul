@@ -12,3 +12,12 @@ vu_output/
 *.mkv
 .DS_Store
 *.log
+
+# docker-labs local emulator
+docker-labs/.venv/
+docker-labs/.moto-*
+docker-labs/**/.terraform/
+docker-labs/**/terraform.tfstate*
+docker-labs/**/.terraform.lock.hcl
+
+docker-labs/**/.lab/

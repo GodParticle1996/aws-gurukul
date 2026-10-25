@@ -1,0 +1,8 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    { "Sid": "SeeBucketNames",  "Effect": "Allow", "Action": "s3:ListAllMyBuckets", "Resource": "*" },
+    { "Sid": "ListReports",     "Effect": "Allow", "Action": "s3:ListBucket",       "Resource": "arn:aws:s3:::shopkaro-reports" },
+    { "Sid": "ReadReportFiles", "Effect": "Allow", "Action": "s3:GetObject",        "Resource": "arn:aws:s3:::shopkaro-reports/*" }
+  ]
+}

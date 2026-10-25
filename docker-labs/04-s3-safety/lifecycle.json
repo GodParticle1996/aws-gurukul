@@ -1,0 +1,16 @@
+{
+  "Rules": [
+    {
+      "ID": "purane-versions-30-din-baad-saaf",
+      "Status": "Enabled",
+      "Filter": { "Prefix": "images/" },
+      "NoncurrentVersionExpiration": { "NoncurrentDays": 30 }
+    },
+    {
+      "ID": "adhoore-uploads-saaf",
+      "Status": "Enabled",
+      "Filter": {},
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 7 }
+    }
+  ]
+}

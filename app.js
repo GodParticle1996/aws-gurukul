@@ -89,6 +89,18 @@ function showHome() {
     </div>`));
   appEl.appendChild(strip);
 
+  // 🧭 Decision Dojo — "kaunsa service KAB?"
+  const nTrees = (AG.decisions || []).length;
+  if (nTrees) {
+    const nScen = AG.decisions.reduce((n, t) => n + (t.scenarios || []).length, 0);
+    const dd = el('section', 'feat-card clickable', `
+      <div class="strip-icon">🧭</div>
+      <div><div class="strip-title">Decision Dojo — kaunsa service KAB?</div>
+      <div class="strip-sub">${nTrees} decision-trees · ${nScen} practice scenarios. SQS ya SNS ya EventBridge? RDS ya DynamoDB? ALB ya NLB? Sawal-dar-sawal raasta → recommendation + kab NAHI + bill ka shape + exam cue + Terraform.</div></div>`);
+    dd.onclick = () => showDecisionDojo();
+    appEl.appendChild(dd);
+  }
+
   // tracks
   const map = el('section', 'trackmap');
   AG.tracks.forEach(track => {
@@ -175,6 +187,14 @@ function showIntro(level) {
   wrap.appendChild(el('div', 'crumb', `${track.icon} ${track.name} — Level ${idx + 1} of ${levels.length}`));
   wrap.appendChild(el('h2', 'level-h', `${level.icon} ${level.title}`));
 
+  // problem pehle — concept ka naam baad mein
+  if (level.hook) {
+    wrap.appendChild(el('div', 'hook-card', `
+      <div class="hook-tag">🚨 ${level.hook.when || 'Asli incident'}</div>
+      <div class="hook-title">${level.hook.title}</div>
+      <div class="hook-text">${level.hook.text}</div>`));
+  }
+
   if (level.objectives && level.objectives.length) {
     wrap.appendChild(el('div', 'obj-box', `
       <h4>🎯 Is level mein tum seekhoge</h4>
@@ -184,13 +204,34 @@ function showIntro(level) {
   const hero = diagramFor(level.id, true);
   if (hero) wrap.appendChild(hero);
 
-  level.lesson.forEach(html => wrap.appendChild(el('div', 'lesson-card', html)));
+  if (level.steps && level.steps.length) wrap.appendChild(renderSteps(level.steps));
+  (level.lesson || []).forEach(html => wrap.appendChild(el('div', 'lesson-card', html)));
+  if (level.myth && level.myth.length) wrap.appendChild(renderMyth(level.myth));
+  if (level.playbook) wrap.appendChild(renderPlaybook(level.playbook, false));
+  if (level.exam && level.exam.length) wrap.appendChild(renderExam(level.exam));
+
+  // 🧭 is level se jude decision-trees
+  const trees = AG.decisionsForLevel ? AG.decisionsForLevel(level.id) : [];
+  if (trees.length) {
+    const box = el('div', 'dd-levelbox');
+    box.appendChild(el('div', 'dd-sec-h', '🧭 Is level ke "kaunsa KAB?" faisle — Decision Dojo mein practice karo'));
+    const row = el('div', 'dd-chips');
+    trees.forEach(t => {
+      const b = el('button', 'dd-chip', `${t.icon} ${t.short || t.title}`);
+      b.onclick = () => showDecisionTree(t);
+      row.appendChild(b);
+    });
+    box.appendChild(row);
+    wrap.appendChild(box);
+  }
 
   const totalStages = allStages(level).length;
   const bonusCount = level.stages.filter(s => s.bonus).length;
   if (bonusCount) wrap.appendChild(el('p', 'bonus-note',
     `🎁 Is level mein ${bonusCount} bonus "Good to Know" round hai — extra XP!`));
   wrap.appendChild(el('p', 'bonus-note', '🎤 Aakhri mein Interview Round hoga — asli interview jaise sawal!'));
+  if (level.stages.some(s => s.type === 'docker'))
+    wrap.appendChild(el('p', 'bonus-note', '🐳 Is level mein ek real lab hai — laptop par asli aws CLI, local AWS emulator (Moto) ke against. Bill $0.'));
 
   const replay = AG.state.completed.includes(level.id);
   if (replay) wrap.appendChild(el('p', 'replay-note', '🔁 Replay — pehle complete kar chuke ho, XP nahi milega (par stars sudhar sakte hain!)'));
@@ -216,6 +257,92 @@ function showIntro(level) {
   wrap.appendChild(row);
   appEl.appendChild(wrap);
   window.scrollTo(0, 0);
+}
+
+/* ============================================================
+   LESSON BLOCKS — steps (ek card = ek sawal), myth vs sach,
+   decision card (kab / kab nahi / kaise / red flags), exam lens
+   ============================================================ */
+function renderSteps(steps) {
+  const box = el('section', 'steps-box');
+  const pills = el('div', 'st-pills');
+  const card = el('div', 'st-card');
+  const nav = el('div', 'st-nav');
+  const prev = el('button', 'btn ghost small st-prev', '← Pichla');
+  const next = el('button', 'btn small st-next', 'Agla sawal →');
+  const all = el('button', 'btn ghost small st-all', '📜 Saare ek saath');
+  let i = 0, showAll = false;
+
+  function stepHtml(s, n) {
+    return `
+      <div class="st-q"><span class="st-num">${n}</span>${s.q}</div>
+      ${s.analogy ? `<div class="st-analogy">🍵 <b>Misaal:</b> ${s.analogy}</div>` : ''}
+      ${s.body ? `<div class="st-body">${s.body}</div>` : ''}
+      ${s.points ? `<ul class="st-points">${s.points.map(p => `<li>${p}</li>`).join('')}</ul>` : ''}
+      ${s.visual ? `<div class="st-visual">${s.visual}</div>` : ''}
+      ${s.example ? `<div class="st-example">🏭 <b>Asli scenario:</b> ${s.example}</div>` : ''}
+      ${s.code ? `<pre>${escapeHtml(s.code)}</pre>` : ''}
+      ${s.asli ? `<div class="st-asli">💡 <b>Asli baat:</b> ${s.asli}</div>` : ''}`;
+  }
+  function paint() {
+    pills.innerHTML = '';
+    steps.forEach((s, k) => {
+      const p = el('button', 'st-pill' + (k === i && !showAll ? ' on' : '') + (k < i ? ' seen' : ''), String(k + 1));
+      p.onclick = () => { showAll = false; i = k; paint(); };
+      pills.appendChild(p);
+    });
+    card.innerHTML = showAll
+      ? steps.map((s, k) => `<div class="st-one">${stepHtml(s, k + 1)}</div>`).join('')
+      : stepHtml(steps[i], i + 1);
+    prev.disabled = showAll || i === 0;
+    next.style.display = showAll || i === steps.length - 1 ? 'none' : '';
+    all.textContent = showAll ? '🃏 Ek-ek karke' : '📜 Saare ek saath';
+  }
+  prev.onclick = () => { if (i > 0) { i--; paint(); } };
+  next.onclick = () => { if (i < steps.length - 1) { i++; paint(); } };
+  all.onclick = () => { showAll = !showAll; paint(); };
+  nav.append(prev, next, all);
+  box.append(el('div', 'st-head', `📖 Samjho — ek card, ek sawal (${steps.length} cards)`), pills, card, nav);
+  paint();
+  return box;
+}
+
+function renderMyth(myths) {
+  const box = el('section', 'myth-box');
+  box.innerHTML = `<h4>🧐 Myth vs Sach</h4>` + myths.map(m => `
+    <div class="myth-row">
+      <div class="myth-m">❌ ${m.myth}</div>
+      <div class="myth-s">✅ ${m.sach}</div>
+    </div>`).join('');
+  return box;
+}
+
+function renderPlaybook(pb, compact) {
+  const col = (cls, title, items) => (items && items.length)
+    ? `<div class="pb-col ${cls}"><h5>${title}</h5><ul>${items.map(x => `<li>${x}</li>`).join('')}</ul></div>` : '';
+  const box = el('section', 'playbook' + (compact ? ' compact' : ''));
+  box.innerHTML = `
+    <h4>🧭 Decision Card — ${pb.title || 'kab, kab nahi, kaise'}</h4>
+    <div class="pb-grid">
+      ${col('use', '✅ Kab use karein', pb.use)}
+      ${col('avoid', '⛔ Kab nahi', pb.avoid)}
+      ${col('how', '🛠️ Kaise implement karein', pb.how)}
+      ${col('flags', '🚩 Red flags', pb.redflags)}
+    </div>
+    ${pb.rule ? `<div class="pb-rule">📌 ${pb.rule}</div>` : ''}`;
+  return box;
+}
+
+/* SAA-C03 lens: sawal mein yeh shabd dikha → yeh option socho */
+function renderExam(rows) {
+  const box = el('section', 'exam-box');
+  box.innerHTML = `<h4>📝 SAA-C03 lens — sawal mein yeh likha ho toh...</h4>` + rows.map(r => `
+    <div class="exam-row">
+      <div class="exam-cue">🔎 ${r.cue}</div>
+      <div class="exam-pick">➜ ${r.pick}</div>
+      ${r.why ? `<div class="exam-why">${r.why}</div>` : ''}
+    </div>`).join('');
+  return box;
 }
 
 /* ============================================================
@@ -455,6 +582,8 @@ function levelComplete() {
     wrap.appendChild(el('p', 'bonus-note',
       `🧘 ${level.cards.length} flashcards Revision Dojo mein add hue — kal se revise karna, bhoolna mat!`));
   }
+
+  if (level.playbook) wrap.appendChild(renderPlaybook(level.playbook, true));
 
   if (level.homework) {
     wrap.appendChild(el('div', 'homework', `

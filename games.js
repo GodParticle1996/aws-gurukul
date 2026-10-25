@@ -50,6 +50,8 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
     });
     chip.addEventListener('click', e => {
       e.stopPropagation();
+      // bin mein rakha hua chip dobara select nahi hota — warna wahi item do baar score hota
+      if (chip.classList.contains('placed')) return;
       selectChip(selected === chip ? null : chip);
     });
     pool.appendChild(chip);
@@ -62,6 +64,7 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
   }
 
   function attempt(chip, binId, zone) {
+    if (chip.classList.contains('placed')) return;
     const item = chip._item;
     if (item.bin === binId) {
       if (!wrongOnce.has(item.text)) { firstTry++; AG.addXP(AG.XP_PER_ITEM); }
@@ -264,6 +267,7 @@ AG.renderers.match = function renderMatch(stage, arena, onDone) {
     card.addEventListener('dragover', e => e.preventDefault());
     card.addEventListener('drop', e => {
       e.preventDefault();
+      if (card.classList.contains('done')) return;
       const id = e.dataTransfer.getData('text/plain');
       const r = rightCol.querySelector(`[data-idx="${id}"]:not(.done)`);
       if (r) { selLeft = card; selRight = r; check(); }
@@ -380,7 +384,7 @@ AG.renderers.quiz = function renderQuiz(stage, arena, onDone) {
    Diagram ke clickable nodes par data-hs="<target>" hona chahiye.
    ============================================================ */
 AG.renderers.hotspot = function renderHotspot(stage, arena, onDone) {
-  let qi = 0, firstTry = 0, mistake = false;
+  let qi = 0, firstTry = 0, mistake = false, locked = false;
   const v = VISUALS[stage.visual];
   if (!v) { onDone({ firstTry: 0, total: 0 }); return; }
 
@@ -395,6 +399,7 @@ AG.renderers.hotspot = function renderHotspot(stage, arena, onDone) {
 
   function showQ() {
     mistake = false;
+    locked = false;
     prog.textContent = `Sawal ${qi + 1} / ${stage.questions.length}`;
     qBox.innerHTML = `🎯 ${stage.questions[qi].q}`;
     dia.querySelectorAll('[data-hs]').forEach(n => n.classList.remove('hs-good', 'hs-bad'));
@@ -402,10 +407,13 @@ AG.renderers.hotspot = function renderHotspot(stage, arena, onDone) {
 
   dia.addEventListener('click', e => {
     const node = e.target.closest('[data-hs]');
-    if (!node || qi >= stage.questions.length) return;
+    // sahi click ke baad agla sawal 1.4 s mein aata hai — us beech ka click purane
+    // sawal ka text dikhte hue naye sawal par judge hota tha
+    if (!node || locked || qi >= stage.questions.length) return;
     const q = stage.questions[qi];
     if (node.dataset.hs === q.target) {
       if (!mistake) { firstTry++; AG.addXP(AG.XP_PER_ITEM); }
+      locked = true;
       node.classList.add('hs-good');
       feedback.className = 'feedback good';
       feedback.innerHTML = `✅ ${q.explain}`;

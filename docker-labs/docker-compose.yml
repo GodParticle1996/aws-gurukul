@@ -1,0 +1,19 @@
+# AWS Gurukul — local AWS emulator (Moto). Bill $0, kuch bhi tod sakte ho.
+#   docker compose up -d          → dono emulators chalu
+#   source env.sh                 → `aws` CLI ab laptop wale emulator se baat karega (port 4566)
+#   source env.sh iam             → IAM-enforcing emulator (port 4567) — policies sach mein check hoti hain
+#   docker compose down           → band (saara data gayab — har lab fresh shuru hoti hai)
+services:
+  moto:
+    image: motoserver/moto:5.2.4
+    ports: ["4566:5000"]
+    environment:
+      MOTO_PORT: "5000"
+  moto-iam:
+    image: motoserver/moto:5.2.4
+    ports: ["4567:5000"]
+    environment:
+      MOTO_PORT: "5000"
+      # pehle 3 requests bina auth (admin user + uska access key banane ke liye),
+      # uske baad HAR request ka IAM policy check hota hai — asli AWS jaisa AccessDenied
+      INITIAL_NO_AUTH_ACTION_COUNT: "3"
