@@ -486,6 +486,137 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       for (let j = i + 1; j < toks.length && !/^--[a-z]/i.test(toks[j]); j++) out.push(toks[j]);
       return out;
     }
+    for (const arg of ['query', 'output']) {
+      if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
+    }
+    // Fail before mutation on misspelled flags or stray positional values.
+    if (service === 'elbv2' || service === 'autoscaling') {
+      const specs = {
+        elbv2: {
+          'describe-load-balancers': ['load-balancer-arns*', 'names*'], 'describe-listeners': ['load-balancer-arn'],
+          'describe-target-groups': ['target-group-arns*', 'names*', 'load-balancer-arn'], 'describe-target-health': ['target-group-arn', 'targets*'],
+          'modify-target-group': ['target-group-arn', 'health-check-path', 'health-check-port', 'health-check-interval-seconds', 'health-check-timeout-seconds', 'healthy-threshold-count', 'unhealthy-threshold-count', 'matcher'],
+          'describe-target-group-attributes': ['target-group-arn'], 'modify-target-group-attributes': ['target-group-arn', 'attributes*'],
+          'register-targets': ['target-group-arn', 'targets*'], 'deregister-targets': ['target-group-arn', 'targets*'], 'wait': ['target-group-arn', 'targets*'],
+        },
+        autoscaling: {
+          'describe-auto-scaling-groups': ['auto-scaling-group-names*'], 'describe-auto-scaling-instances': ['instance-ids*'],
+          'describe-policies': ['auto-scaling-group-name'], 'describe-scaling-activities': ['auto-scaling-group-name'],
+          'put-scaling-policy': ['auto-scaling-group-name', 'policy-name', 'policy-type', 'target-tracking-configuration', 'estimated-instance-warmup'],
+          'update-auto-scaling-group': ['auto-scaling-group-name', 'min-size', 'max-size', 'desired-capacity', 'health-check-type', 'health-check-grace-period', 'default-instance-warmup', 'vpc-zone-identifier'],
+          'set-desired-capacity': ['auto-scaling-group-name', 'desired-capacity', 'honor-cooldown!', 'no-honor-cooldown!'],
+          'terminate-instance-in-auto-scaling-group': ['instance-id', 'should-decrement-desired-capacity!', 'no-should-decrement-desired-capacity!'],
+        },
+      };
+      const serviceSpec = specs[service];
+      if (Object.prototype.hasOwnProperty.call(serviceSpec, op)) {
+        const allowed = serviceSpec[op].concat(['query', 'output', 'region', 'profile', 'endpoint-url', 'no-cli-pager!', 'no-paginate!']);
+        for (let i = op === 'wait' ? 4 : 3; i < toks.length;) {
+          const name = toks[i].startsWith('--') ? toks[i].slice(2) : '';
+          const spec = allowed.find(a => a.replace(/[*!]$/, '') === name);
+          if (!spec) return print('err', `Unknown options: ${toks[i]}. This simulator models the documented flags listed by help.`);
+          if (spec.endsWith('!')) { i++; continue; }
+          if (!toks[i + 1] || toks[i + 1].startsWith('--')) return print('err', `aws: error: argument --${name}: expected one argument`);
+          i += 2;
+          if (spec.endsWith('*')) while (i < toks.length && !toks[i].startsWith('--')) i++;
+        }
+      }
+    }
+
+    // New service handlers share an explicit, bounded JMESPath subset. Unsupported
+    // expressions fail visibly; --query is never silently ignored in these handlers.
+    function resultJson(value) {
+      function query(v, expression) {
+        const e = expression.trim();
+        const length = e.match(/^length\((.*)\)$/);
+        if (length) { const r = query(v, length[1]); if (!Array.isArray(r) && typeof r !== 'string') throw Error('length() needs an array/string'); return r.length; }
+        const hash = e.match(/^(?:(.*)\.)?\{([^{}]+)\}$/);
+        if (hash) {
+          const target = hash[1] ? query(v, hash[1]) : v;
+          const fields = hash[2].split(',').map(f => f.match(/^\s*([A-Za-z][A-Za-z0-9_]*)\s*:\s*(.+)$/));
+          if (fields.some(f => !f)) throw Error('invalid object projection');
+          const one = x => Object.fromEntries(fields.map(f => [f[1], query(x, f[2])]));
+          return Array.isArray(target) ? target.map(one) : one(target);
+        }
+        const tokens = e.match(/[A-Za-z_][A-Za-z0-9_]*|\[\d*\]/g) || [];
+        if (!tokens.length || tokens.join('.').replace(/\.\[/g, '[') !== e || tokens.some(t => ['__proto__', 'constructor', 'prototype'].includes(t))) throw Error('unsupported expression');
+        function walk(x, i) {
+          if (i === tokens.length) return x == null ? null : x;
+          const t = tokens[i];
+          if (t === '[]') return Array.isArray(x) ? x.flat(1).map(z => walk(z, i + 1)).filter(z => z != null) : null;
+          if (t[0] === '[') return Array.isArray(x) ? walk(x[Number(t.slice(1, -1))], i + 1) : null;
+          return x && Object.prototype.hasOwnProperty.call(x, t) ? walk(x[t], i + 1) : null;
+        }
+        return walk(v, 0);
+      }
+      let result = value;
+      try { if (flag('query') != null) result = query(value, flag('query')); }
+      catch (e) { return print('err', 'Invalid --query for this simulator subset: ' + e.message + '. Supported: dotted paths, [0], [], length(), object projections. Omit --query for full JSON.'); }
+      const output = flag('output') || 'json';
+      if (output === 'json') return print('ok', prettyJson(result));
+      if (output === 'text') {
+        const row = x => Array.isArray(x) ? x.map(z => z == null ? 'None' : String(z)).join('\t') : x && typeof x === 'object' ? Object.keys(x).sort().map(k => String(x[k])).join('\t') : x == null ? 'None' : String(x);
+        return print('ok', Array.isArray(result) && result.some(x => x && typeof x === 'object') ? result.map(row).join('\n') : row(result));
+      }
+      print('err', 'Simulator output support: --output json or text. Table/YAML formatting is not implemented.');
+    }
+
+    // Deterministic configuration model, not real EC2 boot/HTTP/time simulation.
+    function groupTargets() { return list('targetGroups'); }
+    function targetHealth(tg, target) {
+      if (target.draining) return { State: 'draining', Reason: 'Target.DeregistrationInProgress' };
+      const i = list('instances').find(i => i.id === target.id);
+      if (!i || i.state !== 'running') return { State: 'unused', Reason: 'Target.InvalidState' };
+      if (i.appHealthy === false) return { State: 'unhealthy', Reason: 'Target.FailedHealthChecks', Description: 'Application process failed the modeled health check.' };
+      const port = tg.healthCheckPort && tg.healthCheckPort !== 'traffic-port' ? Number(tg.healthCheckPort) : target.port || tg.port;
+      if (i.appPort && port !== i.appPort) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Modeled app is not listening on the health-check port.' };
+      const code = (tg.healthCheckPath || '/') === (i.healthPath || tg.validHealthPath || '/') ? 200 : 404;
+      const matches = String(tg.matcher || '200').split(',').some(part => { const range = part.split('-').map(Number); return code >= range[0] && code <= (range[1] == null ? range[0] : range[1]); });
+      if (!matches) return { State: 'unhealthy', Reason: 'Target.ResponseCodeMismatch', Description: `Health checks failed with these codes: [${code}]` };
+      return { State: 'healthy' };
+    }
+    function activity(a, description, extra) {
+      a.activities = a.activities || [];
+      const id = '00000000-0000-4000-8000-' + String(sim.activitySeq = (sim.activitySeq || 0) + 1).padStart(12, '0');
+      const v = { id, description, status: 'Successful', ...extra };
+      a.activities.unshift(v); return v;
+    }
+    function addGroupInstance(a) {
+      let id;
+      do { sim.instanceSeq = (sim.instanceSeq || 0) + 1; id = 'i-' + sim.instanceSeq.toString(16).padStart(17, '0'); }
+      while (list('instances').some(i => i.id === id));
+      const zones = String(a.vpcZone || '').split(',').filter(Boolean);
+      const members = (a.instances || []).map(id => list('instances').find(i => i.id === id)).filter(Boolean);
+      zones.sort((x, y) => members.filter(i => i.subnetId === x).length - members.filter(i => i.subnetId === y).length);
+      const sub = list('subnets').find(s => s.id === zones[0]);
+      const spec = a.launchTemplate || {}, sample = members[0] || {};
+      const instance = { id, name: a.name + '-' + sim.instanceSeq, type: spec.type || sample.type || 't3.small', state: 'running', appHealthy: true,
+        healthPath: spec.healthPath || '/healthz', appPort: spec.appPort || sample.appPort || 8080, vpcId: sub ? sub.vpcId : sample.vpcId, subnetId: sub ? sub.id : sample.subnetId,
+        az: sub ? sub.az : sample.az, sgIds: spec.sgIds || sample.sgIds || [], privateIp: '10.7.11.' + (10 + sim.instanceSeq), publicIp: null };
+      list('instances').push(instance); a.instances.push(id);
+      groupTargets().filter(tg => (a.targetGroupARNs || []).includes(tg.arn)).forEach(tg => {
+        tg.targets = tg.targets || []; tg.targets.push({ id, port: tg.port || 8080 });
+      });
+      return id;
+    }
+    function removeGroupInstance(a, id) {
+      const i = list('instances').find(i => i.id === id); if (i) i.state = 'terminated';
+      a.instances = (a.instances || []).filter(x => x !== id);
+      groupTargets().forEach(tg => { tg.targets = (tg.targets || []).filter(t => t.id !== id); });
+    }
+    function settleGroup(a, inspectHealth) {
+      a.instances = a.instances || [];
+      if (inspectHealth && a.healthCheckType === 'ELB') {
+        const tgs = groupTargets().filter(tg => (a.targetGroupARNs || []).includes(tg.arn));
+        const unhealthy = a.instances.filter(id => tgs.some(tg => (tg.targets || []).some(t => t.id === id && targetHealth(tg, t).State === 'unhealthy')));
+        unhealthy.forEach(oldId => {
+          removeGroupInstance(a, oldId); const newId = addGroupInstance(a);
+          activity(a, `Terminating EC2 instance: ${oldId}; launching replacement: ${newId}`, { oldId, newId, cause: 'Modeled ELB health reconciliation' });
+        });
+      }
+      while (a.instances.length < a.desired) { const newId = addGroupInstance(a); activity(a, 'Launching a new EC2 instance: ' + newId, { newId }); }
+      while (a.instances.length > a.desired) { const id = a.instances[a.instances.length - 1]; removeGroupInstance(a, id); activity(a, 'Terminating EC2 instance: ' + id, { oldId: id }); }
+    }
 
     switch (service) {
 
@@ -1765,36 +1896,213 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         return;
 
       /* ===================== ELBV2 ===================== */
-      case 'elbv2':
+      case 'elbv2': {
+        const tgArn = flag('target-group-arn');
+        const tg = groupTargets().find(t => t.arn === tgArn);
+        const jsonTG = t => ({ TargetGroupArn: t.arn, TargetGroupName: t.name, VpcId: t.vpcId,
+          Protocol: t.protocol || 'HTTP', Port: t.port || 8080, TargetType: t.targetType || 'instance',
+          HealthCheckPath: t.healthCheckPath || '/', HealthCheckProtocol: t.healthCheckProtocol || 'HTTP', HealthCheckPort: t.healthCheckPort || 'traffic-port',
+          HealthCheckIntervalSeconds: t.interval || 30, HealthCheckTimeoutSeconds: t.timeout || 5,
+          HealthyThresholdCount: t.healthyThreshold || 5, UnhealthyThresholdCount: t.unhealthyThreshold || 2,
+          Matcher: { HttpCode: t.matcher || '200' }, LoadBalancerArns: t.loadBalancerArn ? [t.loadBalancerArn] : [] });
         if (op === 'describe-load-balancers') {
-          const elbs = list('elbs');
-          if (!elbs.length) return print('ok', '{\n    "LoadBalancers": []\n}');
-          print('ok', '{\n    "LoadBalancers": [\n' +
-            elbs.map(l => `        { "LoadBalancerArn": "arn:aws:elasticloadbalancing:::loadbalancer/${l.name}", "LoadBalancerName": "${l.name}", "Type": "${l.type}", "Scheme": "${l.scheme}", "DNSName": "${l.dns}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-target-groups') {
-          print('ok', '{\n    "TargetGroups": []\n}');
-        } else if (op === 'describe-target-health') {
-          print('ok', '{\n    "TargetHealthDescriptions": []\n}');
-        } else {
-          print('err', `unknown ELBv2 op: ${op}`);
+          let lbs = list('elbs');
+          const names = flags('names'), arns = flags('load-balancer-arns');
+          if (names.length) lbs = lbs.filter(l => names.includes(l.name));
+          if (arns.length) lbs = lbs.filter(l => arns.includes(l.arn || l.id));
+          if ((names.length || arns.length) && !lbs.length) return print('err', 'LoadBalancerNotFound: One or more load balancers not found');
+          return resultJson({ LoadBalancers: lbs.map(l => ({ LoadBalancerArn: l.arn || `arn:aws:elasticloadbalancing:${sim.account.region || 'us-east-1'}:123456789012:loadbalancer/app/${l.name}/0000000000000001`,
+            LoadBalancerName: l.name, Type: l.type, Scheme: l.scheme, DNSName: l.dns,
+            State: { Code: 'active' }, SecurityGroups: l.sgIds || [], AvailabilityZones: (l.subnetIds || []).map(id => { const sub = list('subnets').find(s => s.id === id); return { SubnetId: id, ZoneName: sub && sub.az }; }) })) });
         }
-        return;
+        if (op === 'describe-listeners') {
+          const lb = list('elbs').find(l => (l.arn || l.id) === flag('load-balancer-arn'));
+          if (!lb) return print('err', 'LoadBalancerNotFound: Specify an existing --load-balancer-arn');
+          return resultJson({ Listeners: lb.listeners || [] });
+        }
+        if (op === 'describe-target-groups') {
+          const arns = flags('target-group-arns'), names = flags('names');
+          if (arns.some(arn => !groupTargets().some(t => t.arn === arn))) return print('err', 'TargetGroupNotFound: One or more target groups not found');
+          const groups = groupTargets().filter(t => (!arns.length || arns.includes(t.arn)) && (!names.length || names.includes(t.name)) && (!flag('load-balancer-arn') || t.loadBalancerArn === flag('load-balancer-arn')));
+          return resultJson({ TargetGroups: groups.map(jsonTG) });
+        }
+        if (!tgArn) return print('err', 'aws: error: the following arguments are required: --target-group-arn');
+        if (!tg) return print('err', `TargetGroupNotFound: Target group '${tgArn}' not found`);
+        if (op === 'describe-target-health') {
+          let targets = tg.targets || [];
+          if (toks.includes('--targets')) {
+            const selectors = flags('targets').map(s => s.match(/^Id=([^,]+)(?:,Port=(\d+))?$/));
+            if (!selectors.length || selectors.some(m => !m)) return print('err', 'error: --targets uses Id=instance-id,Port=8080 shorthand in this simulator');
+            targets = selectors.map(m => targets.find(t => t.id === m[1] && (!m[2] || t.port === Number(m[2]))) || { id: m[1], port: Number(m[2]) || tg.port, unregistered: true });
+          }
+          return resultJson({ TargetHealthDescriptions: targets.map(t => ({ Target: { Id: t.id, Port: t.port || tg.port }, HealthCheckPort: tg.healthCheckPort || 'traffic-port',
+            TargetHealth: t.unregistered ? { State: 'unused', Reason: 'Target.NotRegistered' } : targetHealth(tg, t) })) });
+        }
+        if (op === 'modify-target-group') {
+          const change = {};
+          if (toks.includes('--health-check-path')) {
+            const path = flag('health-check-path');
+            if (!path || !/^\/\S*$/.test(path) || path.length > 1024) return print('err', 'ValidationError: HealthCheckPath must start with / and contain no spaces');
+            change.healthCheckPath = path;
+          }
+          for (const [arg, key, lo, hi] of [['health-check-interval-seconds', 'interval', 5, 300], ['health-check-timeout-seconds', 'timeout', 2, 120], ['healthy-threshold-count', 'healthyThreshold', 2, 10], ['unhealthy-threshold-count', 'unhealthyThreshold', 2, 10]]) {
+            if (!toks.includes('--' + arg)) continue;
+            const n = Number(flag(arg));
+            if (!flag(arg) || !Number.isInteger(n) || n < lo || n > hi) return print('err', `ValidationError: --${arg} must be an integer ${lo}–${hi}`);
+            change[key] = n;
+          }
+          if (toks.includes('--health-check-port')) {
+            const port = flag('health-check-port');
+            if (port !== 'traffic-port' && (!/^\d+$/.test(port || '') || Number(port) < 1 || Number(port) > 65535)) return print('err', 'ValidationError: HealthCheckPort must be traffic-port or a port 1–65535');
+            change.healthCheckPort = port;
+          }
+          if (toks.includes('--matcher')) {
+            const m = (flag('matcher') || '').match(/^HttpCode=(\d{3})(?:-(\d{3}))?$/);
+            if (!m || Number(m[1]) < 200 || Number(m[1]) > 499 || (m[2] && (Number(m[2]) < Number(m[1]) || Number(m[2]) > 499))) return print('err', 'ValidationError: this HTTP matcher subset accepts HttpCode=200 or HttpCode=200-299');
+            change.matcher = m[1] + (m[2] ? '-' + m[2] : '');
+          }
+          if (!Object.keys(change).length) return print('err', 'error: specify supported health-check settings such as --health-check-path /healthz');
+          Object.assign(tg, change); return resultJson({ TargetGroups: [jsonTG(tg)] });
+        }
+        if (op === 'describe-target-group-attributes') return resultJson({ Attributes: Object.entries({ 'deregistration_delay.timeout_seconds': '300', ...(tg.attributes || {}) }).map(([Key, Value]) => ({ Key, Value })) });
+        if (op === 'modify-target-group-attributes') {
+          const values = flags('attributes'), changes = {};
+          if (!values.length) return print('err', 'aws: error: the following arguments are required: --attributes');
+          for (const raw of values) {
+            const m = raw.match(/^Key=([^,]+),Value=(.+)$/);
+            if (!m) return print('err', 'error: use --attributes Key=deregistration_delay.timeout_seconds,Value=30');
+            const [key, value] = [m[1], m[2]];
+            const supported = {
+              'deregistration_delay.timeout_seconds': v => /^\d+$/.test(v) && Number(v) <= 3600,
+              'stickiness.enabled': v => ['true', 'false'].includes(v),
+              'stickiness.type': v => ['lb_cookie', 'app_cookie'].includes(v),
+              'load_balancing.algorithm.type': v => ['round_robin', 'least_outstanding_requests', 'weighted_random'].includes(v),
+              'load_balancing.cross_zone.enabled': v => ['true', 'false', 'use_load_balancer_configuration'].includes(v),
+            };
+            if (!Object.prototype.hasOwnProperty.call(supported, key) || !supported[key](value)) return print('err', `InvalidConfigurationRequest: invalid or unsupported target group attribute '${key}=${value}'`);
+            changes[key] = value;
+          }
+          tg.attributes = { ...(tg.attributes || {}), ...changes };
+          return resultJson({ Attributes: Object.entries(tg.attributes).map(([Key, Value]) => ({ Key, Value })) });
+        }
+        if (op === 'register-targets' || op === 'deregister-targets') {
+          const values = flags('targets'), targets = [];
+          if (!values.length) return print('err', 'aws: error: the following arguments are required: --targets');
+          for (const raw of values) {
+            const m = raw.match(/^Id=([^,]+)(?:,Port=(\d+))?$/);
+            if (!m) return print('err', 'error: use --targets Id=instance-id,Port=8080');
+            const port = Number(m[2] || tg.port || 8080), inst = list('instances').find(i => i.id === m[1]);
+            if (port < 1 || port > 65535) return print('err', 'ValidationError: target port must be 1–65535');
+            if (op === 'register-targets' && (!inst || inst.state !== 'running' || (tg.vpcId && inst.vpcId !== tg.vpcId))) return print('err', 'InvalidTarget: target must be a running instance in the target group VPC');
+            targets.push({ id: m[1], port });
+          }
+          tg.targets = tg.targets || [];
+          targets.forEach(t => {
+            const existing = tg.targets.find(x => x.id === t.id && x.port === t.port);
+            if (op === 'register-targets') { if (existing) delete existing.draining; else tg.targets.push(t); }
+            else if (existing) existing.draining = true;
+          });
+          if (op === 'deregister-targets') print('sys', 'Simulator: targets marked draining; target-deregistered waiter completes the modeled delay. Real in-flight requests are not simulated.');
+          return;
+        }
+        if (op === 'wait' && toks[3] === 'target-deregistered') {
+          tg.targets = (tg.targets || []).filter(t => !t.draining);
+          return print('sys', 'Simulator waiter: modeled deregistration completed; no real elapsed delay or connections tested.');
+        }
+        print('err', `unknown ELBv2 op: ${op}`); return;
+      }
 
       /* ===================== AUTOSCALING ===================== */
-      case 'autoscaling':
+      case 'autoscaling': {
+        const name = flag('auto-scaling-group-name');
+        const group = list('asgs').find(a => a.name === name);
+        const jsonActivity = v => ({ ActivityId: v.id, Description: v.description, Cause: v.cause || 'Deterministic simulator transition', StatusCode: v.status, Progress: 100 });
+        const jsonGroup = a => ({ AutoScalingGroupName: a.name, MinSize: a.min, MaxSize: a.max, DesiredCapacity: a.desired,
+          VPCZoneIdentifier: a.vpcZone || 'subnet-1,subnet-2', HealthCheckType: a.healthCheckType || 'EC2', HealthCheckGracePeriod: a.gracePeriod == null ? 0 : a.gracePeriod,
+          DefaultInstanceWarmup: a.warmup, TargetGroupARNs: a.targetGroupARNs || [],
+          LaunchTemplate: a.launchTemplate ? { LaunchTemplateId: a.launchTemplate.id, Version: a.launchTemplate.version || '1' } : undefined,
+          Instances: (a.instances || []).map(id => {
+            const i = list('instances').find(i => i.id === id);
+            const elbBad = a.healthCheckType === 'ELB' && groupTargets().filter(tg => (a.targetGroupARNs || []).includes(tg.arn)).some(tg => (tg.targets || []).some(t => t.id === id && targetHealth(tg, t).State === 'unhealthy'));
+            return { InstanceId: id, LifecycleState: 'InService', HealthStatus: !i || i.state !== 'running' || elbBad ? 'Unhealthy' : 'Healthy', AvailabilityZone: i && i.az };
+          }) });
         if (op === 'describe-auto-scaling-groups') {
-          const asgs = list('asgs');
-          if (!asgs.length) return print('ok', '{\n    "AutoScalingGroups": []\n}');
-          print('ok', '{\n    "AutoScalingGroups": [\n' +
-            asgs.map(a => `        { "AutoScalingGroupName": "${a.name}", "MinSize": ${a.min}, "MaxSize": ${a.max}, "DesiredCapacity": ${a.desired}, "VPCZoneIdentifier": "${a.vpcZone || 'subnet-1,subnet-2'}", "Instances": [${(a.instances || []).map(i => `{ "InstanceId": "${i}", "LifecycleState": "InService" }`).join(', ')}] }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-auto-scaling-instances') {
-          print('ok', '{\n    "AutoScalingInstances": []\n}');
-        } else {
-          print('err', `unknown AutoScaling op: ${op}`);
+          const names = flags('auto-scaling-group-names');
+          return resultJson({ AutoScalingGroups: list('asgs').filter(a => !names.length || names.includes(a.name)).map(jsonGroup) });
         }
-        return;
+        if (op === 'describe-auto-scaling-instances') {
+          const ids = flags('instance-ids');
+          return resultJson({ AutoScalingInstances: list('asgs').flatMap(a => jsonGroup(a).Instances.filter(i => !ids.length || ids.includes(i.InstanceId)).map(i => ({ ...i, AutoScalingGroupName: a.name }))) });
+        }
+        if (op === 'terminate-instance-in-auto-scaling-group' || op === 'set-instance-health') {
+          const id = flag('instance-id'), a = list('asgs').find(a => (a.instances || []).includes(id));
+          if (!id) return print('err', 'aws: error: the following arguments are required: --instance-id');
+          if (!a) return print('err', `ValidationError: Instance ${id} is not part of an Auto Scaling group`);
+          if (op === 'set-instance-health') return print('err', 'Simulator: custom health events are not modeled; use the seeded app failure or terminate-instance-in-auto-scaling-group.');
+          const decrement = toks.includes('--should-decrement-desired-capacity'), preserve = toks.includes('--no-should-decrement-desired-capacity');
+          if (decrement === preserve) return print('err', 'aws: error: specify exactly one of --should-decrement-desired-capacity or --no-should-decrement-desired-capacity');
+          if (decrement && a.desired <= a.min) return print('err', 'ValidationError: Cannot decrement desired capacity below MinSize');
+          removeGroupInstance(a, id); if (decrement) a.desired--;
+          const before = new Set(a.instances); settleGroup(a, false);
+          const newId = a.instances.find(x => !before.has(x));
+          const act = activity(a, `Terminating EC2 instance: ${id}` + (newId ? '; launching replacement: ' + newId : ''), { oldId: id, newId });
+          print('sys', 'Simulator completed the modeled ASG transition immediately; real AWS activity is asynchronous.');
+          return resultJson({ Activity: jsonActivity(act) });
+        }
+        if (!name) return print('err', 'aws: error: the following arguments are required: --auto-scaling-group-name');
+        if (!group) return print('err', `ValidationError: AutoScalingGroup name not found - AutoScalingGroup ${name} not found`);
+        if (op === 'describe-policies') return resultJson({ ScalingPolicies: group.policies || [] });
+        if (op === 'describe-scaling-activities') return resultJson({ Activities: (group.activities || []).map(jsonActivity) });
+        if (op === 'put-scaling-policy') {
+          const policyName = flag('policy-name'), type = flag('policy-type'), raw = flag('target-tracking-configuration');
+          if (!policyName || !raw || !type) return print('err', 'aws: error: --policy-name, --policy-type and --target-tracking-configuration required');
+          if (type !== 'TargetTrackingScaling') return print('err', 'Simulator supports TargetTrackingScaling policies here; other AWS policy types are taught in the lesson.');
+          let config; try { config = JSON.parse(raw); } catch (e) { return print('err', 'Error parsing parameter --target-tracking-configuration: Invalid JSON'); }
+          const metric = config && config.PredefinedMetricSpecification && config.PredefinedMetricSpecification.PredefinedMetricType;
+          if (!config || typeof config.TargetValue !== 'number' || !Number.isFinite(config.TargetValue) || config.TargetValue <= 0 || !['ASGAverageCPUUtilization', 'ASGAverageNetworkIn', 'ASGAverageNetworkOut', 'ALBRequestCountPerTarget'].includes(metric)) return print('err', 'ValidationError: positive numeric TargetValue and supported PredefinedMetricSpecification required');
+          if (config.DisableScaleIn !== undefined && typeof config.DisableScaleIn !== 'boolean') return print('err', 'ValidationError: DisableScaleIn must be a JSON boolean');
+          if (metric === 'ASGAverageCPUUtilization' && config.TargetValue > 100) return print('err', 'ValidationError: CPU target must be <= 100 percent');
+          if (metric === 'ALBRequestCountPerTarget' && !config.PredefinedMetricSpecification.ResourceLabel) return print('err', 'ValidationError: ResourceLabel is required for ALBRequestCountPerTarget');
+          let warmup;
+          if (toks.includes('--estimated-instance-warmup')) {
+            warmup = Number(flag('estimated-instance-warmup'));
+            if (!flag('estimated-instance-warmup') || !Number.isInteger(warmup) || warmup < 0) return print('err', 'ValidationError: EstimatedInstanceWarmup must be a nonnegative integer seconds');
+          }
+          const policy = { PolicyName: policyName, AutoScalingGroupName: name, PolicyType: type, TargetTrackingConfiguration: config, EstimatedInstanceWarmup: warmup };
+          group.policies = (group.policies || []).filter(p => p.PolicyName !== policyName); group.policies.push(policy);
+          return resultJson({ PolicyARN: `arn:aws:autoscaling:${sim.account.region || 'us-east-1'}:123456789012:scalingPolicy:00000000-0000-4000-8000-000000000001:autoScalingGroupName/${name}:policyName/${policyName}` });
+        }
+        if (op === 'update-auto-scaling-group' || op === 'set-desired-capacity') {
+          const next = { ...group }; let touched = false;
+          const numbers = op === 'set-desired-capacity' ? [['desired-capacity', 'desired']] : [['min-size', 'min'], ['max-size', 'max'], ['desired-capacity', 'desired'], ['health-check-grace-period', 'gracePeriod'], ['default-instance-warmup', 'warmup']];
+          for (const [arg, key] of numbers) {
+            if (!toks.includes('--' + arg)) continue;
+            const value = Number(flag(arg));
+            if (!flag(arg) || !Number.isInteger(value) || value < 0) return print('err', `ValidationError: --${arg} must be a nonnegative integer`);
+            if (['min', 'max', 'desired'].includes(key) && value > 1000) return print('err', 'Simulator budget: capacity above 1000 instances is not modeled. Real AWS quotas must be reviewed separately.');
+            next[key] = value; touched = true;
+          }
+          if (op === 'set-desired-capacity' && !toks.includes('--desired-capacity')) return print('err', 'aws: error: the following arguments are required: --desired-capacity');
+          if (next.min > next.max) return print('err', 'ValidationError: MinSize cannot be greater than MaxSize');
+          if (!toks.includes('--desired-capacity') && op === 'update-auto-scaling-group') next.desired = Math.min(next.max, Math.max(next.min, next.desired));
+          if (next.desired < next.min || next.desired > next.max) return print('err', 'ValidationError: Desired capacity must be between MinSize and MaxSize');
+          if (toks.includes('--health-check-type')) {
+            if (!['EC2', 'ELB'].includes(flag('health-check-type'))) return print('err', 'ValidationError: modeled HealthCheckType values are EC2 or ELB');
+            next.healthCheckType = flag('health-check-type'); touched = true;
+          }
+          if (toks.includes('--vpc-zone-identifier')) {
+            const ids = String(flag('vpc-zone-identifier') || '').split(',');
+            const subs = ids.map(id => list('subnets').find(s => s.id === id));
+            if (subs.some(s => !s) || new Set(ids).size !== ids.length || new Set(subs.map(s => s.vpcId)).size !== 1) return print('err', 'ValidationError: VPCZoneIdentifier must list unique existing subnets in one VPC');
+            next.vpcZone = ids.join(','); touched = true;
+          }
+          if (!touched) return print('err', 'error: specify a supported Auto Scaling group setting');
+          Object.assign(group, next); settleGroup(group, true);
+          if (next.healthCheckType === 'ELB') print('sys', 'Simulator reconciled modeled ELB health immediately. Real AWS observes health/grace periods asynchronously.');
+          return;
+        }
+        print('err', `unknown AutoScaling op: ${op}`); return;
+      }
 
       /* ===================== SQS ===================== */
       case 'sqs':

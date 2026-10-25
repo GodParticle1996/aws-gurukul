@@ -1,8 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-25
 
-Completed through **Beginner level 6 `rds`** (6 of 8 Beginner levels). Next: ask the user the questions in
-`VixiApps/MASTER-PLAN-aws-gurukul.md` §1, record the answers below under "User decisions", then **Beginner 7 `elbasg`**
-(master plan §5.A1).
+Completed through **Beginner level 7 `elbasg`** (7 of 8 Beginner levels). All eight master-plan §1
+preferences are answered. Next: **Beginner 8 `boss1`** (master plan §5.A2), then the required Beginner track checkpoint.
 
 ## User decisions
 
@@ -24,16 +23,68 @@ Round 2 answered on 2026-10-25:
 8. **Extras:** all four — resume + export/import, glossary/search, Lab Hub, printable Kab kya cheatsheet.
    Offline PWA and the daily 10-minute plan were not selected.
 
-All eight initial preference questions are answered. Next implementation: Beginner 7 `elbasg` (master plan §5.A1).
+All eight initial preference questions are answered. Next implementation: Beginner 8 `boss1` (master plan §5.A2).
 Two-part level UX is selected and scheduled with Phase E, in the chosen levels-first order.
 
 Exam check on 2026-10-25: the current [official AWS exam guide](https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03.html)
 lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement found in the official-source check.
 
-All changes local and uncommitted. No push/deployment. Existing work from levels 1–4 preserved.
+Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
+Per-level commits are authorized. No push/deployment.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 172 stages, 47/47 terminal missions,
-24 interactive labs, 6 real-lab projects. Includes 471 VPC + 304 RDS focused regression checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 176 stages, 49/49 terminal missions,
+28 interactive labs, 7 real-lab projects. Includes 471 VPC + 304 RDS + 176,283 ALB/ASG regression checks.
+
+## Level 7 loop completed
+
+1. Read the old ALB/ASG level and visual. Removed unsupported incident, S3-as-ALB-target, universal instant scaling,
+   zero-downtime and hard-coded 70/30 threshold claims. Explicit EC2-default versus opt-in ELB application health.
+2. Added `data-beg-7-elbasg.js`: same ID, 8 lesson cards, 4 myths, playbook, 9 exam cues;
+   dryrun → flowlab → match → bins → triage → terminal → docker → 8 bonus MCQs;
+   4 interview MCQs + state-changing terminal, 8 flashcards, optional real-AWS cost/cleanup homework.
+3. Ran real Moto CLI experiments first: ALB/target group + launch-template/ASG in two AZs, capacity 2→3,
+   terminate without decrement → count remains 3 and old member disappears, health-path /healthz, ELB health opt-in,
+   30-second drain and CPU50 target tracking. Added lab 07 setup/cleanup/README with captured outputs.
+4. Extended simulator with strict ELB/ASG flags, target health/path/port checks, deterministic replacement,
+   ASG capacity/placement, policy/attributes, registration/draining and bounded query/text output. Invalid edits
+   are atomic; unsupported query syntax gives an explicit error. Simulator transitions are immediate models.
+5. Primary mission needs all four actions and preserves the original healthy instance; interview requires capacity
+   plus replacement. `validate-elb.js` checks 64,800 planner states, every omitted action, wrong order, matcher hacks,
+   killing good servers, zero-capacity shortcuts, missing/invalid flags, queries, parser garbage and clean replays.
+6. Removed old block, registered the new file, linked compute Decision Dojo and corrected concept-visual caption.
+7. `node validate.js` passes; pronoun lint and `git diff --check` clean.
+8. Inspected intro/dryrun/planner start+solved/terminal screenshots at 1280px and 360px. 18 browser samples:
+   no page overflow or console/page errors. Both dry-run decisions, documented sliders and keyboard mission pass.
+9. Replayed every README exercise against a newly created lab; cleanup returns three empty resource queries.
+   Shared Moto was not reset. No Docker, real AWS, installs or push.
+
+Evidence: `/tmp/aws-gurukul-elbasg/{CLI-CAPTURE,EXTRA-CAPTURE,SETUP-REPLAY,README-REPLAY}.txt`,
+`BROWSER-REPORT.json`, `screenshots/`. Repeatable suite: `node validate-elb.js` (also in-process from validator).
+
+Moto limits verified: EC2 has no OS; healthy target metadata does not prove an HTTP probe. A replacement activity
+returns InProgress but describe-scaling-activities returns `[]`. A separate target-registration probe disagreed
+with ASG member count. Teach membership/health as separate checks; do not claim real startup, draining or failover timing.
+
+Plan corrections: all registered ALB targets unhealthy can **fail open**, rather than always return 503; triage
+therefore diagnoses a 404 readiness path while requests can still work. NLB can target an ALB; ALB cannot target
+another ALB natively. Two games follow the 1–2-game DoD; request ordering is covered by dry run and lesson instead
+of a third order game. Two-part Samjho/Karo UX remains scheduled for Phase E, following the chosen levels-first order.
+Prices are approximate us-east-1 examples; planner RPS values are explicitly toy load-test assumptions, not EC2 ratings.
+
+Level 7 sources checked this session:
+- [ALB health checks, fail-open and defaults](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/target-group-health-checks.html)
+- [ALB target types](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-target-groups.html)
+- [Target attributes, algorithms and draining](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/edit-target-group-attributes.html)
+- [Cross-zone behavior](https://docs.aws.amazon.com/elasticloadbalancing/latest/userguide/how-elastic-load-balancing-works.html)
+- [ASG health checks](https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-checks-overview.html)
+- [Health grace](https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-check-grace-period.html)
+- [Instance warmup](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html)
+- [Target tracking](https://docs.aws.amazon.com/autoscaling/ec2/userguide/as-scaling-target-tracking.html)
+- [Predictive scaling](https://docs.aws.amazon.com/autoscaling/ec2/userguide/predictive-scaling-policy-overview.html)
+- [Forwarded header trust boundary](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/x-forwarded-headers.html)
+- [LB list pricing and LCU dimensions](https://aws.amazon.com/elasticloadbalancing/pricing/)
+- [T3 sizes and illustrative list prices](https://docs.aws.amazon.com/prescriptive-guidance/latest/optimize-costs-microsoft-workloads/right-size-selection.html)
+- [ASG pricing](https://aws.amazon.com/ec2/autoscaling/pricing/)
 
 ## Level 6 loop completed
 

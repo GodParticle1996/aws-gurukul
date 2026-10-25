@@ -173,7 +173,7 @@ const VISUALS = {
           </div>
         </div>
       </div>
-      <div class="dg-cap"><b>ALB</b> = Layer-7 load balancer (HTTP/HTTPS), traffic healthy targets par baantta hai. <b>ASG</b> = CPU high → instances add; traffic kam → remove. Mara hua instance replace. <b>Health checks</b> = target fail → traffic band.</div>`,
+      <div class="dg-cap"><b>ALB</b> HTTP listener/rules se target group choose karta hai; all-registered-targets-unhealthy par fail open kar sakta hai. <b>ASG</b> desired capacity maintain karta hai. Default ASG <b>EC2 health</b> hai; app failure replacement ke liye <b>ELB health opt-in</b> chahiye. App readiness, warmup aur request draining alag controls hain.</div>`,
   },
 
   boss1: {

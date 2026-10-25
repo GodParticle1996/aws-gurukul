@@ -13,7 +13,7 @@ AG.registerDecisions([
     title: 'Code kahan chalaun? — Lambda, Fargate, ECS/EKS, EC2, Batch',
     short: 'Compute chuno',
     tldr: 'Traffic ka shape decide karta hai: spiky aur chhote kaam → Lambda. Hamesha chalne wali container service → Fargate. Kubernetes ki zaroorat → EKS. Poora control, GPU, ya licence → EC2. Lambi batch jobs → AWS Batch.',
-    levels: ['ec2', 'lambda', 'containers', 'compute'],
+    levels: ['ec2', 'lambda', 'containers', 'compute', 'elbasg'],
     start: 'q1',
     nodes: {
       q1: {
