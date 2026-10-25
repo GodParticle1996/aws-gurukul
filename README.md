@@ -112,7 +112,7 @@ Poora guide: [`EXTENDING.md`](EXTENDING.md)
 | `app.js` | Screens: home, track maps, stages, interview, Dojo, pop quiz, certificates |
 | `visuals.js` | 38 concept diagrams (`VISUALS[levelId]`) |
 | `data-core.js` | Ranks + track definitions |
-| `data-beginner.js` / `data-intermediate.js` / `data-advanced.js` | Level content |
+| `data-beg-*.js` / `data-intermediate.js` / `data-advanced.js` | Level content |
 | `data-architect.js` | Track 4 — decision-first service selection (PixShare story) |
 | `validate.js` | **Offline full-app validator** — `node validate.js` |
 | `gallery.html` | Saare diagrams ek page par |

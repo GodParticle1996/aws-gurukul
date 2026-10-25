@@ -61,7 +61,7 @@ AG.registerDecisions([
     title: 'Password / API key kahan rakhun? — Secrets Manager, Parameter Store, env vars',
     short: 'Secrets storage',
     tldr: 'Auto-rotation chahiye (DB passwords) → Secrets Manager. Config + kabhi-kabhi secret, rotation nahi, free chahiye → SSM Parameter Store (SecureString). Code ya plain env var mein secret = galat.',
-    levels: ['security', 'iam'],
+    levels: ['security', 'iam', 'boss1'],
     start: 'q1',
     nodes: {
       q1: {

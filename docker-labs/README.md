@@ -52,6 +52,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `05-vpc-build` | 🌐 VPC basics | 2 AZs, 4 subnets, IGW route + public associations, private main table, default NACL, association repair; same layout Terraform se |
 | `06-rds-recovery` | 🗄️ RDS | Multi-AZ + 7-day backups, managed-password metadata, snapshot, separate reporting replica, new-instance restore; actual SQL/failover emulator nahi chalata |
 | `07-alb-asg-selfheal` | ⚖️ ALB + ASG | launch template, 2-AZ ASG, desired capacity, instance replacement, health/policy/draining metadata; no actual HTTP or metric-driven scaling |
+| `08-three-tier-terraform` | 🏆 Boss architecture | connected two-AZ Terraform stack, scoped SG chain, instance role, ALB/ASG/RDS/S3, per-AZ egress, API review and destroy |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

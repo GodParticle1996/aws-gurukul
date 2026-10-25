@@ -166,6 +166,7 @@ Full delete responses bahut verbose hain; cleanup ke liye response fields memori
 
 - Moto RDS metadata store karta hai; PostgreSQL server, `psql`, SQL correctness, replication, read lag, real failover ya PITR replay nahi chalta.
 - Moto ka default engine-version metadata old ho sakta hai. Real AWS engine version support page se current approved version select karo.
+- **AWS compatibility gap:** Moto accepted a PostgreSQL read replica from the managed-master-password source in ex3. Current real RDS docs do not support that source combination (exceptions: SQL Server/Db2). Treat ex3 as emulator metadata only; for a real PostgreSQL replica lab use a separate source with a supported credential-management design. Do not copy the combined managed-master-secret + read-replica flow into production. [Current RDS limitation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html).
 - `Secret: active` password-management metadata dikhata hai; actual DB login/rotation integration ka proof nahi.
 - `available` waiter HA drill ya backup-restore data test ka substitute nahi. Managed database ke schema/indexes, connection pools aur application retries customer responsibilities hain.
 - Real AWS practice optional aur billable hai; DB instance(s), storage, backups, Secrets Manager, Proxy aur transfer costs separately estimate karo. Local lab $0 AWS bill hai.

@@ -25,7 +25,7 @@ focus. Pure HTML/CSS/JS — no build, no dependencies, sab kuch browser mein.
 | `app.js` | Screens: home, track, level, interview, dojo, certs | Same engine, AWS branding |
 | `style.css` | AWS orange (#ff9900) + dark navy (#232f3e) theme | AWS color palette |
 | `data-core.js` | Ranks + track definitions | AWS-themed ranks & tracks |
-| `data-beginner.js` | 8 levels: Cloud 101 → Boss | Full content |
+| `data-beg-*.js` | 8 levels: Cloud 101 → Boss | Full content |
 | `data-intermediate.js` | 11 levels: VPC deep dive → Boss | Full content |
 | `data-advanced.js` | 10 levels: Well-Architected → Final Boss | Full content |
 | `index.html` | Entry point | Script tags for AG |
@@ -167,7 +167,7 @@ help · ls · clear · hint
 6. `app.js` — screens
 7. `style.css` — AWS theme
 8. `index.html` + `data-core.js` — entry + ranks/tracks
-9. `data-beginner.js` — 8 levels
+9. `data-beg-*.js` — 8 levels
 10. `data-intermediate.js` — 9 levels
 11. `data-advanced.js` — 9 levels
 12. `EXTENDING.md` — extensibility guide

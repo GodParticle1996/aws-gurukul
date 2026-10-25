@@ -393,7 +393,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws ec2 associate-route-table --route-table-id <rtb> --subnet-id <subnet>',
         '  aws ec2 replace-route-table-association --association-id <rtbassoc> --route-table-id <rtb>   |   describe-network-acls',
         '  aws ec2 describe-instances --instance-ids <id>   |  ... --filters Name=tag:Name,Values=<n>',
-        '  aws ec2 authorize-security-group-ingress / revoke-security-group-ingress --group-id <sg> --protocol tcp --port <n> --cidr <cidr>',
+        '  aws ec2 authorize-security-group-ingress / revoke-security-group-ingress --group-id <sg> --protocol tcp --port <n> --cidr <cidr> (ya --source-group <sg>; JSON --ip-permissions bhi supported)',
         '  aws ec2 stop-instances / start-instances / reboot-instances / terminate-instances --instance-ids <id>',
         '  aws ec2 modify-instance-metadata-options --instance-id <id> --http-tokens required  |  modify-instance-attribute --instance-type Value=<t>',
         '  aws ec2 create-snapshot --volume-id <vol> --description <d>  |  describe-snapshots  |  allocate-address / associate-address / describe-addresses',
@@ -490,8 +490,17 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (service === 'elbv2' || service === 'autoscaling') {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds'].includes(service)) {
       const specs = {
+        ec2: {
+          'describe-security-groups': ['group-ids*', 'group-names*', 'filters*'],
+          'authorize-security-group-ingress': ['group-id', 'group-name', 'protocol', 'port', 'cidr', 'source-group', 'ip-permissions', 'dry-run!', 'no-dry-run!'],
+          'revoke-security-group-ingress': ['group-id', 'group-name', 'protocol', 'port', 'cidr', 'source-group', 'ip-permissions', 'dry-run!', 'no-dry-run!'],
+        },
+        s3api: { 'put-public-access-block': ['bucket', 'public-access-block-configuration', 'expected-bucket-owner'], 'get-public-access-block': ['bucket', 'expected-bucket-owner'] },
+        rds: {
+          'modify-db-instance': ['db-instance-identifier', 'multi-az!', 'no-multi-az!', 'publicly-accessible!', 'no-publicly-accessible!', 'deletion-protection!', 'no-deletion-protection!', 'apply-immediately!', 'no-apply-immediately!', 'backup-retention-period', 'allocated-storage', 'max-allocated-storage', 'db-instance-class'],
+        },
         elbv2: {
           'describe-load-balancers': ['load-balancer-arns*', 'names*'], 'describe-listeners': ['load-balancer-arn'],
           'describe-target-groups': ['target-group-arns*', 'names*', 'load-balancer-arn'], 'describe-target-health': ['target-group-arn', 'targets*'],
@@ -587,12 +596,18 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       while (list('instances').some(i => i.id === id));
       const zones = String(a.vpcZone || '').split(',').filter(Boolean);
       const members = (a.instances || []).map(id => list('instances').find(i => i.id === id)).filter(Boolean);
-      zones.sort((x, y) => members.filter(i => i.subnetId === x).length - members.filter(i => i.subnetId === y).length);
+      const azOf = id => (list('subnets').find(s => s.id === id) || {}).az;
+      zones.sort((x, y) => members.filter(i => i.az === azOf(x)).length - members.filter(i => i.az === azOf(y)).length || members.filter(i => i.subnetId === x).length - members.filter(i => i.subnetId === y).length);
       const sub = list('subnets').find(s => s.id === zones[0]);
       const spec = a.launchTemplate || {}, sample = members[0] || {};
+      const cidr = sub && sub.cidr && sub.cidr.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/);
+      const baseIP = cidr ? cidr.slice(1, 5).reduce((n, x) => n * 256 + Number(x), 0) : 168234752;
+      const block = cidr ? 2 ** (32 - Number(cidr[5])) : 256;
+      const hostIP = Math.floor(baseIP / block) * block + 4 + (sim.instanceSeq % Math.max(1, block - 5));
+      const privateIP = [24, 16, 8, 0].map(b => Math.floor(hostIP / 2 ** b) % 256).join('.');
       const instance = { id, name: a.name + '-' + sim.instanceSeq, type: spec.type || sample.type || 't3.small', state: 'running', appHealthy: true,
         healthPath: spec.healthPath || '/healthz', appPort: spec.appPort || sample.appPort || 8080, vpcId: sub ? sub.vpcId : sample.vpcId, subnetId: sub ? sub.id : sample.subnetId,
-        az: sub ? sub.az : sample.az, sgIds: spec.sgIds || sample.sgIds || [], privateIp: '10.7.11.' + (10 + sim.instanceSeq), publicIp: null };
+        az: sub ? sub.az : sample.az, sgIds: spec.sgIds || sample.sgIds || [], role: spec.role || sample.role, privateIp: privateIP, publicIp: null };
       list('instances').push(instance); a.instances.push(id);
       groupTargets().filter(tg => (a.targetGroupARNs || []).includes(tg.arn)).forEach(tg => {
         tg.targets = tg.targets || []; tg.targets.push({ id, port: tg.port || 8080 });
@@ -606,9 +621,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
     function settleGroup(a, inspectHealth) {
       a.instances = a.instances || [];
-      if (inspectHealth && a.healthCheckType === 'ELB') {
+      if (inspectHealth) {
         const tgs = groupTargets().filter(tg => (a.targetGroupARNs || []).includes(tg.arn));
-        const unhealthy = a.instances.filter(id => tgs.some(tg => (tg.targets || []).some(t => t.id === id && targetHealth(tg, t).State === 'unhealthy')));
+        const unhealthy = a.instances.filter(id => {
+          const i = list('instances').find(i => i.id === id);
+          return !i || i.state !== 'running' || (a.healthCheckType === 'ELB' && tgs.some(tg => (tg.targets || []).some(t => t.id === id && targetHealth(tg, t).State === 'unhealthy')));
+        });
         unhealthy.forEach(oldId => {
           removeGroupInstance(a, oldId); const newId = addGroupInstance(a);
           activity(a, `Terminating EC2 instance: ${oldId}; launching replacement: ${newId}`, { oldId, newId, cause: 'Modeled ELB health reconciliation' });
@@ -952,10 +970,25 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         } else if (op === 'put-public-access-block') {
           const b = find('buckets', flag('bucket'));
           if (!b) return print('err', `NoSuchBucket: ${flag('bucket')}`);
-          const c = flag('public-access-block-configuration') || '';
-          const get = n => new RegExp(n + '=true', 'i').test(c) || new RegExp('"' + n + '"\\s*:\\s*true', 'i').test(c);
-          b.bpa = { BlockPublicAcls: get('BlockPublicAcls'), IgnorePublicAcls: get('IgnorePublicAcls'), BlockPublicPolicy: get('BlockPublicPolicy'), RestrictPublicBuckets: get('RestrictPublicBuckets') };
-          if (b.bpa.RestrictPublicBuckets && b.policy && isPublicPolicy(b.policy)) b.public = false;
+          const raw = flag('public-access-block-configuration');
+          if (!raw) return print('err', 'aws: error: --public-access-block-configuration is required');
+          const keys = ['BlockPublicAcls', 'IgnorePublicAcls', 'BlockPublicPolicy', 'RestrictPublicBuckets'];
+          let config;
+          try {
+            if (raw.trim().startsWith('{')) config = JSON.parse(raw);
+            else {
+              config = {};
+              for (const pair of raw.split(',')) {
+                const m = pair.trim().match(/^(\w+)=(true|false)$/);
+                if (!m || Object.prototype.hasOwnProperty.call(config, m[1])) throw Error('Use Key=true/false pairs or a JSON object with boolean values');
+                config[m[1]] = m[2] === 'true';
+              }
+            }
+            if (!config || Array.isArray(config) || typeof config !== 'object' || !Object.keys(config).length || Object.keys(config).some(k => !keys.includes(k) || typeof config[k] !== 'boolean')) throw Error('Only the four documented Block Public Access keys with boolean values are accepted');
+          } catch (e) { return print('err', 'Error parsing parameter --public-access-block-configuration: ' + e.message); }
+          b.bpa = Object.fromEntries(keys.map(k => [k, config[k] === true]));
+          if (b.policy) b.public = isPublicPolicy(b.policy) && !b.bpa.RestrictPublicBuckets;
+          else if (b.bpa.IgnorePublicAcls) b.public = false;
           print('ok', '');
         } else if (op === 'get-public-access-block') {
           const b = find('buckets', flag('bucket'));
@@ -1036,14 +1069,20 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             subs.map(s => `        { "SubnetId": "${s.id}", "VpcId": "${s.vpcId}", "CidrBlock": "${s.cidr}", "AvailabilityZone": "${s.az}", "MapPublicIpOnLaunch": ${s.public ? 'true' : 'false'}, "Tags": [{ "Key": "Name", "Value": "${s.name}" }] }`).join(',\n') +
             '\n    ]\n}');
         } else if (op === 'describe-security-groups') {
-          const sgs = list('securityGroups');
-          if (!sgs.length) return print('ok', '{\n    "SecurityGroups": []\n}');
-          print('ok', '{\n    "SecurityGroups": [\n' +
-            sgs.map(sg => {
-              const ingress = (sg.ingress || []).map(r => `{ "IpProtocol": "${r.protocol || 'tcp'}", "FromPort": ${r.fromPort}, "ToPort": ${r.toPort}, "IpRanges": [{ "CidrIp": "${r.cidr}" }] }`).join(', ');
-              return `        { "GroupId": "${sg.id}", "GroupName": "${sg.name}", "VpcId": "${sg.vpcId}", "IpPermissions": [${ingress}] }`;
-            }).join(',\n') +
-            '\n    ]\n}');
+          let sgs = list('securityGroups');
+          const ids = flags('group-ids'), names = flags('group-names');
+          if (ids.some(id => !sgs.some(g => g.id === id))) return print('err', 'InvalidGroup.NotFound: one or more security group IDs do not exist');
+          if (ids.length) sgs = sgs.filter(g => ids.includes(g.id));
+          if (names.length) sgs = sgs.filter(g => names.includes(g.name));
+          for (const filter of flags('filters')) {
+            const m = filter.match(/^Name=(group-id|group-name|vpc-id),Values=(.+)$/);
+            if (!m) return print('err', 'Simulator supports group-id, group-name and vpc-id security-group filters; omit --filters for full state.');
+            const key = { 'group-id': 'id', 'group-name': 'name', 'vpc-id': 'vpcId' }[m[1]], values = m[2].split(',');
+            sgs = sgs.filter(g => values.includes(g[key]));
+          }
+          return resultJson({ SecurityGroups: sgs.map(sg => ({ GroupId: sg.id, GroupName: sg.name, VpcId: sg.vpcId,
+            IpPermissions: (sg.ingress || []).map(r => ({ IpProtocol: r.protocol || 'tcp', ...(r.protocol === '-1' ? {} : { FromPort: r.fromPort, ToPort: r.toPort }),
+              IpRanges: r.cidr ? [{ CidrIp: r.cidr }] : [], UserIdGroupPairs: r.sourceGroup ? [{ GroupId: r.sourceGroup, UserId: '123456789012' }] : [] })) })) });
         } else if (op === 'describe-volumes') {
           const vols = list('volumes');
           if (!vols.length) return print('ok', '{\n    "Volumes": []\n}');
@@ -1058,23 +1097,59 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         } else if (op === 'describe-regions') {
           print('ok', '{\n    "Regions": [\n        { "RegionName": "us-east-1" }, { "RegionName": "us-west-2" }, { "RegionName": "ap-south-1" }, { "RegionName": "eu-west-1" }\n    ]\n}');
         } else if (op === 'authorize-security-group-ingress' || op === 'revoke-security-group-ingress') {
-          const gid = flag('group-id');
-          const sg = list('securityGroups').find(g => g.id === gid || g.name === flag('group-name'));
-          if (!sg) return print('err', `InvalidGroup.NotFound: The security group '${gid}' does not exist`);
-          const proto = flag('protocol') || 'tcp', port = Number(flag('port')), cidr = flag('cidr');
-          if (!port || !cidr) return print('err', 'error: --protocol tcp --port <n> --cidr <x.x.x.x/n> required');
-          sg.ingress = sg.ingress || [];
-          const idx = sg.ingress.findIndex(r => (r.protocol || 'tcp') === proto && r.fromPort === port && r.cidr === cidr);
-          if (op === 'authorize-security-group-ingress') {
-            if (idx > -1) return print('err', `InvalidPermission.Duplicate: the specified rule "peer: ${cidr}, ${proto.toUpperCase()}, from port: ${port}, to port: ${port}, ALLOW" already exists`);
-            sg.ingress.push({ protocol: proto, fromPort: port, toPort: port, cidr });
-            print('ok', '{\n    "Return": true\n}');
-            if ((port === 22 || port === 3389) && cidr === '0.0.0.0/0') print('sys', `(⚠️ port ${port} poore internet ke liye khula — bots minutes mein dhoondh lete hain)`);
-          } else {
-            if (idx < 0) return print('err', `InvalidPermission.NotFound: The specified rule does not exist in this security group.`);
-            sg.ingress.splice(idx, 1);
-            print('ok', '{\n    "Return": true\n}');
+          const gid = flag('group-id'), name = flag('group-name');
+          if (!gid && !name) return print('err', 'aws: error: --group-id or --group-name is required');
+          const sg = list('securityGroups').find(g => gid ? g.id === gid : g.name === name);
+          if (!sg) return print('err', `InvalidGroup.NotFound: The security group '${gid || name}' does not exist`);
+          function normalizeCIDR(raw) {
+            const m = typeof raw === 'string' && raw.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+            if (!m || m[1].split('.').some(x => Number(x) > 255) || Number(m[2]) > 32) throw Error('InvalidParameterValue: CIDR must be a valid IPv4 range such as 10.8.0.0/16');
+            const bits = Number(m[2]), n = m[1].split('.').reduce((n, x) => n * 256 + Number(x), 0), block = 2 ** (32 - bits), base = Math.floor(n / block) * block;
+            return [24, 16, 8, 0].map(b => Math.floor(base / 2 ** b) % 256).join('.') + '/' + bits;
           }
+          let rules = [];
+          try {
+            const raw = flag('ip-permissions');
+            if (raw && ['protocol', 'port', 'cidr', 'source-group'].some(x => toks.includes('--' + x))) throw Error('InvalidParameterCombination: use --ip-permissions or individual rule flags');
+            let permissions;
+            if (raw) {
+              try { permissions = JSON.parse(raw); } catch (e) { throw Error('Simulator: --ip-permissions supports a JSON array; use --source-group for one shorthand rule'); }
+              if (!Array.isArray(permissions) || !permissions.length) throw Error('InvalidParameterValue: --ip-permissions must be a nonempty JSON array');
+            } else {
+              const port = flag('port'), m = port && port.match(/^(\d+)(?:-(\d+))?$/);
+              const cidr = flag('cidr'), group = flag('source-group');
+              if ((!cidr && !group) || (cidr && group)) throw Error('InvalidParameterCombination: specify exactly one of --cidr or --source-group');
+              permissions = [{ IpProtocol: flag('protocol'), FromPort: m ? Number(m[1]) : undefined, ToPort: m ? Number(m[2] || m[1]) : undefined,
+                IpRanges: cidr ? [{ CidrIp: cidr }] : [], UserIdGroupPairs: group ? [{ GroupId: group }] : [] }];
+            }
+            for (const p of permissions) {
+              if (!p || typeof p !== 'object') throw Error('InvalidParameterValue: each permission must be an object');
+              const protocol = ({ '6': 'tcp', '17': 'udp' })[p.IpProtocol] || p.IpProtocol;
+              if (!['tcp', 'udp', '-1'].includes(protocol)) throw Error('Simulator supports TCP, UDP and all-protocol (-1) SG rules here; ICMP/prefix-list/IPv6 rules are not modeled');
+              if (protocol !== '-1' && (!Number.isInteger(p.FromPort) || !Number.isInteger(p.ToPort) || p.FromPort < 0 || p.ToPort > 65535 || p.FromPort > p.ToPort)) throw Error('InvalidParameterValue: TCP/UDP ports must be an ordered range within 0–65535');
+              if (p.Ipv6Ranges || p.PrefixListIds) throw Error('Simulator: IPv6 and prefix-list permissions are not modeled');
+              if ((p.IpRanges !== undefined && !Array.isArray(p.IpRanges)) || (p.UserIdGroupPairs !== undefined && !Array.isArray(p.UserIdGroupPairs))) throw Error('InvalidParameterValue: source permissions must be arrays');
+              const peers = [...(p.IpRanges || []).map(x => ({ cidr: normalizeCIDR(x && x.CidrIp) })), ...(p.UserIdGroupPairs || []).map(x => {
+                const source = x && list('securityGroups').find(g => g.id === x.GroupId);
+                if (!source) throw Error('InvalidGroup.NotFound: source security group does not exist');
+                if (source.vpcId !== sg.vpcId) throw Error('Simulator: cross-VPC security-group references require connectivity not modeled here');
+                return { sourceGroup: source.id };
+              })];
+              if (!peers.length) throw Error('InvalidParameterValue: at least one source range/group is required');
+              rules.push(...peers.map(peer => ({ protocol, ...(protocol === '-1' ? {} : { fromPort: p.FromPort, toPort: p.ToPort }), ...peer })));
+            }
+          } catch (e) { return print('err', e.message); }
+          const same = (a, b) => (a.protocol || 'tcp') === b.protocol && a.fromPort === b.fromPort && a.toPort === b.toPort && a.cidr === b.cidr && a.sourceGroup === b.sourceGroup;
+          const ingress = sg.ingress || [], adding = op === 'authorize-security-group-ingress';
+          for (let i = 0; i < rules.length; i++) {
+            const exists = ingress.some(r => same(r, rules[i]));
+            if (adding && (exists || rules.slice(0, i).some(r => same(r, rules[i])))) return print('err', 'InvalidPermission.Duplicate: The specified rule already exists');
+            if (!adding && !exists) return print('err', 'InvalidPermission.NotFound: The specified rule does not exist in this security group');
+          }
+          if (toks.includes('--dry-run') && toks.includes('--no-dry-run')) return print('err', 'aws: error: --dry-run and --no-dry-run are mutually exclusive');
+          if (toks.includes('--dry-run')) return print('err', 'DryRunOperation: Request would have succeeded, but DryRun flag is set.');
+          sg.ingress = adding ? [...ingress, ...rules] : ingress.filter(r => !rules.some(x => same(r, x)));
+          return resultJson({ Return: true });
         } else if (op === 'modify-instance-metadata-options') {
           const inst = list('instances').find(i => i.id === flag('instance-id'));
           if (!inst) return print('err', `InvalidInstanceID.NotFound: The instance ID '${flag('instance-id')}' does not exist`);
@@ -2094,10 +2169,25 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             const ids = String(flag('vpc-zone-identifier') || '').split(',');
             const subs = ids.map(id => list('subnets').find(s => s.id === id));
             if (subs.some(s => !s) || new Set(ids).size !== ids.length || new Set(subs.map(s => s.vpcId)).size !== 1) return print('err', 'ValidationError: VPCZoneIdentifier must list unique existing subnets in one VPC');
+            const existing = list('subnets').find(s => String(group.vpcZone || '').split(',').includes(s.id));
+            if (existing && subs[0].vpcId !== existing.vpcId) return print('err', 'ValidationError: cannot move this existing Auto Scaling group into another VPC');
             next.vpcZone = ids.join(','); touched = true;
           }
           if (!touched) return print('err', 'error: specify a supported Auto Scaling group setting');
           Object.assign(group, next); settleGroup(group, true);
+          if (toks.includes('--vpc-zone-identifier')) {
+            const ids = group.vpcZone.split(','), azs = [...new Set(ids.map(id => list('subnets').find(s => s.id === id).az))];
+            for (let pass = 0; pass < group.desired; pass++) {
+              const members = group.instances.map(id => list('instances').find(i => i.id === id)).filter(Boolean);
+              const counts = azs.map(az => ({ az, count: members.filter(i => i.az === az).length })).sort((a, b) => a.count - b.count);
+              const outside = members.find(i => !ids.includes(i.subnetId));
+              const old = outside || (counts.length > 1 && counts[counts.length - 1].count - counts[0].count > 1 ? members.find(i => i.az === counts[counts.length - 1].az) : null);
+              if (!old) break;
+              const newId = addGroupInstance(group); removeGroupInstance(group, old.id);
+              activity(group, `Rebalancing AZ placement: launching ${newId}; terminating ${old.id}`, { oldId: old.id, newId, cause: 'Modeled AZRebalance' });
+            }
+            print('sys', 'Simulator reconciled AZ placement immediately with launch-before-terminate. Real AZRebalance requires capacity, health checks and time.');
+          }
           if (next.healthCheckType === 'ELB') print('sys', 'Simulator reconciled modeled ELB health immediately. Real AWS observes health/grace periods asynchronously.');
           return;
         }

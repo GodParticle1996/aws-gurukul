@@ -15,7 +15,7 @@ AG.registerDecisions([
     title: 'Traffic ka darwaza — ALB, NLB, Gateway LB ya API Gateway?',
     short: 'Load balancer chuno',
     tldr: 'HTTP ka content dekhna hai (path, host, header) → ALB. TCP/UDP, static IP, millions req/s → NLB. Firewall appliances beech mein → Gateway LB. Serverless API with auth/throttling/API keys → API Gateway.',
-    levels: ['elbasg', 'lambda', 'edge'],
+    levels: ['elbasg', 'lambda', 'edge', 'boss1'],
     start: 'q1',
     nodes: {
       q1: {

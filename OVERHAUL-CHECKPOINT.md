@@ -1,7 +1,8 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-25
 
-Completed through **Beginner level 7 `elbasg`** (7 of 8 Beginner levels). All eight master-plan §1
-preferences are answered. Next: **Beginner 8 `boss1`** (master plan §5.A2), then the required Beginner track checkpoint.
+**Phase A complete: all 8 Beginner levels are overhauled.** Levels 7 `elbasg` and 8 `boss1`
+meet the per-level definition of done. Required end-of-track question is pending; next implementation after
+that checkpoint is **Intermediate 1 `vpcdeep`** (master plan §5.B1). All eight initial preferences are recorded.
 
 ## User decisions
 
@@ -23,17 +24,90 @@ Round 2 answered on 2026-10-25:
 8. **Extras:** all four — resume + export/import, glossary/search, Lab Hub, printable Kab kya cheatsheet.
    Offline PWA and the daily 10-minute plan were not selected.
 
-All eight initial preference questions are answered. Next implementation: Beginner 8 `boss1` (master plan §5.A2).
+All eight initial preference questions are answered. Beginner is complete; ask the required track checkpoint before Intermediate 1 `vpcdeep`.
 Two-part level UX is selected and scheduled with Phase E, in the chosen levels-first order.
 
 Exam check on 2026-10-25: the current [official AWS exam guide](https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03.html)
 lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement found in the official-source check.
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
-Per-level commits are authorized. No push/deployment.
+Level 7 local commit: **c04494a**. Level 8 is delivered in a separate local commit with this checkpoint.
+Per-level commits are authorized. No push/deployment. `git log -3 --oneline` shows the baseline and two level commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 176 stages, 49/49 terminal missions,
-28 interactive labs, 7 real-lab projects. Includes 471 VPC + 304 RDS + 176,283 ALB/ASG regression checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 181 stages, 50/50 terminal missions,
+32 interactive labs, 8 real-lab projects. Focused suites: 471 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture checks.
+
+## Level 8 loop completed
+
+1. Read the whole old boss level and visual. Removed named-company architecture overclaim, signed-viewer-URL-as-origin-fix,
+   open-DB-SG-as-outage-cause, zero-downtime and stale Free Tier assumptions. Kept `boss1` ID and saved-progress identity.
+2. Added `data-beg-8-boss1.js`: fictional investor review, 8 question cards, 4 myths, decision playbook,
+   comparison tables/decision tree, 8 exam cues, 8 flashcards, explicit optional billable AWS practice + cleanup.
+   Stage order: dryrun → flowlab → bins → match → triage → terminal → docker → 8 bonus MCQs.
+   Interview has 4 MCQs + state-changing terminal. Questions include why tempting alternatives fail.
+3. Tested Moto/Terraform first. Provider supports connected VPC + six subnets + ALB/TG/listener + ASG/launch template +
+   private encrypted Multi-AZ RDS/seven-day backups + S3/BPA/encryption + instance role/profile + two zonal NAT routes.
+   Initial AWS-managed SSM policy attachment failed NoSuchEntity; final lab uses explicit minimal SSM-channel metadata.
+   Real Session Manager runtime and complete managed-node permission setup are not claimed.
+4. Wrote lab 08 main.tf, review.py and README from captured output. Fresh plan/apply: **39 resources**;
+   repeat plan: **no changes**; read-only API review: all seven checks pass; destroy: **39 destroyed**;
+   final VPC/ASG/RDS queries: `[]`, `[]`, `[]`. Repeated the actual repo README from init through cleanup successfully.
+   No shared reset, Docker, real AWS, installs or deployment.
+5. Extended simulator: SG source-group references, JSON permission arrays, port ranges/protocols, canonical IPv4 CIDRs,
+   real duplicate/not-found/dry-run behavior, atomic invalid edits, filtered SG describes/query output, strict flags.
+   ASG subnet updates now reconcile actual live AZ placement (modeled launch-before-terminate); new IPs use subnet CIDR.
+   ASG cannot silently switch VPC. Immediate reconciliation is explicitly a simulator simplification.
+6. Verified partial S3 BPA PUT on a disposable Moto bucket: omitted flags reset false. Simulator now models that replacement
+   behavior, rejects malformed/unknown fields and reevaluates public policy exposure. RDS strict flags reject fake boolean values.
+7. Boss solution is explicit data: seven actions; wins **only after the seventh**, never after mere describes or pending DB state.
+   Every omitted action fails. Wrong source CIDR, broad leftover permit, wrong port, public app subnets, two subnets in one AZ,
+   maintenance-only changes, partial BPA, deleting data, stopping/resetting capacity, killing all healthy workers and breaking ALB
+   access fail. Interview needs both repairs. At least two original healthy workers and existing data/config must survive.
+8. `validate-architecture.js`: **2,342 checks**, including all **1,120 budget settings**, parser/flags/JSON/dry-run cases,
+   SG references, real placement, data preservation and independent clean replays. All prior suites pass unchanged.
+   14 MCQs: **0 length-bias flags**, answers A/B/C/D **3/4/4/3**; canonical SAA domain metadata.
+9. Linked frontdoor/dbha/secrets/compute decision trees; removed now-empty `data-beginner.js` and both runtime manifest references.
+   Updated the concept caption and documentation references to the eight separate Beginner files.
+10. Inspected 1280px + 360px intro, dryrun, default/solved planner and solved terminal screenshots, plus technical lesson cards.
+    Browser **34 samples**, no document overflow or console/page errors; all eight lesson cards per width checked.
+    Two dryrun decisions, documented slider settings and keyboard seven-command solve pass. Mobile request example is fully visible.
+    Pronoun lint and `git diff --check` clean.
+
+Evidence: `/tmp/aws-gurukul-boss1/` — `PROBE.txt`, `BPA-PROBE.txt`, `FRESH-{PLAN,APPLY,REVIEW,REPEAT-PLAN}.txt`,
+`DESTROY.txt`, `CLEANUP.txt`, `REPO-{INIT,PLAN,APPLY,REVIEW,REPEAT-PLAN,DESTROY,CLEANUP}.txt`,
+`BROWSER-REPORT.json`, `QUIZ-AUDIT.json`, `screenshots/`.
+
+Explicit modeling/plan decisions:
+- Master-plan "payment callbacks" symptom is now precisely **outbound verification** timing out while inbound webhook reaches ALB.
+  Missing private-b NAT route affects outbound requests; NAT does not provide unsolicited inbound callbacks.
+- Planner has the requested 1/2-AZ input, but 1 AZ is labeled an **invalid standard regional ALB design** (ALB needs two AZ subnets).
+- Budget ≈ $258.70 / ₹22,766 monthly is an explicit subtotal: 730 hours, ₹88/$, four small workers, assumed 1 LCU,
+  two NATs/four public IPv4/secret. DB $40/$80 and $15 storage/ops are **hypothetical allowances**, not class price quotes.
+  Traffic/extra costs remain excluded. RTO is typical DB failover plus reconnect, not an uptime guarantee; bad DELETE needs restore.
+- Local three-tier lab runs metadata, not an OS/app/SQL/HTTP/packet/AZ-failure runtime. HTTP80 is lab-only;
+  real customer deployment needs certificate/HTTPS, application setup and runtime tests. CloudFront OAC deployment stays in CDN level.
+- During fact review, found Moto lab 06 accepts a PostgreSQL read replica from a managed-master-secret source unsupported by current
+  real RDS (exceptions SQL Server/Db2). Added explicit lesson/README boundary; simulator source has no managed-secret flag.
+  Real PostgreSQL replica practice needs a separate supported source/credential design. Do not copy Moto's accepted combination.
+- Two-part Samjho/Karo UX, mock/readiness and extras remain Phase E after all tracks, per the user's chosen levels-first order.
+
+Level 8 sources verified this session:
+- [RDS instance failover and DNS](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZ.Failover.html)
+- [Synchronous standby vs readable replicas](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.MultiAZSingleStandby.html)
+- [RDS managed-secret limitations](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html)
+- [SG references and additive rules](https://docs.aws.amazon.com/vpc/latest/userguide/security-group-rules.html)
+- [Real SG CLI flags/JSON permissions](https://docs.aws.amazon.com/cli/latest/reference/ec2/authorize-security-group-ingress.html)
+- [EC2 roles and instance profiles](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/iam-roles-for-amazon-ec2.html)
+- [Session Manager prerequisites](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-prerequisites.html)
+- [Private S3 origin/OAC](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html)
+- [Zonal NAT dependency](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateway-basics.html)
+- [Regional NAT](https://docs.aws.amazon.com/vpc/latest/userguide/nat-gateways-regional.html)
+- [VPC NAT, endpoint and IPv4 pricing](https://aws.amazon.com/vpc/pricing/)
+- [Secrets pricing](https://aws.amazon.com/secrets-manager/pricing/)
+- [ALB AZ/subnet requirements](https://docs.aws.amazon.com/elasticloadbalancing/latest/application/application-load-balancers.html)
+- [ASG AZ balancing](https://docs.aws.amazon.com/autoscaling/ec2/userguide/auto-scaling-benefits.html)
+- [Application DB least privilege](https://docs.aws.amazon.com/secretsmanager/latest/userguide/tutorials_rotation-single.html)
+- ALB and EC2 pricing sources are also listed with level 7 below; verified rates reused explicitly.
 
 ## Level 7 loop completed
 

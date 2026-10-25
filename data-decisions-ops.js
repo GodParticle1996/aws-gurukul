@@ -64,7 +64,7 @@ AG.registerDecisions([
     title: 'Database fail ya slow ho toh? — Multi-AZ, Read Replicas, Aurora Global, DynamoDB Global Tables',
     short: 'DB HA vs scale',
     tldr: 'Multi-AZ = availability (failover), read traffic nahi. Read Replica = read scale (async), automatic failover nahi (promote manually). Doosre region ke liye: Aurora Global Database ya DynamoDB Global Tables.',
-    levels: ['rds', 'dynamodb', 'dr'],
+    levels: ['rds', 'dynamodb', 'dr', 'boss1'],
     start: 'q1',
     nodes: {
       q1: {

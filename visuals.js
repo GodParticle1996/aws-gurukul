@@ -188,20 +188,19 @@ const VISUALS = {
               <div class="dg-node is-accent pulse"><span class="ni">⚖️</span><span class="nl">ALB</span><span class="ns">public subnets</span></div>
             </div>
             <div class="dg-flow">
-              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-a</span></div>
-              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-b</span></div>
-              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-c</span></div>
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-a · private app</span></div>
+              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">AZ-b · private app</span></div>
             </div>
             <div class="dg-flow">
               <div class="dg-arrow good" style="flex-basis:30px"></div>
-              <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Primary</span><span class="ns">AZ-a</span></div>
+              <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Primary</span><span class="ns">AZ-a · private app</span></div>
               <div class="dg-arrow good two" style="flex-basis:30px"></div>
               <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Standby</span><span class="ns">AZ-b (failover)</span></div>
             </div>
           </div>
         </div>
       </div>
-      <div class="dg-cap">Boss architecture: <b>Users → ALB (public) → EC2 ASG (Multi-AZ, private) → RDS Multi-AZ</b>. Ek AZ down bhi app chalegi. Yehi SAA exam ka bread-and-butter hai!</div>`,
+      <div class="dg-cap">Boss architecture: <b>Users → ALB (public) → EC2 ASG (Multi-AZ, private) → RDS Multi-AZ</b>. Surviving app capacity, DB DNS/reconnect aur independent egress test karo; Multi-AZ zero downtime guarantee nahi. Zonal NAT per AZ, private S3 + OAC, role/secret aur tested backups supporting dependencies hain.</div>`,
   },
 
   /* ================= TRACK 2 — INTERMEDIATE ================= */
