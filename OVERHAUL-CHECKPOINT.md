@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through `caching` complete (Intermediate 1–7 plus selected new level).** User approved continuing at the Beginner
-track checkpoint. Next: **`sqssns`** (master plan §5.B8; UI ordinal9), then continue levels without per-level approval.
+**Phase A complete; Phase B through `sqssns` complete (Intermediate 1–9, including selected caching).** User approved continuing at the Beginner
+track checkpoint. Next: **`events`** (master plan §5.B9; UI ordinal10), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -32,11 +32,120 @@ lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement 
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
 Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
-Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6: **1b5495f**. Intermediate7: **0d190ca**. Caching completion/validation recorded below; latest local commit identifies delivery.
+Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6: **1b5495f**. Intermediate7: **0d190ca**. Caching local commit: **0335f77**. Messaging completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 216 stages, 55/55 terminal missions,
-64 interactive labs, 16 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 220 stages, 55/55 terminal missions,
+68 interactive labs, 17 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging checks.
+
+## Intermediate 9 `sqssns` loop completed (2026-10-26 UTC; master§5.B8)
+
+1. Read complete old SQS/SNS level, VISUALS and linked messaging/sqstype/stream trees before design. Removed invented
+   incident, history-only wins, fake --queue-name message operations, unlimited throughput, global FIFO order and
+   automatic exactly-once business-effect claims. Same sqssns ID retained in IIFE `data-int-9-sqssns.js`; old block
+   removed; index and validator manifest updated after selected caching. Legacy Architect fan-out fixture received
+   narrow SNS delivery policies and real QueueUrl syntax for compatibility; full Architect mission rewrite remains Phase D.
+2. Eight question/analogy/mechanism cards, four myths, comparison/playbook/tree links and nine exam cues; dryrun→
+   retry/capacity flowlab→service bins→fan-out order game→missing-policy triage→11-action secure fan-out terminal→
+   lab17→eight MCQs. Four interview MCQs plus actual poison-isolation terminal; eight flashcards and optional
+   approved billable real-AWS homework with scoped cleanup. Progressive hints use prepared JSON files and runnable
+   CLI; explicit body/receipt outcomes precede practice. Roman Hinglish pronoun lint clean.
+3. Consumer/business contracts separate order accepted, SNS accepted, queue delivered, durable pending intent and
+   external side effect. One queue shares jobs among competing workers; separate services need copies. DB→event
+   outbox addresses commit/publish gap; consumer#eventId conditional intent preserves independent email/invoice work.
+   A standalone dedup flag before an external call can lose work; external idempotency/reconciliation still required.
+4. Current limits/pricing verified: SQS max1MiB; SNS default256KiB now configurable up to1MiB with supported endpoint/
+   max100subscription restrictions. Standard MessageGroupId enables fair queues without FIFO order; extra fair
+   request charge applies. SNS FIFO supports SQS FIFO and Standard, with Standard best-effort/at-least-once semantics;
+   eligible FIFO archive/replay exists. FIFO producer dedup5minutes survives deletion and hashes body, not attributes.
+   Throughput is partition/API-action/batch/Region dependent; no universal300messages/s or external exactly-once promise.
+5. Source RedrivePolicy versus DLQ RedriveAllowPolicy, processing versus SNS subscription delivery DLQ, Standard
+   original-age versus FIFO reset-age expiry, retention, long polling, receipt renewal and visibility extension covered.
+   Lambda minimum visibility=function timeout; recommendation6×timeout+batch window (not6×validation minimum).
+   Partial batch output plus FIFO stop-after-first-failure/return-unprocessed IDs explicit. Lab custom worker uses3
+   receives; Lambda documentation recommends at least5. Permanent permission errors need repair, not blind retry.
+6. Public US East catalogs captured: SQS publication2026-09-11, SNS2026-09-15. Standard SQS$0.40/million paid units,
+   FIFO$0.50/million eligible actions; fair surcharge$0.10/million affected requests; Standard SNS$0.50/million paid
+   API units.30Msmall publishes×2queues with send/receive/delete gives gross request-only approx$87/₹7656 at₹88/$1.
+   Explicit exclusions: allowances/credits, payload chunks, batching/polls/retries, worker/KMS, body-filter scan fees,
+   transfer and tax. No SNS per-message SQS delivery fee does not mean free transfer or free SQS.
+7. Probed Moto5.2.4 BEFORE README/engine/content on owned ephemeral loopback server. Actual body filtering and raw
+   delivery work.2publishes→2copies per service; each service creates1matching DynamoDB pending-dispatch intent;
+   duplicate verification uses strong GetItem. External emails0. Conflicting same eventId total0 cannot overwrite
+   original499 intent;3source receives fail, actual conflict body reaches DLQ. FIFO A2 waits for in-flight A1 while
+   B1 proceeds; initial duplicate A1 suppressed. Both FIFO/Standard subscribers to SNS FIFO accepted.
+8. Captured Moto gaps honestly: no queue policy still delivered[1,1]; after DeleteMessage, same FIFO dedup ID was
+   delivered inside5minutes. Duplicate FIFO-topic publishes produced1FIFO copy and2Standard copies in this run;
+   no SNS dedup conformance claim. Initial probes failed the AWS-after-delete expectation, still cleaned all fixtures
+   and closed listeners; final lab records the gap rather than pretending conformance. Standard fair group probe
+   checks acceptance only, not scheduling. No AWS latency/HA/KMS/IAM or external-provider/runtime measurement claimed.
+9. `docker-labs/17-sqs-sns-fanout-dlq/{lab.py,README.md}` authored from captures, table linked, exact repository replay
+   passed17behavior checks plus cleanup check18. All SDK/CLI calls pin the owned generated loopback endpoint with
+   dummy keys/lab-local config; profiles/session token/metadata disabled. Final queues/topics/tables[]; own listener
+   closed. No shared4566 reset/start, realAWS/~/.aws writes, Docker/install or unrelated process cleanup. Docker
+   command still absent at latest read-only check. `.lab/last-run.json` is ignored historical ID ledger, not leftovers.
+10. Shared simulator now enforces full QueueUrl/ARN identity; guarded real JSON/string-map/shorthand flags; numeric,
+    Unicode/byte limits; atomic invalid writes; idempotent queue/topic/subscription create; SourceArn resource-policy
+    delivery with explicit Deny precedence and case-sensitive ARN matching; raw/envelope and body/attribute filters;
+    receive visibility/count/current receipt, delayed delivery/expiry, actual DLQ movement and per-group FIFO dedup.
+    Dedup state survives delete. Meaningful terminal solutions are data arrays; no history predicate in either new
+    mission. Provenance/read state rejects direct SQS injection, policy/filter shortcuts, purge/delete/recreate,
+    expired readback and later revisions. Interview preserves original queue IDs and actual good/poison messages.
+11. Bounds are explicit: sleep N advances messaging teaching clock instantly; transitions/filter propagation are
+    local models, no stochastic Standard duplication/ordering or fair scheduling. Wire checksums/signatures omitted
+    instead of fake random MD5. Simulator strictly rejects stale/expired receipts; real old-receipt DeleteMessage may
+    return200 without deleting. Queue updates are immediate locally; real propagation most≤60s/retention≤15minutes.
+    Filters implement guarded top-level scalar equality subset; other AWS filter operators fail visibly.
+12. Planner checks all13,500settings: rate≥20msg/s,processing≥2s,poison≥3%,worker budget≤90,80%capacity allowance,
+    .2s ack+.8s margin,1%transient jobs fail first2attempts, bounded retries and1000-job burst drain≤180s. Example
+    20msg/s,80slots,2s,visibility5s,retries3,poison3% gives26.9original jobs/s,145s rounded drain,2160steady poison/hour,
+    no modeled overlaps and15s visibility-window budget. This replaces speculative “zero duplicates/hour” and exact
+    oldest-age predictions with declared capacity/overlap/window diagnostics; real oldest age must be measured.
+13. `validate-messaging.js` in-process: **27,214checks**, intended final-step-only wins, every omission, valid JSON/
+    flag-order alternatives, broad/missing/wrong/denied policies, body/attribute/raw mismatches, provenance injection,
+    actual DLQ conservation, reset/recreate/expired receipts, FIFO group/batch/dedup-after-delete/expiry, SNS FIFO to
+    both queue types,1MiB boundaries, byQueue DLQ permission, malformed input and planner.15MCQs0length flags,
+    positions4/4/4/3; three inline questions balanced. Older suites remain green.
+14. Inspected intro/dryrun/planner start+solved/terminal and selected lesson/Dojo screenshots at1280px and360px.
+    Fixed actual SVG node/label overlap and phone overflow from fused instructions/long technical identifiers.
+    Added scoped card text wrapping/min-width CSS. Main browser38samples + all three linked trees/reload/certificate
+    32samples: **70samples,0console/page errors,0document overflow**. Keyboard main mission wins only final step;
+    documented planner sliders solve; same IDs survive reload;12-level certificate remains36/36stars. Host emoji
+    font remains unavailable (box glyphs); no broken data/assets. No push/deployment.
+15. `node validate.js` **ALL CHECKS PASSED**:39levels,220stages,55/55auto-solved terminal missions,68interactive labs,
+    17real-lab projects;27trees143recommendations147scenarios. Legacy missions not yet rewritten still await their
+    planned state-hardening;55/55auto-solves alone do not claim every legacy win condition is hardened.
+
+Evidence (gitignored, persists with workspace): `.overhaul-evidence/MESSAGING-{PROBE,PROBE-2,PROBE-3,LAB17-REPLAY,
+FOCUSED,VALIDATE,BROWSER,DOJO-BROWSER}.txt`, JSON browser reports, `AWSQueueService-prices.json`, `AmazonSNS-prices.json`
+and `.overhaul-evidence/messaging-screenshots/`. Scoped lab replay and all probe listeners closed.
+**Next: Intermediate10 `events`, master§5.B9, lab18. Continue automatically with per-level local commits; ask before push.**
+
+SQS/SNS primary sources verified this session:
+- [SQS queue attributes/current bounds/propagation](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_SetQueueAttributes.html)
+- [Message quotas/FIFO throughput modes](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/quotas-messages.html)
+- [SQS regional quotas](https://docs.aws.amazon.com/general/latest/gr/sqs-service.html)
+- [Visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html)
+- [Latest receipt and old-receipt success caveat](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/APIReference/API_DeleteMessage.html)
+- [Processing DLQ, retention and redrive permission](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html)
+- [FIFO dedup/body-only hashing](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/FIFO-queues-exactly-once-processing.html)
+- [Standard fair queues](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-fair-queues.html)
+- [SNS queue resource policy](https://docs.aws.amazon.com/sns/latest/dg/sns-access-policy-use-cases.html)
+- [SNS filter scope](https://docs.aws.amazon.com/sns/latest/dg/sns-message-filtering.html)
+- [Filter constraints](https://docs.aws.amazon.com/sns/latest/dg/subscription-filter-policy-constraints.html)
+- [Filter propagation](https://docs.aws.amazon.com/sns/latest/dg/sns-subscription-filter-policies.html)
+- [Raw body/attribute limit](https://docs.aws.amazon.com/sns/latest/dg/sns-large-payload-raw-message-delivery.html)
+- [SNS configurable1MiB payloads](https://docs.aws.amazon.com/sns/latest/dg/large-message-payloads.html)
+- [SNS delivery DLQ](https://docs.aws.amazon.com/sns/latest/dg/sns-dead-letter-queues.html)
+- [SNS FIFO→both SQS types](https://docs.aws.amazon.com/sns/latest/dg/fifo-message-delivery.html)
+- [SNS FIFO dedup](https://docs.aws.amazon.com/sns/latest/dg/fifo-message-dedup.html)
+- [SNS FIFO throughput scope](https://docs.aws.amazon.com/sns/latest/dg/fifo-high-throughput.html)
+- [SNS FIFO archive/replay](https://docs.aws.amazon.com/sns/latest/dg/fifo-message-durability.html)
+- [Lambda SQS validation/recommendation/batching](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html)
+- [SQS pricing/meters/fair charge](https://aws.amazon.com/sqs/pricing/)
+- [SNS pricing/filter scans/transfer](https://aws.amazon.com/sns/pricing/)
+- [SQS US East public offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSQueueService/current/us-east-1/index.json)
+- [SNS US East public offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonSNS/current/us-east-1/index.json)
 
 ## Intermediate 8 `caching` loop completed (2026-10-26 UTC; selected new level, master§5.B7b)
 

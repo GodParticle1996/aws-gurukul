@@ -481,7 +481,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws ecr create-repository --repository-name <n>  |  aws ecr describe-repositories [--repository-names <n>]',
         '  aws ecr list-images --repository-name <n>  |  aws ecr get-login-password',
         '  aws sqs create-queue --queue-name <n>  |  aws sqs list-queues [--queue-name-prefix <p>]',
-        '  aws sqs send-message / receive-message / purge-queue / delete-message / set-queue-attributes --queue-name <n>',
+        '  aws sqs send-message / receive-message / purge-queue / delete-message / set-queue-attributes --queue-url <url>',
         '  aws sns create-topic --name <n>  |  aws sns list-topics  |  aws sns unsubscribe --subscription-arn <arn>',
         '  aws sns subscribe --topic-arn <arn> --protocol sqs --notification-endpoint <queue-arn>',
         '  aws sns publish --topic-arn <arn> --message <text>  (fan-out: pushes to all SQS subscribers)',
@@ -529,6 +529,14 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (tk.error) { print('err', tk.error); return; }
     const toks = tk.toks;
 
+    // Messaging exercises advance a virtual clock; no real shell/process sleeps.
+    if (toks[0] === 'sleep') {
+      if (toks.length !== 2 || !/^\d+$/.test(toks[1]) || Number(toks[1]) > 1209600)
+        return print('err', 'sleep: use an integer0..1209600 seconds; this simulator advances only its messaging clock instantly.');
+      sim.account.messagingClock = (sim.account.messagingClock || 0) + Number(toks[1]);
+      return print('sys', `Messaging teaching clock advanced ${Number(toks[1])} seconds instantly. Real shell sleep waits elapsed time.`);
+    }
+
     if (toks[0] === 'cat') {
       if (toks.length !== 2) return print('err', 'usage: cat <mission-file> (ls lists available files)');
       const f = Object.prototype.hasOwnProperty.call(sim.files, toks[1]) && sim.files[toks[1]];
@@ -573,8 +581,22 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns'].includes(service)) {
       const specs = {
+        sqs: {
+          'create-queue':['queue-name','attributes'], 'list-queues':['queue-name-prefix'], 'get-queue-url':['queue-name','queue-owner-aws-account-id'],
+          'get-queue-attributes':['queue-url','attribute-names*'], 'set-queue-attributes':['queue-url','attributes'],
+          'send-message':['queue-url','message-body','message-attributes','message-group-id','message-deduplication-id','delay-seconds'],
+          'receive-message':['queue-url','max-number-of-messages','visibility-timeout','wait-time-seconds','message-system-attribute-names*','attribute-names*','message-attribute-names*'],
+          'delete-message':['queue-url','receipt-handle'], 'change-message-visibility':['queue-url','receipt-handle','visibility-timeout'], 'purge-queue':['queue-url'], 'delete-queue':['queue-url'],
+        },
+        sns: {
+          'create-topic':['name','attributes'], 'list-topics':[], 'delete-topic':['topic-arn'], 'get-topic-attributes':['topic-arn'],
+          'set-topic-attributes':['topic-arn','attribute-name','attribute-value'],
+          'subscribe':['topic-arn','protocol','notification-endpoint','attributes','return-subscription-arn!'], 'list-subscriptions-by-topic':['topic-arn'], 'list-subscriptions':[],
+          'get-subscription-attributes':['subscription-arn'], 'set-subscription-attributes':['subscription-arn','attribute-name','attribute-value'], 'unsubscribe':['subscription-arn'],
+          'publish':['topic-arn','message','subject','message-attributes','message-group-id','message-deduplication-id'],
+        },
         elasticache: {
           'create-replication-group':['replication-group-id','replication-group-description','engine','engine-version','cache-node-type','cache-subnet-group-name','security-group-ids*','preferred-cache-cluster-azs*','num-cache-clusters','port','automatic-failover-enabled!','no-automatic-failover-enabled!','multi-az-enabled!','no-multi-az-enabled!','transit-encryption-enabled!','no-transit-encryption-enabled!','at-rest-encryption-enabled!','no-at-rest-encryption-enabled!','user-group-ids*'],
           'modify-replication-group':['replication-group-id','replication-group-description','automatic-failover-enabled!','no-automatic-failover-enabled!','multi-az-enabled!','no-multi-az-enabled!','apply-immediately!','no-apply-immediately!'],
@@ -692,7 +714,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const name = toks[i].startsWith('--') ? toks[i].slice(2) : '';
           const spec = allowed.find(a => a.replace(/[*!]$/, '') === name);
           if (!spec) return print('err', `Unknown options: ${toks[i]}. This simulator models the documented flags listed by help.`);
-          if(['elasticache','dax'].includes(service)&&seenOptions.has(name))return print('err','Duplicate options are not modeled: --'+name+'; supply one explicit value.');
+          if(['elasticache','dax','sqs','sns'].includes(service)&&seenOptions.has(name))return print('err','Duplicate options are not modeled: --'+name+'; supply one explicit value.');
           seenOptions.add(name);
           if (spec.endsWith('!')) { i++; continue; }
           if (!toks[i + 1] || toks[i + 1].startsWith('--')) return print('err', `aws: error: argument --${name}: expected one argument`);
@@ -2971,202 +2993,116 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         print('err', `unknown AutoScaling op: ${op}`); return;
       }
 
-      /* ===================== SQS ===================== */
+      /* SQS/SNS teaching subset: real identities/flags, virtual time, actual delivery state.
+         No wire checksum, stochastic duplicate scheduling, network/IAM/KMS runtime or retry timer simulation. */
       case 'sqs':
-        if (op === 'create-queue') {
-          const name = flag('queue-name');
-          if (!name) return print('err', 'error: --queue-name required');
-          const queues = list('queues');
-          if (queues.find(q => q.name === name))
-            return print('err', `QueueAlreadyExists: A queue with name '${name}' already exists`);
-          const acct = sim.account.callerIdentity?.Account || '123456789012';
-          const region = sim.account.region || 'us-east-1';
-          const url = `https://sqs.${region}.amazonaws.com/${acct}/${name}`;
-          const queue = {
-            name,
-            url,
-            arn: `arn:aws:sqs:${region}:${acct}:${name}`,
-            messages: [],
-            isFifo: name.endsWith('.fifo'),
-            visibilityTimeout: 30,
-          };
-          queues.push(queue);
-          print('ok', `{ "QueueUrl": "${url}" }`);
-        } else if (op === 'list-queues') {
-          const prefix = flag('queue-name-prefix');
-          const queues = list('queues');
-          const filtered = prefix ? queues.filter(q => q.name.startsWith(prefix)) : queues;
-          if (!filtered.length) return print('ok', '{\n    "QueueUrls": []\n}');
-          print('ok', '{\n    "QueueUrls": [\n' +
-            filtered.map(q => `        "${q.url}"`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'get-queue-url') {
-          const name = flag('queue-name');
-          if (!name) return print('err', 'error: --queue-name required');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue does not exist`);
-          print('ok', `{ "QueueUrl": "${q.url}" }`);
-        } else if (op === 'send-message') {
-          const name = flag('queue-name');
-          if (!name) return print('err', 'error: --queue-name required');
-          const msg = flag('message-body') || flag('message');
-          if (msg == null) return print('err', 'error: --message-body required');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue '${name}' does not exist`);
-          const id = 'msg-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
-          q.messages = q.messages || [];
-          q.messages.push({ messageId: id, body: msg, receiptHandle: 'receipt-' + id });
-          print('ok', `{\n    "MessageId": "${id}",\n    "MD5OfMessageBody": "${Math.random().toString(36).slice(2, 14)}"\n}`);
-        } else if (op === 'receive-message') {
-          const name = flag('queue-name');
-          if (!name) return print('err', 'error: --queue-name required');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue '${name}' does not exist`);
-          const msgs = q.messages || [];
-          if (!msgs.length) return print('ok', '{\n    "Messages": []\n}');
-          // Pop the first message (at-least-once, visibility timeout simulated)
-          const m = msgs[0];
-          print('ok', '{\n    "Messages": [\n' +
-            `        { "MessageId": "${m.messageId}", "ReceiptHandle": "${m.receiptHandle}", "MD5OfBody": "${Math.random().toString(36).slice(2, 14)}", "Body": ${J(m.body)} }` +
-            '\n    ]\n}');
-        } else if (op === 'delete-queue') {
-          const name = flag('queue-name');
-          if (!name) return print('err', 'error: --queue-name required');
-          const queues = list('queues');
-          const idx = queues.findIndex(q => q.name === name);
-          if (idx < 0) return print('err', `QueueDoesNotExist: The specified queue does not exist`);
-          queues.splice(idx, 1);
-          print('ok', '');
-        } else if (op === 'get-queue-attributes') {
-          const name = flag('queue-name');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue does not exist`);
-          print('ok', `{\n    "Attributes": {\n        "QueueArn": "${q.arn}",\n        "ApproximateNumberOfMessages": "${(q.messages || []).length}",\n        "VisibilityTimeout": "${q.visibilityTimeout || 30}",\n        "CreatedTimestamp": "${Date.now()}"\n    }\n}`);
-        } else if (op === 'purge-queue') {
-          const name = flag('queue-name');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue does not exist`);
-          q.messages = [];
-          print('ok', '');
-        } else if (op === 'delete-message') {
-          const name = flag('queue-name');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue does not exist`);
-          const rh = flag('receipt-handle');
-          if (!rh) return print('err', 'error: --receipt-handle required');
-          q.messages = (q.messages || []).filter(m => m.receiptHandle !== rh);
-          print('ok', '');
-        } else if (op === 'set-queue-attributes') {
-          const name = flag('queue-name');
-          const q = find('queues', name);
-          if (!q) return print('err', `QueueDoesNotExist: The specified queue does not exist`);
-          const vt = flag('visibility-timeout');
-          if (vt) q.visibilityTimeout = Number(vt);
-          print('ok', '');
-        } else {
-          print('err', `unknown SQS op: ${op} ('help' dekho)`);
+      case 'sns': {
+        const object=v=>!!v&&typeof v==='object'&&!Array.isArray(v),clone=v=>JSON.parse(JSON.stringify(v));
+        const own=(v,k)=>Object.prototype.hasOwnProperty.call(v,k),bad=m=>{throw Error('InvalidParameterValue: '+m);};
+        const required=n=>{const v=flag(n);if(v===null)throw Error('aws: error: the following arguments are required: --'+n);return v;};
+        const text=n=>{let v=required(n);if(v.startsWith('file://')){const f=own(sim.files,v.slice(7))&&sim.files[v.slice(7)];if(!f||typeof f.content!=='string')throw Error('Error parsing parameter --'+n+': Unable to load paramfile; use ls/cat');v=f.content;}return v;};
+        const json=(raw,label)=>{try{return JSON.parse(raw);}catch(e){throw Error('Error parsing parameter '+label+': Invalid JSON');}};
+        const doc=n=>{const raw=text(n);if(!raw.startsWith('{')&&!raw.startsWith('[')&&raw.includes('=')){const pairs=raw.split(',').map(p=>p.match(/^([A-Za-z][A-Za-z0-9]*)=([^,]*)$/));if(pairs.some(p=>!p))bad('Invalid shorthand; use a JSON object/file for nested attributes');return Object.fromEntries(pairs.map(p=>[p[1],p[2]]));}return json(raw,'--'+n);};
+        const map=n=>{const v=doc(n);if(!object(v)||Object.values(v).some(x=>typeof x!=='string'))bad('--'+n+' must be a JSON string map');return v;};
+        const integer=(v,lo,hi,label)=>{if(typeof v!=='string'||!/^\d+$/.test(v)||!Number.isSafeInteger(Number(v))||Number(v)<lo||Number(v)>hi)bad(label+' must be integer '+lo+'..'+hi);return Number(v);};
+        const boolean=(v,label)=>{if(!['true','false'].includes(v))bad(label+' must be string true/false');return v==='true';};
+        const bytes=v=>{let size=0;for(const c of v){const p=c.codePointAt(0);if(p>=0xd800&&p<=0xdfff)bad('Invalid Unicode surrogate');size+=p<128?1:p<2048?2:p<65536?3:4;}return size;};
+        const now=()=>Date.parse(sim.account.now||'2026-10-26T00:00:00Z')+(sim.account.messagingClock||0)*1000;
+        const next=kind=>kind+'-'+String(sim.account.messagingSeq=(sim.account.messagingSeq||0)+1).padStart(6,'0');
+        const account=sim.account.callerIdentity?.Account||'123456789012',region=sim.account.region||'us-east-1';
+        const qdefaults={VisibilityTimeout:'30',ReceiveMessageWaitTimeSeconds:'0',MessageRetentionPeriod:'345600',DelaySeconds:'0',MaximumMessageSize:'1048576'};
+        function normalize(q){q.messages=q.messages||[];q.attributes={...qdefaults,...(q.policy?{Policy:JSON.stringify(q.policy)}:{}),...(q.isFifo?{FifoQueue:'true'}:{}),VisibilityTimeout:String(q.visibilityTimeout??30),...q.attributes};q.visibilityTimeout=Number(q.attributes.VisibilityTimeout);q.queueId=q.queueId||'seed:'+q.arn;q.created=q.created??now();q.revision=q.revision||0;q.dedup=q.dedup||[];for(const m of q.messages){m.sentAt=m.sentAt??now();m.visibleAt=m.visibleAt??m.sentAt;m.receiveCount=m.receiveCount||0;}return q;}
+        const queues=()=>list('queues').map(normalize);
+        const queue=()=>{const url=required('queue-url'),q=queues().find(q=>q.url===url);if(!q)throw Error('QueueDoesNotExist: The specified queue does not exist; use get-queue-url and the full QueueUrl');return q;};
+        const topic=()=>{const arn=required('topic-arn'),t=list('topics').find(t=>t.arn===arn);if(!t)throw Error('NotFound: Topic does not exist; use the full TopicArn');t.subscriptions=t.subscriptions||[];t.attributes=t.attributes||{};t.dedup=t.dedup||[];return t;};
+        function policy(raw){const p=json(raw,'Policy');if(!object(p)||!Array.isArray(p.Statement)||!p.Statement.length)bad('Policy needs a Statement array');for(const s of p.Statement){if(!object(s)||!['Allow','Deny'].includes(s.Effect)||!s.Action||!s.Resource||!s.Principal)bad('Policy statement requires Effect/Action/Resource/Principal');if(Object.keys(s).some(k=>!['Sid','Effect','Action','Resource','Principal','Condition'].includes(k)))bad('Simulator policy subset: no NotAction/NotPrincipal or other unsupported fields');if(arr(s.Action).some(x=>typeof x!=='string')||arr(s.Resource).some(x=>typeof x!=='string'))bad('Policy Action/Resource must be strings');if(s.Principal!=='*'&&(!object(s.Principal)||Object.keys(s.Principal).some(k=>!['Service','AWS'].includes(k))||Object.values(s.Principal).some(v=>arr(v).some(x=>typeof x!=='string'))))bad('Simulator policy subset supports Service/AWS principal strings');if(s.Condition&&(!object(s.Condition)||Object.entries(s.Condition).some(([k,v])=>!['ArnEquals','ArnLike','StringEquals','StringLike'].includes(k)||!object(v)||Object.entries(v).some(([key,val])=>!['aws:sourcearn','aws:sourceaccount'].includes(key.toLowerCase())||arr(val).some(x=>typeof x!=='string')))))bad('Simulator policy conditions: SourceArn/SourceAccount equality or wildcard only');}return p;}
+        const policyMatch=(pattern,value)=>typeof pattern==='string'&&new RegExp('^'+pattern.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.')+'$').test(value);
+        function allowed(q,t){let allow=false,deny=false;for(const s of (q.policy?.Statement||[])){const principal=s.Principal==='*'||arr(s.Principal?.Service).includes('sns.amazonaws.com');if(!principal||!arr(s.Action).some(a=>wild(a,'sqs:SendMessage'))||!arr(s.Resource).some(a=>policyMatch(a,q.arn)))continue;let cond=true;for(const [op,c] of Object.entries(s.Condition||{}))for(const [key,values] of Object.entries(c)){const actual=key.toLowerCase()==='aws:sourcearn'?t.arn:account;cond=cond&&arr(values).some(v=>op.endsWith('Like')?policyMatch(v,actual):v===actual);}if(cond){if(s.Effect==='Deny')deny=true;else allow=true;}}return allow&&!deny;}
+        function validateQueue(attrs,q){const out={...qdefaults,...q?.attributes,...attrs};for(const [k,v] of Object.entries(attrs)){if(!own(qdefaults,k)&&!['FifoQueue','ContentBasedDeduplication','DeduplicationScope','FifoThroughputLimit','RedrivePolicy','RedriveAllowPolicy','Policy'].includes(k))bad('Unsupported queue attribute '+k+' in this simulator');if(typeof v!=='string')bad('Queue attribute '+k+' must be string');}
+          integer(out.VisibilityTimeout,0,43200,'VisibilityTimeout');integer(out.ReceiveMessageWaitTimeSeconds,0,20,'ReceiveMessageWaitTimeSeconds');integer(out.MessageRetentionPeriod,60,1209600,'MessageRetentionPeriod');integer(out.DelaySeconds,0,900,'DelaySeconds');integer(out.MaximumMessageSize,1024,1048576,'MaximumMessageSize');
+          if(out.FifoQueue!==undefined)boolean(out.FifoQueue,'FifoQueue');const fifo=out.FifoQueue==='true';if(q&&fifo!==q.isFifo)bad('FifoQueue cannot change; create a new queue');if(out.ContentBasedDeduplication!==undefined){boolean(out.ContentBasedDeduplication,'ContentBasedDeduplication');if(!fifo)bad('ContentBasedDeduplication is FIFO-only');}
+          if(out.DeduplicationScope!==undefined&&(!fifo||!['queue','messageGroup'].includes(out.DeduplicationScope)))bad('FIFO DeduplicationScope must be queue/messageGroup');if(out.FifoThroughputLimit!==undefined&&(!fifo||!['perQueue','perMessageGroupId'].includes(out.FifoThroughputLimit)))bad('FIFO FifoThroughputLimit invalid');if(out.FifoThroughputLimit==='perMessageGroupId'&&out.DeduplicationScope!=='messageGroup')bad('perMessageGroupId throughput requires messageGroup dedup scope');
+          if(out.Policy)policy(out.Policy);
+          if(out.RedriveAllowPolicy){const r=json(out.RedriveAllowPolicy,'RedriveAllowPolicy');if(!object(r)||!['allowAll','denyAll','byQueue'].includes(r.redrivePermission)||Object.keys(r).some(k=>!['redrivePermission','sourceQueueArns'].includes(k)))bad('Invalid RedriveAllowPolicy');if(r.redrivePermission==='byQueue'&&(!Array.isArray(r.sourceQueueArns)||!r.sourceQueueArns.length||r.sourceQueueArns.length>10||r.sourceQueueArns.some(a=>typeof a!=='string'||!a.startsWith(`arn:aws:sqs:${region}:${account}:`))))bad('byQueue needs1..10 same Region/account queue ARNs');}
+          if(out.RedrivePolicy){const r=json(out.RedrivePolicy,'RedrivePolicy');if(!object(r)||Object.keys(r).some(k=>!['deadLetterTargetArn','maxReceiveCount'].includes(k)))bad('RedrivePolicy needs deadLetterTargetArn/maxReceiveCount');integer(String(r.maxReceiveCount),1,1000,'maxReceiveCount');const d=queues().find(d=>d.arn===r.deadLetterTargetArn);if(!d||d===q||d.isFifo!==fifo||!d.arn.startsWith(`arn:aws:sqs:${region}:${account}:`))bad('DLQ must exist, differ from source and match Region/account/queue type');const permit=d.attributes.RedriveAllowPolicy&&json(d.attributes.RedriveAllowPolicy,'RedriveAllowPolicy');if(permit&&(permit.redrivePermission==='denyAll'||permit.redrivePermission==='byQueue'&&!permit.sourceQueueArns.includes(q?.arn)))bad('DLQ RedriveAllowPolicy denies this source');}
+          return out;
         }
-        return;
-
-      /* ===================== SNS ===================== */
-      case 'sns':
-        if (op === 'create-topic') {
-          const name = flag('name');
-          if (!name) return print('err', 'error: --name required');
-          const topics = list('topics');
-          if (topics.find(t => t.name === name))
-            return print('err', `Topic already exists with name '${name}'`);
-          const acct = sim.account.callerIdentity?.Account || '123456789012';
-          const region = sim.account.region || 'us-east-1';
-          const arn = `arn:aws:sns:${region}:${acct}:${name}`;
-          const topic = { name, arn, subscriptions: [] };
-          topics.push(topic);
-          print('ok', `{ "TopicArn": "${arn}" }`);
-        } else if (op === 'list-topics') {
-          const topics = list('topics');
-          if (!topics.length) return print('ok', '{\n    "Topics": []\n}');
-          print('ok', '{\n    "Topics": [\n' +
-            topics.map(t => `        { "TopicArn": "${t.arn}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'subscribe') {
-          const topicArn = flag('topic-arn');
-          const protocol = flag('protocol');
-          const endpoint = flag('notification-endpoint');
-          if (!topicArn || !protocol || !endpoint)
-            return print('err', 'error: --topic-arn, --protocol, --notification-endpoint all required');
-          const topicName = topicArn.split(':').pop();
-          const t = find('topics', topicName);
-          if (!t) return print('err', `NotFound: Topic with arn '${topicArn}' does not exist`);
-          const subArn = `arn:aws:sns:${sim.account.region || 'us-east-1'}:${sim.account.callerIdentity?.Account || '123456789012'}:${topicName}:${Date.now()}`;
-          t.subscriptions = t.subscriptions || [];
-          t.subscriptions.push({ subscriptionArn: subArn, protocol, endpoint, confirmed: protocol === 'sqs' });
-          print('ok', `{ "SubscriptionArn": "${subArn}" }`);
-        } else if (op === 'list-subscriptions-by-topic') {
-          const topicArn = flag('topic-arn');
-          if (!topicArn) return print('err', 'error: --topic-arn required');
-          const topicName = topicArn.split(':').pop();
-          const t = find('topics', topicName);
-          if (!t) return print('err', `NotFound: Topic '${topicArn}' does not exist`);
-          const subs = t.subscriptions || [];
-          if (!subs.length) return print('ok', '{\n    "Subscriptions": []\n}');
-          print('ok', '{\n    "Subscriptions": [\n' +
-            subs.map(s => `        { "SubscriptionArn": "${s.subscriptionArn}", "Protocol": "${s.protocol}", "Endpoint": "${s.endpoint}", "TopicArn": "${t.arn}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'publish') {
-          const topicArn = flag('topic-arn');
-          const msg = flag('message');
-          if (!topicArn || msg == null)
-            return print('err', 'error: --topic-arn and --message required');
-          const topicName = topicArn.split(':').pop();
-          const t = find('topics', topicName);
-          if (!t) return print('err', `NotFound: Topic '${topicArn}' does not exist`);
-          const messageId = 'msg-' + Date.now();
-          // FAN-OUT: push message to each SQS-subscribed queue
-          const sqsSubs = (t.subscriptions || []).filter(s => s.protocol === 'sqs');
-          let delivered = 0;
-          sqsSubs.forEach(sub => {
-            // endpoint is queue ARN or queue name; resolve via find
-            const queueName = sub.endpoint.split(':').pop();
-            const q = find('queues', queueName);
-            if (q) {
-              q.messages = q.messages || [];
-              const id = 'msg-' + Date.now() + '-' + delivered;
-              q.messages.push({ messageId: id, body: msg, receiptHandle: 'receipt-' + id });
-              delivered++;
+        function applyQueue(q,attrs){q.attributes=attrs;q.visibilityTimeout=Number(attrs.VisibilityTimeout);q.isFifo=attrs.FifoQueue==='true';q.policy=attrs.Policy?policy(attrs.Policy):undefined;q.revision++;}
+        function sweep(q){q.messages=q.messages.filter(m=>now()-m.sentAt<Number(q.attributes.MessageRetentionPeriod)*1000);q.dedup=q.dedup.filter(d=>now()-d.at<300000);}
+        function attributes(raw){if(!object(raw))bad('MessageAttributes must be an object');for(const [k,v] of Object.entries(raw)){if(!/^[A-Za-z0-9_.-]{1,256}$/.test(k)||!object(v)||!['String','String.Array','Number'].includes(v.DataType)||typeof v.StringValue!=='string'||Object.keys(v).some(k=>!['DataType','StringValue'].includes(k)))bad('Simulator message attributes support named String/String.Array/Number values');if(v.DataType==='Number'&&!Number.isFinite(Number(v.StringValue)))bad('Number attribute invalid');if(v.DataType==='String.Array'&&!Array.isArray(json(v.StringValue,k)))bad('String.Array attribute requires JSON array');}return clone(raw);}
+        const messageBytes=(body,attrs)=>bytes(body)+Object.entries(attrs).reduce((n,[k,v])=>n+bytes(k)+bytes(v.DataType)+bytes(v.StringValue),0);
+        function dedup(entity,body,group,id,scope){entity.dedup=(entity.dedup||[]).filter(d=>now()-d.at<300000);const token=id===null?'body:'+body:'id:'+id,key=scope==='messageGroup'?group:null,prior=entity.dedup.find(d=>d.token===token&&d.group===key);if(prior)return prior;const record={token,group:key,at:now(),id:next('message'),sequence:String(sim.account.messagingSeq)};return record;}
+        function enqueue(q,body,attrs,group,id,delay,provenance){sweep(q);let d;if(q.isFifo){d=dedup(q,body,group,id,q.attributes.DeduplicationScope);if(q.dedup.includes(d))return {messageId:d.id,sequenceNumber:d.sequence,deduplicated:true};q.dedup.push(d);}const m={messageId:d?.id||next('message'),body,messageAttributes:clone(attrs),groupId:group||undefined,deduplicationId:id??undefined,sequenceNumber:d?.sequence,sentAt:now(),visibleAt:now()+delay*1000,receiveCount:0,provenance:provenance?clone(provenance):undefined};q.messages.push(m);return m;}
+        function filter(raw){const f=json(raw,'FilterPolicy');if(!object(f)||Object.keys(f).length>5)bad('FilterPolicy must be object with at most5 top-level keys');let combos=1;for(const v of Object.values(f)){if(!Array.isArray(v)||!v.length||v.some(x=>x!==null&&!['string','number','boolean'].includes(typeof x)))bad('Simulator filters support top-level scalar equality lists only; AWS also supports nested/operator filters');combos*=v.length;}if(combos>150)bad('FilterPolicy combination limit150 exceeded');return f;}
+        function subscriptionAttrs(attrs,existing={}){const a={RawMessageDelivery:'false',FilterPolicyScope:'MessageAttributes',...existing,...attrs};for(const k of Object.keys(attrs))if(!['RawMessageDelivery','FilterPolicyScope','FilterPolicy'].includes(k))bad('Unsupported subscription attribute '+k+' in simulator');boolean(a.RawMessageDelivery,'RawMessageDelivery');if(!['MessageBody','MessageAttributes'].includes(a.FilterPolicyScope))bad('FilterPolicyScope must be MessageBody/MessageAttributes');if(a.FilterPolicy)filter(a.FilterPolicy);return a;}
+        function topicAttrs(attrs,existing={}){const a={MaximumMessageSize:'262144',...existing,...attrs};for(const k of Object.keys(attrs))if(!['FifoTopic','ContentBasedDeduplication','FifoThroughputScope','DisplayName','MaximumMessageSize'].includes(k))bad('Unsupported topic attribute '+k+' in simulator');for(const k of ['FifoTopic','ContentBasedDeduplication'])if(a[k]!==undefined)boolean(a[k],k);if(a.ContentBasedDeduplication!==undefined&&a.FifoTopic!=='true')bad('ContentBasedDeduplication needs FIFO topic');if(a.FifoThroughputScope!==undefined&&(a.FifoTopic!=='true'||!['Topic','MessageGroup'].includes(a.FifoThroughputScope)))bad('FIFO throughput scope invalid');integer(a.MaximumMessageSize,1024,1048576,'MaximumMessageSize');return a;}
+        function matches(sub,body,attrs){const a=sub.attributes||{},f=a.FilterPolicy?filter(a.FilterPolicy):{};if(!Object.keys(f).length)return true;let v;if(a.FilterPolicyScope==='MessageBody'){try{v=JSON.parse(body);}catch(e){return false;}if(!object(v))return false;}else{v={};for(const [k,a] of Object.entries(attrs)){const value=a.DataType==='Number'?Number(a.StringValue):a.DataType==='String.Array'?json(a.StringValue,k):a.StringValue;Object.defineProperty(v,k,{value,enumerable:true});}}return Object.entries(f).every(([k,values])=>own(v,k)&&arr(v[k]).some(x=>values.some(y=>x===y)));}
+        function moveToDlq(q,m){if(!q.attributes.RedrivePolicy)return false;const r=json(q.attributes.RedrivePolicy,'RedrivePolicy');if(m.receiveCount<Number(r.maxReceiveCount))return false;const d=queues().find(d=>d.arn===r.deadLetterTargetArn);if(!d)return false;const permit=d.attributes.RedriveAllowPolicy&&json(d.attributes.RedriveAllowPolicy,'RedriveAllowPolicy');if(permit&&(permit.redrivePermission==='denyAll'||permit.redrivePermission==='byQueue'&&!permit.sourceQueueArns.includes(q.arn)))return false;q.messages.splice(q.messages.indexOf(m),1);m.deadLetterSourceArn=q.arn;m.deadLetterSourceId=q.queueId;m.visibleAt=now();m.receiptHandle=undefined;if(q.isFifo)m.sentAt=now();d.messages.push(m);return true;}
+        try {
+          if(service==='sqs'){
+            if(op==='create-queue'){
+              const name=required('queue-name'),raw=flag('attributes')===null?{}:map('attributes');if(!/^[A-Za-z0-9_-]{1,80}(\.fifo)?$/.test(name)||name.length>80)bad('Queue name must contain1..80 letters/numbers/hyphen/underscore and optional .fifo suffix');const attrs=validateQueue(raw,{arn:`arn:aws:sqs:${region}:${account}:${name}`,isFifo:raw.FifoQueue==='true'});if(name.endsWith('.fifo')!==(attrs.FifoQueue==='true'))bad('.fifo suffix and FifoQueue=true must both be specified');const existing=queues().find(q=>q.name===name);if(existing){if(Object.entries(raw).some(([k,v])=>existing.attributes[k]!==v))throw Error('QueueNameExists: Existing queue has different requested attributes');return resultJson({QueueUrl:existing.url});}
+              const q={name,url:`https://sqs.${region}.amazonaws.com/${account}/${name}`,arn:`arn:aws:sqs:${region}:${account}:${name}`,queueId:next('queue'),messages:[],dedup:[],created:now(),revision:0};applyQueue(q,attrs);list('queues').push(q);return resultJson({QueueUrl:q.url});
             }
-          });
-          print('ok', `{\n    "MessageId": "${messageId}"\n}`);
-          print('sys', `(simulator: message ${delivered} SQS subscriber queue(s) mein copy hua)`);
-        } else if (op === 'delete-topic') {
-          const topicArn = flag('topic-arn');
-          if (!topicArn) return print('err', 'error: --topic-arn required');
-          const topicName = topicArn.split(':').pop();
-          const topics = list('topics');
-          const idx = topics.findIndex(t => t.name === topicName);
-          if (idx < 0) return print('err', `NotFound: Topic does not exist`);
-          topics.splice(idx, 1);
-          print('ok', '');
-        } else if (op === 'unsubscribe') {
-          const subArn = flag('subscription-arn');
-          if (!subArn) return print('err', 'error: --subscription-arn required');
-          const subId = subArn.split(':').pop();
-          let removed = false;
-          list('topics').forEach(t => {
-            const before = (t.subscriptions || []).length;
-            t.subscriptions = (t.subscriptions || []).filter(s => s.subscriptionArn !== subArn && !s.subscriptionArn.endsWith(subId));
-            if (t.subscriptions.length < before) removed = true;
-          });
-          if (!removed) return print('err', `NotFound: Subscription '${subArn}' does not exist`);
-          print('ok', '');
-        } else if (op === 'get-topic-attributes') {
-          const topicArn = flag('topic-arn');
-          const t = find('topics', topicArn && topicArn.split(':').pop());
-          if (!t) return print('err', `NotFound: Topic does not exist`);
-          print('ok', `{\n    "Attributes": {\n        "TopicArn": "${t.arn}",\n        "SubscriptionsConfirmed": "${(t.subscriptions||[]).length}",\n        "DisplayName": ""\n    }\n}`);
-        } else {
-          print('err', `unknown SNS op: ${op} ('help' dekho)`);
-        }
-        return;
+            if(op==='list-queues')return resultJson({QueueUrls:queues().filter(q=>q.name.startsWith(flag('queue-name-prefix')||'')).map(q=>q.url)});
+            if(op==='get-queue-url'){const name=required('queue-name'),q=queues().find(q=>q.name===name);if(!q||flag('queue-owner-aws-account-id')&&flag('queue-owner-aws-account-id')!==account)throw Error('QueueDoesNotExist: The specified queue does not exist');return resultJson({QueueUrl:q.url});}
+            if(!['get-queue-attributes','set-queue-attributes','send-message','receive-message','delete-message','change-message-visibility','purge-queue','delete-queue'].includes(op))return print('err','Simulator scope: unsupported SQS operation '+op+'; help lists implemented operations');
+            const q=queue();
+            if(op==='set-queue-attributes'){const raw=map('attributes'),attrs=validateQueue(raw,q);applyQueue(q,attrs);return print('ok','');}
+            if(op==='get-queue-attributes'){
+              const names=flags('attribute-names'),known={...q.attributes,QueueArn:q.arn,CreatedTimestamp:String(Math.floor(q.created/1000)),ApproximateNumberOfMessages:String(q.messages.filter(m=>m.visibleAt<=now()&&now()-m.sentAt<Number(q.attributes.MessageRetentionPeriod)*1000).length),ApproximateNumberOfMessagesNotVisible:String(q.messages.filter(m=>m.receiveCount>0&&m.visibleAt>now()).length),ApproximateNumberOfMessagesDelayed:String(q.messages.filter(m=>!m.receiveCount&&m.visibleAt>now()).length)};
+              if(names.some(n=>n!=='All'&&!own(known,n)&&!['Policy','RedrivePolicy','RedriveAllowPolicy'].includes(n)))bad('Invalid queue attribute name');return resultJson({Attributes:names.includes('All')?known:Object.fromEntries(names.filter(n=>own(known,n)).map(n=>[n,known[n]]))});
+            }
+            if(op==='delete-queue'){list('queues').splice(list('queues').indexOf(q),1);return print('ok','');}
+            if(op==='purge-queue'){q.messages=[];q.revision++;return print('ok','');}
+            if(op==='send-message'){
+              const body=text('message-body'),attrs=flag('message-attributes')===null?{}:attributes(doc('message-attributes')),group=flag('message-group-id'),id=flag('message-deduplication-id'),delay=flag('delay-seconds')===null?Number(q.attributes.DelaySeconds):integer(flag('delay-seconds'),0,900,'DelaySeconds');
+              if(!body||messageBytes(body,attrs)>Number(q.attributes.MaximumMessageSize)||Object.keys(attrs).length>10)bad('Message must be nonempty and fit queue size/10-attribute limit');for(const c of body){const p=c.codePointAt(0);if(p<32&&![9,10,13].includes(p)||p===0xfffe||p===0xffff)bad('InvalidMessageContents: body contains disallowed Unicode');}
+              for(const [v,label] of [[group,'MessageGroupId'],[id,'MessageDeduplicationId']])if(v!==null&&(!v.length||bytes(v)>128||/[^\x21-\x7e]/.test(v)))bad(label+' must be1..128 printable non-space ASCII characters');
+              if(q.isFifo){if(!group||id===null&&q.attributes.ContentBasedDeduplication!=='true')bad('FIFO requires MessageGroupId plus deduplication ID or ContentBasedDeduplication');if(flag('delay-seconds')!==null)bad('Per-message DelaySeconds is unsupported for FIFO; set queue DelaySeconds');}else if(id!==null)bad('MessageDeduplicationId is FIFO-only; Standard MessageGroupId enables fair queues');
+              const m=enqueue(q,body,attrs,group,id,delay);return resultJson({MessageId:m.messageId,...(q.isFifo?{SequenceNumber:m.sequenceNumber}:{})});
+            }
+            if(op==='receive-message'){
+              const maximum=flag('max-number-of-messages')===null?1:integer(flag('max-number-of-messages'),1,10,'MaxNumberOfMessages'),visibility=flag('visibility-timeout')===null?q.visibilityTimeout:integer(flag('visibility-timeout'),0,43200,'VisibilityTimeout');if(flag('wait-time-seconds')!==null)integer(flag('wait-time-seconds'),0,20,'WaitTimeSeconds');
+              sweep(q);const blocked=new Set(q.isFifo?q.messages.filter(m=>m.visibleAt>now()&&m.receiveCount>0).map(m=>m.groupId):[]),selected=[];let total=0;
+              for(const m of q.messages.slice()){if(selected.length>=maximum)break;if(m.visibleAt>now()||q.isFifo&&blocked.has(m.groupId))continue;if(moveToDlq(q,m))continue;if(total+messageBytes(m.body,m.messageAttributes||{})>1048576)break;total+=messageBytes(m.body,m.messageAttributes||{});m.receiveCount++;m.receivedAt=now();m.firstReceiveAt=m.firstReceiveAt??now();m.receiptHandle=next('receipt');m.visibleAt=now()+visibility*1000;selected.push(m);}
+              const sysNames=[...flags('message-system-attribute-names'),...flags('attribute-names')],attrNames=flags('message-attribute-names');const rows=selected.map(m=>{const attrs={ApproximateReceiveCount:String(m.receiveCount),SentTimestamp:String(m.sentAt),ApproximateFirstReceiveTimestamp:String(m.firstReceiveAt),...(m.groupId?{MessageGroupId:m.groupId}:{}),...(m.sequenceNumber?{SequenceNumber:m.sequenceNumber}:{}),...(m.deduplicationId?{MessageDeduplicationId:m.deduplicationId}:{}),...(m.deadLetterSourceArn?{DeadLetterQueueSourceArn:m.deadLetterSourceArn}:{})};return {MessageId:m.messageId,ReceiptHandle:m.receiptHandle,Body:m.body,...(sysNames.length?{Attributes:Object.fromEntries(Object.entries(attrs).filter(([k])=>sysNames.includes('All')||sysNames.includes(k)))}:{}),...(attrNames.length?{MessageAttributes:Object.fromEntries(Object.entries(m.messageAttributes||{}).filter(([k])=>attrNames.includes('All')||attrNames.includes('.*')||attrNames.includes(k)))}:{})};});
+              if(resultJson(rows.length?{Messages:rows}:{} )&&flag('query')===null){sim.account.messagingReads=sim.account.messagingReads||[];sim.account.messagingReads=sim.account.messagingReads.filter(r=>r.queueId!==q.queueId);sim.account.messagingReads.push({queueId:q.queueId,revision:q.revision,at:now(),messages:clone(rows)});}return;
+            }
+            const receipt=required('receipt-handle'),m=q.messages.find(m=>m.receiptHandle===receipt&&m.receiveCount>0&&m.visibleAt>now());if(!m)throw Error('ReceiptHandleIsInvalid: Use the latest unexpired receipt from this queue; receive again after visibility expiry');
+            if(op==='change-message-visibility'){const seconds=integer(required('visibility-timeout'),0,43200,'VisibilityTimeout');if(now()+seconds*1000>m.receivedAt+43200000)bad('Visibility cannot exceed12hours from initial receive in this teaching subset');m.visibleAt=now()+seconds*1000;return print('ok','');}
+            q.messages.splice(q.messages.indexOf(m),1);return print('ok','');
+          }
+          if(op==='create-topic'){
+            const name=required('name'),attrs=topicAttrs(flag('attributes')===null?{}:map('attributes'));if(!/^[A-Za-z0-9_-]+(\.fifo)?$/.test(name)||name.length>256||name.endsWith('.fifo')!==(attrs.FifoTopic==='true'))bad('Topic name and FifoTopic=true/.fifo suffix must agree');const old=list('topics').find(t=>t.name===name);if(old)return resultJson({TopicArn:old.arn});const t={name,arn:`arn:aws:sns:${region}:${account}:${name}`,topicId:next('topic'),attributes:attrs,subscriptions:[],dedup:[]};list('topics').push(t);return resultJson({TopicArn:t.arn});
+          }
+          if(op==='list-topics')return resultJson({Topics:list('topics').map(t=>({TopicArn:t.arn}))});
+          if(op==='list-subscriptions')return resultJson({Subscriptions:list('topics').flatMap(t=>(t.subscriptions||[]).map(s=>({SubscriptionArn:s.subscriptionArn,TopicArn:t.arn,Protocol:s.protocol,Endpoint:s.endpoint})))});
+          if(['unsubscribe','get-subscription-attributes','set-subscription-attributes'].includes(op)){
+            const arn=required('subscription-arn'),t=list('topics').find(t=>(t.subscriptions||[]).some(s=>s.subscriptionArn===arn)),s=t&&t.subscriptions.find(s=>s.subscriptionArn===arn);if(!s)throw Error('NotFound: Subscription does not exist');
+            if(op==='unsubscribe'){t.subscriptions.splice(t.subscriptions.indexOf(s),1);return print('ok','');}
+            if(op==='set-subscription-attributes'){const a=subscriptionAttrs({[required('attribute-name')]:required('attribute-value')},s.attributes);s.attributes=a;s.revision=(s.revision||0)+1;return print('ok','');}
+            return resultJson({Attributes:{...s.attributes,SubscriptionArn:s.subscriptionArn,TopicArn:t.arn,Protocol:s.protocol,Endpoint:s.endpoint,PendingConfirmation:String(!s.confirmed)}});
+          }
+          if(!['subscribe','list-subscriptions-by-topic','get-topic-attributes','set-topic-attributes','delete-topic','publish'].includes(op))return print('err','Simulator scope: unsupported SNS operation '+op+'; help lists implemented operations');
+          const t=topic();
+          if(op==='get-topic-attributes')return resultJson({Attributes:{MaximumMessageSize:'262144',...t.attributes,TopicArn:t.arn,SubscriptionsConfirmed:String(t.subscriptions.filter(s=>s.confirmed).length)}});
+          if(op==='set-topic-attributes'){const key=required('attribute-name'),val=required('attribute-value');if(key==='FifoTopic')bad('FifoTopic cannot change after creation');if(key==='FifoThroughputScope'&&t.attributes.FifoThroughputScope==='MessageGroup'&&val==='Topic')bad('MessageGroup throughput scope cannot be reverted to Topic');const a=topicAttrs({[key]:val},t.attributes);if(Number(a.MaximumMessageSize)>262144&&(t.subscriptions.length>100||t.subscriptions.some(s=>!['sqs','lambda','firehose'].includes(s.protocol))))bad('Large-message topic supports at most100 SQS/Lambda/Firehose subscriptions');t.attributes=a;return print('ok','');}
+          if(op==='delete-topic'){list('topics').splice(list('topics').indexOf(t),1);return print('ok','');}
+          if(op==='list-subscriptions-by-topic')return resultJson({Subscriptions:t.subscriptions.map(s=>({SubscriptionArn:s.subscriptionArn,TopicArn:t.arn,Protocol:s.protocol,Endpoint:s.endpoint}))});
+          if(op==='subscribe'){
+            const protocol=required('protocol'),endpoint=required('notification-endpoint'),attrs=subscriptionAttrs(flag('attributes')===null?{}:map('attributes'));if(protocol!=='sqs')bad('Simulator supports confirmed same-account SQS subscriptions only; other real SNS protocols need their own confirmation/delivery model');const q=queues().find(q=>q.arn===endpoint);if(!q)bad('SQS endpoint must be an existing full queue ARN');if(q.isFifo&&t.attributes.FifoTopic!=='true')bad('FIFO queue requires FIFO SNS topic');if(Number(t.attributes.MaximumMessageSize)>262144&&t.subscriptions.length>=100)bad('Large-message topic subscription limit100');const old=t.subscriptions.find(s=>s.protocol===protocol&&s.endpoint===endpoint);if(old)return resultJson({SubscriptionArn:old.subscriptionArn});const s={subscriptionArn:t.arn+':'+next('subscription'),protocol,endpoint,confirmed:true,attributes:attrs,revision:1};t.subscriptions.push(s);return resultJson({SubscriptionArn:s.subscriptionArn});
+          }
+          const body=text('message'),attrs=flag('message-attributes')===null?{}:attributes(doc('message-attributes')),group=flag('message-group-id'),id=flag('message-deduplication-id');if(!body||messageBytes(body,attrs)>Number(t.attributes.MaximumMessageSize||262144))bad('Message exceeds configured SNS MaximumMessageSize or is empty');if(flag('subject')!==null&&(bytes(flag('subject'))>=100||/[\r\n]/.test(flag('subject'))))bad('Subject must be under100 characters without newlines');for(const v of [group,id])if(v!==null&&(!v.length||bytes(v)>128||/[^\x21-\x7e]/.test(v)))bad('Group/dedup IDs must be1..128 printable non-space ASCII characters');
+          let d;if(t.attributes.FifoTopic==='true'){if(!group||id===null&&t.attributes.ContentBasedDeduplication!=='true')bad('FIFO topic requires MessageGroupId and dedup ID or content-based dedup');d=dedup(t,body,group,id,t.attributes.FifoThroughputScope==='MessageGroup'?'messageGroup':'queue');if(t.dedup.includes(d))return resultJson({MessageId:d.id,SequenceNumber:d.sequence});}else if(id!==null)bad('MessageDeduplicationId is FIFO-only');
+          const messageId=d?.id||next('publish');if(d)t.dedup.push(d);sim.account.snsDeliveries=sim.account.snsDeliveries||[];
+          for(const s of t.subscriptions){if(s.protocol!=='sqs'||!s.confirmed)continue;const q=queues().find(q=>q.arn===s.endpoint);let status='delivered';if(!matches(s,body,attrs))status='filtered';else if(!q)status='missing-queue';else if(!allowed(q,t))status='denied-policy';else if(s.attributes?.RawMessageDelivery==='true'&&Object.keys(attrs).length>10)status='raw-attribute-limit';
+            let m;if(status==='delivered'){const raw=s.attributes?.RawMessageDelivery==='true',payload=raw?body:JSON.stringify({Type:'Notification',MessageId:messageId,TopicArn:t.arn,Message:body,Timestamp:new Date(now()).toISOString(),...(flag('subject')!==null?{Subject:flag('subject')}:{})});if(bytes(payload)>Number(q.attributes.MaximumMessageSize))status='queue-payload-limit';else m=enqueue(q,payload,raw?attrs:{},group,id,Number(q.attributes.DelaySeconds),{topicArn:t.arn,topicId:t.topicId,subscriptionArn:s.subscriptionArn,publicationId:messageId});}
+            sim.account.snsDeliveries.push({publicationId:messageId,topicArn:t.arn,queueId:q?.queueId,subscriptionArn:s.subscriptionArn,status,messageId:m?.messageId});print('sys',`Teaching delivery observation: ${s.endpoint} → ${status}. Publish acceptance is separate; real SNS uses delivery metrics/logs/subscription DLQ.`);
+          }
+          return resultJson({MessageId:messageId,...(d?{SequenceNumber:d.sequence}:{})});
+        } catch(e){return print('err',e.message);}
+      }
 
       /* ===================== ECR ===================== */
       case 'ecr':

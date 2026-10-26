@@ -342,30 +342,8 @@ const VISUALS = {
   },
 
   sqssns: {
-    t: 'SQS / SNS / Kinesis — decoupling ka shastra',
-    html: `
-      <div class="dg-split">
-        <div class="dg-box is-accent"><span class="bx-label">📨 SQS (queue)</span>
-          <div class="dg-col">
-            <div class="dg-node is-accent" data-hs="producer"><span class="ni">📤</span><span class="nl">Producer</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-node is-gold pulse" data-hs="queue"><span class="ni">📥</span><span class="nl">Queue</span><span class="ns">messages line</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-node is-accent" data-hs="consumer"><span class="ni">📥</span><span class="nl">Consumer</span><span class="ns">pull & process</span></div>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">📡 SNS (pub/sub)</span>
-          <div class="dg-col">
-            <div class="dg-node is-good" data-hs="publisher"><span class="ni">📢</span><span class="nl">Publisher</span></div>
-            <div class="dg-arrow good flow"></div>
-            <div class="dg-node is-gold pulse" data-hs="topic"><span class="ni">📡</span><span class="nl">Topic</span><span class="ns">fan-out</span></div>
-            <div class="dg-flow">
-              <span class="dg-pill good">SQS</span><span class="dg-pill good">Lambda</span><span class="dg-pill good">Email</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-cap"><b>SQS</b> = queue (1 message → 1 consumer, pull model, at-least-once). <b>SNS</b> = pub/sub (1 message → many subscribers, push, fan-out). <b>Kinesis</b> = real-time streaming (shards, order matters). Decouple = producer consumer se independent.</div>`,
+    t: 'Messaging — acceptance, delivery aur business proof',
+    html: `<div class="dg-flow"><div class="dg-node is-accent"><span class="ni">📤</span><span class="nl">Order + outbox</span><span class="ns">stable eventId</span></div><span class="dg-arrow">→</span><div class="dg-node is-gold"><span class="ni">📣</span><span class="nl">SNS</span><span class="ns">filter + delivery policy</span></div><span class="dg-arrow">→</span><div class="dg-node is-good"><span class="ni">📨</span><span class="nl">Per-service SQS</span><span class="ns">receive → durable intent → delete</span></div></div><div class="dg-flow"><span class="dg-pill gold">Publish accepted ≠ queue delivered</span><span class="dg-pill acc">Receipt ≠ business effect</span><span class="dg-pill good">FIFO group order +5min dedup</span></div><div class="dg-cap">Competing workers share one queue; independent services need copies. Visibility expiry permits retry; actual poison goes to processing DLQ. SNS delivery DLQ handles a different failure boundary. Durable intent and provider idempotency/reconciliation protect external effects.</div>`,
   },
 
   security: {

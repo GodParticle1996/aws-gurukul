@@ -1059,6 +1059,8 @@ pre {
 .dd-opt:hover { border-color: var(--accent); transform: translateX(3px); }
 .dd-leaf { background: linear-gradient(160deg, #34d39914, var(--panel)); border: 1px solid #34d39966; border-radius: var(--radius); padding: 18px; margin: 12px 0; }
 .dd-leaf-h { display: flex; gap: 12px; align-items: center; }
+.dd-leaf-h > div { min-width: 0; overflow-wrap: anywhere; }
+.dd-leaf, .lab-goal-text, .lab-scenario { overflow-wrap: anywhere; }
 .dd-leaf-icon { font-size: 2.2rem; }
 .dd-leaf-k { font-size: .72rem; letter-spacing: 2px; color: var(--good); }
 .dd-leaf-pick { font-size: 1.3rem; font-weight: 800; }

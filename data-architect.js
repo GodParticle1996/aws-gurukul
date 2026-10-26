@@ -746,7 +746,7 @@ aws dynamodb create-table --table-name feed \\
           q: '🎛️ Interviewer: "Fan-out setup inspect/verify karke dikhao."',
           terminal: {
             title: 'Interview hands-on — fan-out audit',
-            goal: '🎛️ <b>Hands-on:</b> PixShare ka upload fan-out check karo. <b>(1)</b> <code>aws sns list-topics</code> aur <code>aws sqs list-queues</code> — topics aur queues. <b>(2)</b> <code>aws sns list-subscriptions-by-topic --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded</code> — kitni queues subscribe hain (durable fan-out?). <b>(3)</b> Ek test event publish karke verify karo ki queue mein message aaya: <code>aws sns publish --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded --message "photo123"</code> phir <code>aws sqs receive-message --queue-name notify-queue</code>.',
+            goal: '🎛️ <b>Hands-on:</b> PixShare ka upload fan-out check karo. <b>(1)</b> <code>aws sns list-topics</code> aur <code>aws sqs list-queues</code> — topics aur queues. <b>(2)</b> <code>aws sns list-subscriptions-by-topic --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded</code> — kitni queues subscribe hain (durable fan-out?). <b>(3)</b> Ek test event publish karke verify karo ki queue mein message aaya: <code>aws sns publish --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded --message "photo123"</code> phir <code>aws sqs receive-message --queue-url https://sqs.us-east-1.amazonaws.com/123456789012/notify-queue</code>.',
             tasks: [
               { text: 'aws sns list-topics + aws sqs list-queues', check: s => s.history.some(h => /aws sns list-topics/.test(h)) && s.history.some(h => /aws sqs list-queues/.test(h)) },
               { text: 'list-subscriptions-by-topic (fan-out dekho)', check: s => s.history.some(h => /aws sns list-subscriptions-by-topic/.test(h)) },
@@ -766,7 +766,7 @@ aws dynamodb create-table --table-name feed \\
                 { name: 'thumbnail-queue', url: 'https://sqs.us-east-1.amazonaws.com/123456789012/thumbnail-queue', arn: 'arn:aws:sqs:us-east-1:123456789012:thumbnail-queue', messages: [], visibilityTimeout: 30 },
                 { name: 'notify-queue', url: 'https://sqs.us-east-1.amazonaws.com/123456789012/notify-queue', arn: 'arn:aws:sqs:us-east-1:123456789012:notify-queue', messages: [], visibilityTimeout: 30 },
                 { name: 'analytics-queue', url: 'https://sqs.us-east-1.amazonaws.com/123456789012/analytics-queue', arn: 'arn:aws:sqs:us-east-1:123456789012:analytics-queue', messages: [], visibilityTimeout: 30 },
-              ],
+              ].map(q=>({...q,policy:{Version:'2012-10-17',Statement:[{Effect:'Allow',Principal:{Service:'sns.amazonaws.com'},Action:'sqs:SendMessage',Resource:q.arn,Condition:{ArnEquals:{'aws:SourceArn':'arn:aws:sns:us-east-1:123456789012:photo-uploaded'}}}]}})),
             },
             success: s => s.history.some(h => /aws sns list-topics/.test(h))
               && s.history.some(h => /aws sqs list-queues/.test(h))
@@ -777,7 +777,7 @@ aws dynamodb create-table --table-name feed \\
             hints: [
               'aws sns list-topics   aur   aws sqs list-queues',
               'aws sns list-subscriptions-by-topic --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded',
-              'aws sns publish --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded --message "photo123"   phir   aws sqs receive-message --queue-name notify-queue',
+              'aws sns publish --topic-arn arn:aws:sns:us-east-1:123456789012:photo-uploaded --message "photo123"   phir   aws sqs receive-message --queue-url https://sqs.us-east-1.amazonaws.com/123456789012/notify-queue',
             ],
           },
         },
