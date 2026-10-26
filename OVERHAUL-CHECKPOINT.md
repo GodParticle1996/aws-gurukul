@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 4 `s3adv` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate 5 `efs`** (master plan §5.B5), then continue levels without per-level approval.
+**Phase A complete; Phase B through Intermediate 5 `efs` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate 6 `lambda`** (master plan §5.B6), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -32,11 +32,87 @@ lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement 
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
 Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
-Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3 completion/validation recorded below; latest local commit identifies delivery.
+Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5 completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 198 stages, 53/53 terminal missions,
-48 interactive labs, 12 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 201 stages, 54/54 terminal missions,
+52 interactive labs, 13 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS checks.
+
+## Intermediate 5 `efs` loop completed (2026-10-26 UTC)
+
+1. Read old full level and VISUALS. Fixed absolute no-local-target=no-mount claim (deliberate cross-AZ access can
+   work), one-target-per-subnet advice, MaxIO=upgrade framing, omitted Elastic/Archive/ONTAP/OpenZFS, flat92%
+   savings, guaranteed10x rsync claim, invented incident and history-only/count-only mission. Same level ID retained.
+2. New IIFE `data-int-5-efs.js`: eight question/analogy cards, four myths, decision/comparison playbook, nine exam
+   cues; dryrun→flowlab→bins→Terraform fill→triage→terminal→lab13→eight bonus MCQs; four interview MCQs plus AP
+   replacement terminal, eight flashcards, optional approved billable two-client byte/permission homework/cleanup.
+3. Verified GeneralPurpose recommendation, MaxIO/Elastic incompatibility, console Elastic vs API Bursting defaults,
+   Standard-only50KiB/s/GiB bursting baseline, read-capacity accounting, IA/Archive minimum billing/file,90-day Archive
+   duration and online cold reads (not S3 restore). Archive lifecycle requires supported Elastic/GeneralPurpose
+   config and later threshold than IA; separate policy objects and opt-in return-on-access. Default policy does not
+   enforce IAM authentication; AP identity/root, SG path, TLS/IAM and POSIX remain distinct controls.
+4. Public US East EFS catalog publication2026-09-11 captured. Storage:Standard approx$0.30, IA with Elastic$0.016
+   vs legacy$0.025, Archive$0.008 perGB-month; activity/read/write/access/reservation charged separately. Planner
+   models depleted credits,80/20 read/write mix,10% read bytes cold,minimum1,000GiB/200GiB hot/200MiBps/1h-day.
+   Elastic example approx$849.05/month; known100MiBps metered Provisioned alternative also allowed.4,500 settings
+   checked; lowering workload below requirements cannot win. Clearly scoped estimate excludes metadata/tiering/
+   small-file/backup/transfer/tax;500MiBps Elastic fixture cap is not a service quota or measured performance.
+5. Ran Moto5.2.4 probes before lab authoring: actual VPC/subnets/SGs, two wrong-SG targets, attachment repair,
+   third target, scoped2049 ingress, duplicate-AZ conflict, lifecycle/AP metadata, and in-use deletion guard.
+   UpdateFileSystem returns500; original remains bursting. Creation-time Elastic works; separate fixture stores
+   valid IA30/Archive90/promotion policy. Invalid AFTER_2_DAYS accepted by Moto (documented gap). No NFS mounting.
+6. Lab13 README/setup/exercises/cleanup authored from captures and repository replay passed. Own VPC,three subnets,
+   three SGs,two filesystem metadata fixtures and one AP; loopback/dummy/lab-local credentials. AP→targets→FS→SG→
+   subnet→VPC cleanup verified, two empty arrays. Probe FSNotFound confirms deletion; no shared reset/resources touched.
+   No actual files/ageing/TLS/IAM/POSIX enforcement/performance claim. Docker still absent (read-only command lookup);
+   no install/start attempted. Lambda can proceed with local handler/Moto metadata; Docker invocation remains unverified.
+7. EFS simulator rewritten with real flags/JSON/shorthand, guarded errors, AZ/VPC/SG validation, target-SG read/replace,
+   throughput configuration, lifecycle replace/clear/ordering/compatibility, AP create/list/delete, deterministic IDs,
+   creation-token conflicts and idempotent AP replay (semantic JSON order). Optional AP user/root accepted without
+   accidentally satisfying requested identity. Creating/updating resources advance on documented describe observation;
+   previous mode retained until available. Not an NFS data-plane, IAM evaluator or elapsed-time model.
+8. Main ten-action solution changes ingress,two SG attachments,missing target,mode,lifecycle,AP and observes readiness.
+   Interview replaces only wrong root/identity AP with three actions. Both win only at final observation; every omitted
+   action fails. Broad ingress,wrong port/SG,unknown/wrong-AZ/cross-VPC target,reset/delete/substitute data,absent
+   readiness,invalid JSON/configurations and read-only inspection cannot win; original fixture bytes/resources preserved.
+9. `validate-efs.js` wired in-process: **12,448 checks**, all **4,500 planner settings**, all omission/cheat/parser/reset
+   and geometry checks. **15 MCQs:0 length flags; positions4/4/4/3.** Full validator green:38levels,201stages,
+   54/54missions,52interactive,13real labs. Updated storage/transfer Dojo, added reachable OpenZFS leaf/scenario;
+   fixed transfer decimal bandwidth arithmetic and protocol/agent eligibility boundaries.27trees/144scenarios.
+10. Verified current Snowball new-customer closureNovember7,2025 and announced commercial-region support end
+    December31,2026, with stated GovCloud/ADC exceptions. No retired Snowmobile/Snowcone recommendation; current
+    offline options/eligibility review replaces automatic Snowball ordering. Browser38samples1280/360 checked all
+    eight lesson cards,all stages,dryrun inline decisions,planner and keyboard mission;zero errors/page overflow.
+    Inspected required intro/dryrun/planner start+solved/terminal captures and mobile overview diagram; text fits.
+    Pronoun,bash syntax and diff whitespace checks clean. Local commit only; no push/Docker/realAWS/install.
+
+Evidence: `/tmp/aws-gurukul-efs/{PROBE.txt,ELASTIC-PROBE.txt,01-…23-*.txt,REPO-SETUP.txt,
+REPO-EXERCISES.txt,REPO-CLEANUP.txt,FINAL-VALIDATE.txt,BROWSER-REPORT.json,screenshots/,price-rows.json}`.
+Next Intermediate6 `lambda`, master §5.B6; continue per-level loop without approval pauses.
+
+EFS/shared-storage primary sources verified this session:
+- [Performance/modes/burst baseline](https://docs.aws.amazon.com/efs/latest/ug/performance.html),
+  [CLI creation defaults](https://docs.aws.amazon.com/cli/latest/reference/efs/create-file-system.html),
+  [classes/minimums/Archive requirements](https://docs.aws.amazon.com/efs/latest/ug/features.html),
+  [lifecycle access clock/promotion](https://docs.aws.amazon.com/efs/latest/ug/lifecycle-management-efs.html),
+  [lifecycle API constraints](https://docs.aws.amazon.com/efs/latest/APIReference/API_PutLifecycleConfiguration.html).
+- [Mount-target placement/cross-AZ caveat](https://docs.aws.amazon.com/efs/latest/ug/manage-fs-access-create-delete-mount-targets.html),
+  [SG path](https://docs.aws.amazon.com/efs/latest/ug/network-access.html),
+  [access points](https://docs.aws.amazon.com/efs/latest/ug/efs-access-points.html),
+  [IAM/default policy](https://docs.aws.amazon.com/efs/latest/ug/iam-access-control-nfs-efs.html),
+  [AP API](https://docs.aws.amazon.com/efs/latest/APIReference/API_CreateAccessPoint.html),
+  [EBS Multi-Attach](https://docs.aws.amazon.com/ebs/latest/userguide/ebs-volumes-multi.html).
+- [EFS pricing](https://aws.amazon.com/efs/pricing/),
+  [public US East price offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonEFS/current/us-east-1/index.json),
+  [FSx Windows](https://docs.aws.amazon.com/fsx/latest/WindowsGuide/what-is.html),
+  [Lustre](https://docs.aws.amazon.com/fsx/latest/LustreGuide/what-is.html),
+  [ONTAP](https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/what-is-fsx-ontap.html),
+  [OpenZFS](https://docs.aws.amazon.com/fsx/latest/OpenZFSGuide/what-is-fsx.html).
+- [DataSync capabilities/performance limits](https://aws.amazon.com/datasync/faqs/),
+  [AS2 supports S3,not EFS](https://docs.aws.amazon.com/transfer/latest/userguide/create-b2b-server.html),
+  [Snowball new-customer availability](https://docs.aws.amazon.com/snowball/latest/developer-guide/snowball-edge-availability-change.html),
+  [current commercial end-of-support notice](https://aws.amazon.com/snowball/),
+  [Snow device updates](https://aws.amazon.com/blogs/storage/aws-snow-device-updates/).
 
 ## Intermediate 4 `s3adv` loop completed (2026-10-26 UTC)
 

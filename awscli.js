@@ -482,7 +482,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws sns create-topic --name <n>  |  aws sns list-topics  |  aws sns unsubscribe --subscription-arn <arn>',
         '  aws sns subscribe --topic-arn <arn> --protocol sqs --notification-endpoint <queue-arn>',
         '  aws sns publish --topic-arn <arn> --message <text>  (fan-out: pushes to all SQS subscribers)',
-        '  aws efs describe-file-systems / describe-mount-targets --file-system-id <fs> / create-mount-target --file-system-id <fs> --subnet-id <s>',
+        '  aws efs describe-file-systems / describe-mount-targets --file-system-id <fs> / create-mount-target --file-system-id <fs> --subnet-id <s> --security-groups <sg>',
+        '  aws efs describe-mount-target-security-groups / modify-mount-target-security-groups --mount-target-id <mt> [--security-groups <sg>]',
+        '  aws efs update-file-system --file-system-id <fs> --throughput-mode elastic / describe-lifecycle-configuration / put-lifecycle-configuration --lifecycle-policies file://lifecycle.json',
+        '  aws efs create-access-point --file-system-id <fs> --client-token <token> --posix-user file://user.json --root-directory file://root.json / describe-access-points --file-system-id <fs>',
         '  aws organizations describe-organization / list-accounts / list-organizational-units-for-parent',
         '  aws organizations list-policies / describe-policy --policy-id <p> / attach-policy --policy-id <p> --target-id <ou>',
         '  aws events list-rules / describe-rule --name <n> / list-targets-by-rule --rule <n>',
@@ -567,8 +570,16 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs'].includes(service)) {
       const specs = {
+        efs: {
+          'describe-file-systems':['file-system-id','creation-token'], 'create-file-system':['creation-token','encrypted!','no-encrypted!','performance-mode','throughput-mode','provisioned-throughput-in-mibps','availability-zone-name','tags*'],
+          'delete-file-system':['file-system-id'], 'update-file-system':['file-system-id','throughput-mode','provisioned-throughput-in-mibps'],
+          'describe-mount-targets':['file-system-id','mount-target-id','access-point-id'], 'create-mount-target':['file-system-id','subnet-id','security-groups*'], 'delete-mount-target':['mount-target-id'],
+          'describe-mount-target-security-groups':['mount-target-id'], 'modify-mount-target-security-groups':['mount-target-id','security-groups*'],
+          'put-lifecycle-configuration':['file-system-id','lifecycle-policies'], 'describe-lifecycle-configuration':['file-system-id'],
+          'create-access-point':['file-system-id','client-token','posix-user','root-directory','tags*'], 'describe-access-points':['access-point-id','file-system-id'], 'delete-access-point':['access-point-id'],
+        },
         cloudfront: {
           'list-distributions': [], 'get-distribution': ['id'], 'get-distribution-config': ['id'],
           'update-distribution': ['id','if-match','distribution-config'], 'delete-distribution': ['id','if-match'],
@@ -3016,49 +3027,68 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         return;
 
       /* ===================== EFS ===================== */
-      case 'efs':
-        if (op === 'describe-file-systems') {
-          const fss = list('fileSystems');
-          if (!fss.length) return print('ok', '{\n    "FileSystems": []\n}');
-          print('ok', '{\n    "FileSystems": [\n' +
-            fss.map(f => `        { "FileSystemId": "${f.id}", "Name": "${f.name || ''}", "LifeCycleState": "${f.state || 'available'}", "PerformanceMode": "${f.performanceMode || 'generalPurpose'}", "ThroughputMode": "${f.throughputMode || 'bursting'}", "Encrypted": ${f.encrypted ? 'true' : 'false'}, "SizeInBytes": { "Value": ${f.sizeBytes || 0} }, "NumberOfMountTargets": ${(list('mountTargets').filter(m => m.fileSystemId === f.id)).length} }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-mount-targets') {
-          const fsId = flag('file-system-id');
-          if (!fsId) return print('err', 'error: --file-system-id required');
-          const mts = list('mountTargets').filter(m => m.fileSystemId === fsId);
-          if (!mts.length) return print('ok', '{\n    "MountTargets": []\n}   ← ek bhi mount target nahi = koi EC2 mount nahi kar sakta!');
-          print('ok', '{\n    "MountTargets": [\n' +
-            mts.map(m => `        { "MountTargetId": "${m.id}", "FileSystemId": "${m.fileSystemId}", "SubnetId": "${m.subnetId}", "AvailabilityZoneName": "${m.az}", "LifeCycleState": "${m.state || 'available'}", "IpAddress": "${m.ip || '10.0.1.50'}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'create-file-system') {
-          const fss = list('fileSystems');
-          const id = 'fs-' + Date.now().toString(36).slice(-8);
-          fss.push({ id, name: flag('tags') || 'new-efs', state: 'available', performanceMode: flag('performance-mode') || 'generalPurpose', throughputMode: flag('throughput-mode') || 'bursting', encrypted: toks.includes('--encrypted'), sizeBytes: 6144 });
-          print('ok', `{ "FileSystemId": "${id}", "LifeCycleState": "creating", "Encrypted": ${toks.includes('--encrypted')} }`);
-        } else if (op === 'create-mount-target') {
-          const fsId = flag('file-system-id');
-          const subnetId = flag('subnet-id');
-          if (!fsId || !subnetId) return print('err', 'error: --file-system-id and --subnet-id required');
-          const f = list('fileSystems').find(x => x.id === fsId);
-          if (!f) return print('err', `FileSystemNotFound: ${fsId}`);
-          const sub = list('subnets').find(s => s.id === subnetId);
-          const mts = list('mountTargets');
-          if (mts.find(m => m.fileSystemId === fsId && m.subnetId === subnetId))
-            return print('err', `MountTargetConflict: is subnet mein already ek mount target hai`);
-          const id = 'fsmt-' + Date.now().toString(36).slice(-8);
-          mts.push({ id, fileSystemId: fsId, subnetId, az: sub ? sub.az : 'us-east-1a', state: 'available' });
-          print('ok', `{ "MountTargetId": "${id}", "FileSystemId": "${fsId}", "SubnetId": "${subnetId}", "LifeCycleState": "creating" }`);
-        } else if (op === 'put-lifecycle-configuration') {
-          const fsId = flag('file-system-id');
-          const f = list('fileSystems').find(x => x.id === fsId);
-          if (!f) return print('err', `FileSystemNotFound: ${fsId}`);
-          f.lifecycle = flag('lifecycle-policies') || 'AFTER_30_DAYS';
-          print('ok', `{ "LifecyclePolicies": [{ "TransitionToIA": "${f.lifecycle}" }] }`);
-        } else {
-          print('err', `unknown EFS op: ${op}`);
-        }
-        return;
+      case 'efs': {
+        const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x),clone=x=>JSON.parse(JSON.stringify(x));
+        const required=n=>{const v=flag(n);if(!v)throw Error(`aws: error: the following arguments are required: --${n}`);return v;};
+        const read=n=>{let v=required(n);if(v.startsWith('file://')){const f=Object.prototype.hasOwnProperty.call(sim.files,v.slice(7))&&sim.files[v.slice(7)];if(!f||typeof f.content!=='string')throw Error(`Error parsing parameter --${n}: Unable to load paramfile; use ls/cat`);v=f.content;}try{return JSON.parse(v);}catch(e){
+          let m;if(n==='posix-user'&&(m=v.match(/^Uid=(\d+),Gid=(\d+)$/)))return {Uid:Number(m[1]),Gid:Number(m[2])};
+          if(n==='root-directory'&&(m=v.match(/^Path=(\/[^,]*),CreationInfo=\{OwnerUid=(\d+),OwnerGid=(\d+),Permissions=([0-7]{3,4})\}$/)))return {Path:m[1],CreationInfo:{OwnerUid:Number(m[2]),OwnerGid:Number(m[3]),Permissions:m[4]}};
+          throw Error(`Error parsing parameter --${n}: Use valid JSON/file; simulator supports the documented Uid/Gid and root-directory shorthand examples`);
+        }};
+        const fs=n=>{const id=n||required('file-system-id'),f=list('fileSystems').find(f=>f.id===id);if(!f)throw Error(`FileSystemNotFound: ${id}`);return f;};
+        const mt=()=>{const id=required('mount-target-id'),m=list('mountTargets').find(m=>m.id===id);if(!m)throw Error(`MountTargetNotFound: ${id}`);return m;};
+        const available=f=>{if(f.state!=='available')throw Error('IncorrectFileSystemLifeCycleState: Observe describe-file-systems until available');};
+        const id=(prefix,rows)=>{let n=(sim.account.efsSequence||0)+1;while(rows.some(r=>r.id===prefix+String(n).padStart(9,'0')))n++;sim.account.efsSequence=n;return prefix+String(n).padStart(9,'0');};
+        const advance=r=>{if(r.pollsRemaining>0&&--r.pollsRemaining===0){r.state='available';if(r.pendingThroughput){Object.assign(r,r.pendingThroughput);delete r.pendingThroughput;}}};
+        const fileView=f=>({FileSystemId:f.id,CreationToken:f.creationToken,Name:f.name||'',LifeCycleState:f.state,PerformanceMode:f.performanceMode||'generalPurpose',ThroughputMode:f.throughputMode||'bursting',Encrypted:!!f.encrypted,SizeInBytes:{Value:f.sizeBytes||0},NumberOfMountTargets:list('mountTargets').filter(m=>m.fileSystemId===f.id).length,...(f.provisionedThroughputInMibps?{ProvisionedThroughputInMibps:f.provisionedThroughputInMibps}:{}),...(f.az?{AvailabilityZoneName:f.az}:{})});
+        const mountView=m=>({MountTargetId:m.id,FileSystemId:m.fileSystemId,SubnetId:m.subnetId,AvailabilityZoneName:m.az,LifeCycleState:m.state,IpAddress:m.ip||'10.213.3.50',VpcId:m.vpcId});
+        const accessView=a=>({AccessPointId:a.id,AccessPointArn:`arn:aws:elasticfilesystem:${sim.account.region||'us-east-1'}:123456789012:access-point/${a.id}`,FileSystemId:a.fileSystemId,ClientToken:a.clientToken,LifeCycleState:a.state,...(a.posixUser?{PosixUser:clone(a.posixUser)}:{}),RootDirectory:clone(a.rootDirectory)});
+        const groups=vpc=>{const ids=flags('security-groups');if(!ids.length)throw Error('Simulator scope: explicitly supply --security-groups; real AWS otherwise uses the VPC default group');if(ids.length>5||new Set(ids).size!==ids.length)throw Error('BadRequest: Use one to five distinct security groups');for(const g of ids){const sg=list('securityGroups').find(s=>s.id===g);if(!sg)throw Error(`SecurityGroupNotFound: ${g}`);if(sg.vpcId!==vpc)throw Error('BadRequest: Security groups must belong to the mount target VPC');}return ids;};
+        const throughput=(f,creating=false)=>{const mode=flag('throughput-mode')||(creating?'bursting':f.throughputMode),raw=flag('provisioned-throughput-in-mibps');if(!['elastic','bursting','provisioned'].includes(mode))throw Error('BadRequest: ThroughputMode must be elastic, bursting or provisioned');if(mode==='elastic'&&f.performanceMode==='maxIO')throw Error('BadRequest: Elastic throughput requires General Purpose performance mode');if(mode!=='elastic'&&(f.lifecyclePolicies||[]).some(p=>p.TransitionToArchive))throw Error('BadRequest: Remove Archive lifecycle before leaving Elastic throughput; review existing Archive data');let provisioned=mode==='provisioned'?Number(raw===null?f.provisionedThroughputInMibps:raw):undefined;if(mode==='provisioned'&&(!Number.isFinite(provisioned)||provisioned<1))throw Error('BadRequest: Provisioned throughput requires positive --provisioned-throughput-in-mibps');if(mode!=='provisioned'&&raw!==null)throw Error('BadRequest: ProvisionedThroughputInMibps only applies to provisioned mode');return {throughputMode:mode,provisionedThroughputInMibps:provisioned};};
+        try {
+          if(op==='describe-file-systems'){const fid=flag('file-system-id'),token=flag('creation-token');if(fid&&token)throw Error('BadRequest: Choose FileSystemId or CreationToken');const rows=fid?[fs(fid)]:list('fileSystems').filter(f=>!token||f.creationToken===token);rows.forEach(advance);return resultJson({FileSystems:rows.map(fileView)});}
+          if(op==='create-file-system'){const token=required('creation-token');if(list('fileSystems').some(f=>f.creationToken===token))throw Error('FileSystemAlreadyExists: CreationToken already used; describe by creation-token');const perf=flag('performance-mode')||'generalPurpose';if(!['generalPurpose','maxIO'].includes(perf))throw Error('BadRequest: PerformanceMode must be generalPurpose or maxIO');if(toks.includes('--encrypted')&&toks.includes('--no-encrypted'))throw Error('BadRequest: Mutually exclusive encryption flags');const f={performanceMode:perf,az:flag('availability-zone-name')||undefined};if(f.az&&perf==='maxIO')throw Error('BadRequest: One Zone supports General Purpose only');const config=throughput(f,true);const fresh={...f,...config,id:id('fs-',list('fileSystems')),creationToken:token,encrypted:toks.includes('--encrypted'),sizeBytes:0,state:'creating',pollsRemaining:1};list('fileSystems').push(fresh);return resultJson(fileView(fresh));}
+          if(op==='delete-file-system'){const f=fs();if(list('mountTargets').some(m=>m.fileSystemId===f.id)||list('accessPoints').some(a=>a.fileSystemId===f.id))throw Error('FileSystemInUse: Remove mount targets/access points before deleting file system');list('fileSystems').splice(list('fileSystems').indexOf(f),1);return print('ok','');}
+          if(op==='update-file-system'){const f=fs();available(f);if(flag('throughput-mode')===null&&flag('provisioned-throughput-in-mibps')===null)throw Error('BadRequest: Provide throughput mode or provisioned capacity');const pending=throughput(f);f.pendingThroughput=pending;f.state='updating';f.pollsRemaining=1;return resultJson(fileView(f));}
+          if(op==='describe-mount-targets'){const keys=['file-system-id','mount-target-id','access-point-id'].filter(k=>flag(k)!==null);if(keys.length!==1)throw Error('BadRequest: Specify exactly one FileSystemId, MountTargetId or AccessPointId');let rows;if(keys[0]==='mount-target-id')rows=[mt()];else {let fid=flag('file-system-id');if(!fid){const a=list('accessPoints').find(a=>a.id===flag('access-point-id'));if(!a)throw Error('AccessPointNotFound: Unknown access point');fid=a.fileSystemId;}fs(fid);rows=list('mountTargets').filter(m=>m.fileSystemId===fid);}rows.forEach(advance);return resultJson({MountTargets:rows.map(mountView)});}
+          if(op==='create-mount-target'){const f=fs();available(f);const subnet=required('subnet-id'),s=list('subnets').find(s=>s.id===subnet);if(!s)throw Error(`SubnetNotFound: ${subnet}`);const rows=list('mountTargets').filter(m=>m.fileSystemId===f.id);if(rows.some(m=>m.az===s.az))throw Error('MountTargetConflict: A mount target already exists in this Availability Zone (one per AZ, not per subnet)');if(f.az&&f.az!==s.az)throw Error('BadRequest: One Zone mount target must use the file system Availability Zone');if(rows.some(m=>{const old=list('subnets').find(s=>s.id===m.subnetId);return old&&old.vpcId!==s.vpcId;}))throw Error('BadRequest: All mount targets for one file system must use one VPC');const sgIds=groups(s.vpcId);const m={id:id('fsmt-',list('mountTargets')),fileSystemId:f.id,subnetId:s.id,az:s.az,vpcId:s.vpcId,sgIds,state:'creating',pollsRemaining:1};list('mountTargets').push(m);return resultJson(mountView(m));}
+          if(op==='delete-mount-target'){const m=mt();list('mountTargets').splice(list('mountTargets').indexOf(m),1);return print('ok','');}
+          if(op==='describe-mount-target-security-groups'){const m=mt();return resultJson({SecurityGroups:m.sgIds||[]});}
+          if(op==='modify-mount-target-security-groups'){const m=mt(),s=list('subnets').find(s=>s.id===m.subnetId);if(!s)throw Error('SubnetNotFound: Mount target subnet missing');const ids=groups(s.vpcId);m.sgIds=ids;return print('ok','');}
+          if(op==='describe-lifecycle-configuration')return resultJson({LifecyclePolicies:clone(fs().lifecyclePolicies||[])});
+          if(op==='put-lifecycle-configuration'){const f=fs();available(f);const rows=read('lifecycle-policies'),valid=['AFTER_1_DAY','AFTER_7_DAYS','AFTER_14_DAYS','AFTER_30_DAYS','AFTER_60_DAYS','AFTER_90_DAYS','AFTER_180_DAYS','AFTER_270_DAYS','AFTER_365_DAYS'],seen=new Set();if(!Array.isArray(rows)||rows.length>3)throw Error('BadRequest: LifecyclePolicies must be array of up to three separate transitions (empty clears configuration)');for(const r of rows){if(!object(r)||Object.keys(r).length!==1)throw Error('BadRequest: Each lifecycle policy must contain exactly one transition');const k=Object.keys(r)[0];if(!['TransitionToIA','TransitionToArchive','TransitionToPrimaryStorageClass'].includes(k)||seen.has(k)||(k==='TransitionToPrimaryStorageClass'?r[k]!=='AFTER_1_ACCESS':!valid.includes(r[k])))throw Error('BadRequest: Use distinct transition types and documented AFTER_* values');seen.add(k);}const ia=rows.find(r=>r.TransitionToIA),ar=rows.find(r=>r.TransitionToArchive);if(ar){if(f.throughputMode!=='elastic'||f.performanceMode!=='generalPurpose'||f.az)throw Error('BadRequest: Archive needs Regional, General Purpose, Elastic throughput');if(!ia||Number(ar.TransitionToArchive.split('_')[1])<=Number(ia.TransitionToIA.split('_')[1]))throw Error('BadRequest: Archive must be later than TransitionToIA');}f.lifecyclePolicies=clone(rows);return resultJson({LifecyclePolicies:clone(rows)});}
+          if(op==='create-access-point') {
+            const f=fs(); available(f);
+            const token=flag('client-token');
+            if(!token) throw Error('Simulator scope: supply --client-token for predictable replay; AWS CLI can generate a token');
+            if(token.length>64) throw Error('BadRequest: ClientToken maximum64 characters');
+            const user=flag('posix-user')===null?undefined:read('posix-user');
+            const root=flag('root-directory')===null?{Path:'/'}:read('root-directory');
+            const uint=x=>Number.isInteger(x)&&x>=0&&x<=4294967295;
+            if(user!==undefined&&(!object(user)||Object.keys(user).some(k=>!['Uid','Gid','SecondaryGids'].includes(k))||!uint(user.Uid)||!uint(user.Gid)||user.SecondaryGids!==undefined&&(!Array.isArray(user.SecondaryGids)||user.SecondaryGids.some(g=>!uint(g)))))
+              throw Error('BadRequest: PosixUser needs integer Uid/Gid (optional SecondaryGids array)');
+            if(!object(root)||Object.keys(root).some(k=>!['Path','CreationInfo'].includes(k))||typeof root.Path!=='string'||!root.Path.startsWith('/')||root.Path.length>100)
+              throw Error('BadRequest: RootDirectory needs an absolute path up to100 characters');
+            const c=root.CreationInfo;
+            if(c!==undefined&&(!object(c)||Object.keys(c).some(k=>!['OwnerUid','OwnerGid','Permissions'].includes(k))||!uint(c.OwnerUid)||!uint(c.OwnerGid)||typeof c.Permissions!=='string'||!/^0?[0-7]{3}$/.test(c.Permissions)))
+              throw Error('BadRequest: CreationInfo needs OwnerUid, OwnerGid and octal Permissions');
+            const canonical=x=>Array.isArray(x)?x.map(canonical):object(x)?Object.fromEntries(Object.keys(x).sort().map(k=>[k,canonical(x[k])])):x;
+            const equal=(x,y)=>JSON.stringify(canonical(x))===JSON.stringify(canonical(y));
+            const existing=list('accessPoints').find(a=>a.clientToken===token);
+            if(existing) {
+              if(existing.fileSystemId!==f.id||!equal(existing.posixUser,user)||!equal(existing.rootDirectory,root))
+                throw Error('AccessPointAlreadyExists: ClientToken is already associated with different configuration');
+              return resultJson(accessView(existing));
+            }
+            const a={id:id('fsap-',list('accessPoints')),fileSystemId:f.id,clientToken:token,...(user!==undefined?{posixUser:clone(user)}:{}),rootDirectory:clone(root),state:'creating',pollsRemaining:1};
+            list('accessPoints').push(a);
+            return resultJson(accessView(a));
+          }
+          if(op==='describe-access-points'){if(flag('access-point-id')&&flag('file-system-id'))throw Error('BadRequest: Choose AccessPointId or FileSystemId');let rows;if(flag('access-point-id')){const a=list('accessPoints').find(a=>a.id===flag('access-point-id'));if(!a)throw Error('AccessPointNotFound: Unknown access point');rows=[a];}else {if(flag('file-system-id'))fs();rows=list('accessPoints').filter(a=>!flag('file-system-id')||a.fileSystemId===flag('file-system-id'));}rows.forEach(advance);return resultJson({AccessPoints:rows.map(accessView)});}
+          if(op==='delete-access-point'){const aid=required('access-point-id'),a=list('accessPoints').find(a=>a.id===aid);if(!a)throw Error('AccessPointNotFound: '+aid);list('accessPoints').splice(list('accessPoints').indexOf(a),1);return print('ok','');}
+          return print('err',`Unknown EFS operation: ${op}. Use help for supported API commands; EFS has no modeled CLI waiter, observe describe state.`);
+        }catch(e){return print('err',e.message);}
+      }
 
       /* ===================== ORGANIZATIONS ===================== */
       case 'organizations':

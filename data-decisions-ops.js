@@ -231,9 +231,9 @@ AG.registerDecisions([
   {
     id: 'transfer',
     icon: '🚛',
-    title: 'Data AWS tak kaise pahunchaun? — DataSync, Snowball, Transfer Family, Storage Gateway, DMS',
+    title: 'Data AWS tak kaise pahunchaun? — online, hybrid, partner protocol aur offline options',
     short: 'Data transfer tool',
-    tldr: 'Ek baar ka bada move internet par → DataSync. Network chhota, data bahut bada → Snowball (offline device). Partners SFTP se files bhejte hain → Transfer Family. On-prem apps ko cloud storage hamesha chahiye (hybrid) → Storage Gateway. Database → DMS.',
+    tldr: 'Ek baar ka bada move internet par → DataSync. Network weak → current offline-transfer eligibility/options evaluate karo. Partners SFTP se files bhejte hain → Transfer Family. On-prem apps ko cloud storage hamesha chahiye (hybrid) → Storage Gateway. Database → DMS.',
     levels: ['efs', 'migration'],
     start: 'q1',
     nodes: {
@@ -254,20 +254,20 @@ AG.registerDecisions([
       },
       q3: {
         q: 'Network kitna hai? (Hisaab: 100 TB ÷ 1 Gbps ≈ 9–10 din, link poora bhar ke)',
-        why: '1 Gbps link par asli speed ~110 MB/s. 100 TB = 1,00,00,000 MB ÷ 110 MB/s ≈ 9 lakh second ≈ 10 din — aur office ka internet bhi us beech bhara rahega.',
+        why: '100 TB decimal = 100,000,000 MB. Ideal 1 Gbit/s = 125 MB/s → about 9.3 days; overhead/contention/downtime increase elapsed time. Deadline and measured usable bandwidth compare karo.',
         options: [
           { t: 'Network theek hai — din/hafte mein ho jayega', next: 'dsync' },
           { t: 'Network chhota/mehenga, data sau TBs — mahine lagenge', next: 'snow' },
         ],
       },
       dms: { leaf: true, icon: '🔄', pick: 'AWS Database Migration Service (DMS)', one: 'Full load + CDC (continuous changes) — source DB chalti rehti hai, cutover minutes ka.', when: ['Oracle → Aurora, MySQL → RDS, on-prem → AWS'], avoid: ['Files (DataSync)'], gotchas: ['Heterogeneous (Oracle → Postgres) mein schema conversion pehle (DMS Schema Conversion)'], exam: '"migrate database with minimal downtime", "continuous replication" → DMS.', level: 'migration' },
-      dsync: { leaf: true, icon: '🔁', pick: 'AWS DataSync', one: 'NFS/SMB/HDFS/object storage → S3/EFS/FSx online transfer, encryption, verification, scheduling.', when: ['NAS ka 50 TB S3/EFS par', 'Roz raat incremental sync'], avoid: ['Network bahut slow aur data PB-scale'], gotchas: ['On-prem DataSync agent chahiye', 'Bandwidth throttle set karo office hours mein'], cost: 'Per GB transferred (~$0.0125).', exam: '"move large amounts of data online", "NFS/SMB to S3/EFS", "automate and accelerate" → DataSync.', level: 'efs' },
-      snow: { leaf: true, icon: '📦', pick: 'AWS Snowball Edge (offline)', one: 'AWS device bhejta hai, tum data bharte ho, courier wapas — AWS S3 mein daal deta hai.', when: ['Sau TBs, slow/costly network', 'Remote sites (ship, mine) — edge compute bhi'], avoid: ['Chhota data / achha network (DataSync tez)'], gotchas: ['Device ka round-trip ~1 hafta', 'Snow family ke kuch devices AWS band kar chuka hai (Snowmobile, Snowcone) — real project mein current availability check karo'], exam: '"petabytes", "limited bandwidth", "would take weeks over the network" → Snowball.', level: 'efs' },
-      tfam: { leaf: true, icon: '📤', pick: 'AWS Transfer Family', one: 'Managed SFTP/FTPS/FTP/AS2 server jiska backend S3/EFS.', when: ['Banks/partners SFTP se daily files bhejte hain'], avoid: ['Internal bulk migration (DataSync)'], gotchas: ['Partners ke existing SFTP clients bina badle kaam karte hain'], exam: '"SFTP", "partners upload files", "FTP to S3" → Transfer Family.', level: 'efs' },
+      dsync: { leaf: true, icon: '🔁', pick: 'AWS DataSync', one: 'NFS/SMB/HDFS/object storage → S3/EFS/FSx online transfer, encryption, verification, scheduling.', when: ['NAS ka 50 TB S3/EFS par', 'Roz raat incremental sync'], avoid: ['Network bahut slow aur data PB-scale'], gotchas: ['Agent requirement depends on source/location; supported on-prem paths need configured agent/connectivity', 'Bandwidth throttle and integrity verification plan karo; no guaranteed10x speedup'], cost: 'Per transferred GB; mode, task/Region and network/storage charges review karo.', exam: '"move large amounts of data online", "NFS/SMB to S3/EFS", "automate and accelerate" → DataSync.', level: 'efs' },
+      snow: { leaf: true, icon: '📦', pick: 'Current offline transfer options / eligibility review', one: 'Evaluate Data Transfer Terminal availability, logistics and qualified partner options when online transfer misses deadline.', when: ['Hundreds of TB with infeasible network window', 'Approved physical transport with integrity/security controls'], avoid: ['Assuming retired/new-customer-closed hardware is orderable', 'A viable online sync that needs recurring updates'], gotchas: ['Snowball Edge closed new customers November7,2025; commercial support endsDecember31,2026 under current notice, with stated exceptions', 'Snowcone discontinued; Snowmobile not a new-project choice; location, capacity, shipping/security and deadline must be verified'], exam: 'Legacy offline bulk-transfer scenarios may name Snowball. Current production choice requires availability review; never infer fixed delivery time.', level: 'efs' },
+      tfam: { leaf: true, icon: '📤', pick: 'AWS Transfer Family', one: 'Managed partner file-transfer protocols with supported storage backend; AS2 supports S3, not EFS.', when: ['Banks/partners SFTP se daily files bhejte hain'], avoid: ['Internal bulk migration (DataSync)'], gotchas: ['Partners ke existing SFTP clients bina badle kaam karte hain'], exam: '"SFTP", "partners upload files", "FTP to S3" → Transfer Family.', level: 'efs' },
       sgw: { leaf: true, icon: '🌉', pick: 'AWS Storage Gateway', one: 'On-prem VM/appliance jo cloud storage ko local share/volume/tape ki tarah dikhata hai, local cache ke saath.', when: ['S3 File Gateway: on-prem apps NFS/SMB par likhein, files S3 mein', 'Tape Gateway: backup software ke virtual tapes S3/Glacier mein', 'Volume Gateway: iSCSI volumes, EBS snapshots'], avoid: ['Ek baar ka migration (DataSync)'], gotchas: ['Local cache size hot data ke hisaab se'], exam: '"hybrid", "on-premises applications access cloud storage", "replace tape backups" → Storage Gateway.', level: 'efs' },
     },
     scenarios: [
-      { s: 'Remote mining site par 500 TB data, internet 50 Mbps satellite.', answer: 'snow', explain: 'Network ke saath saal lagega → Snowball Edge.' },
+      { s: 'New commercial customer in2026:500 TB offline import needed, network50 Mbps; service eligibility not yet established.', answer: 'snow', explain: 'Network window infeasible; evaluate current physical-transfer options. Snowball new-customer closure/support end must be honored.' },
       { s: 'Office NAS ka 20 TB S3 par move, 1 Gbps link, weekend ke baad raat ko incremental sync.', answer: 'dsync', explain: 'Online + scheduled → DataSync.' },
       { s: 'Partner banks roz SFTP se settlement files bhejte hain; files S3 mein chahiye.', answer: 'tfam', explain: 'Managed SFTP → Transfer Family.' },
       { s: 'Backup software virtual tapes par likhta hai; physical tape library hatani hai.', answer: 'sgw', explain: 'Tape Gateway → S3 Glacier.' },

@@ -276,39 +276,14 @@ const VISUALS = {
   },
 
   efs: {
-    t: 'Block vs File vs Object — aur hybrid ka pul',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-box is-accent"><span class="bx-label">🧱 Block — EBS</span>
-          <div class="dg-col">
-            <div class="dg-node is-accent" data-hs="ebs"><span class="ni">💽</span><span class="nl">EBS volume</span><span class="ns">1 AZ · 1 EC2 at a time</span></div>
-            <span class="dg-pill acc">OS disk, database ka data</span>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">📁 File — EFS / FSx</span>
-          <div class="dg-col">
-            <div class="dg-node is-good pulse" data-hs="efs"><span class="ni">📁</span><span class="nl">EFS (NFS)</span><span class="ns">multi-AZ · 1000s EC2 ek saath</span></div>
-            <div class="dg-node is-gold" data-hs="fsx"><span class="ni">🪟</span><span class="nl">FSx</span><span class="ns">Windows (SMB) · Lustre (HPC)</span></div>
-            <span class="dg-pill good">shared web content, CMS uploads</span>
-          </div>
-        </div>
-        <div class="dg-box is-gold"><span class="bx-label">🪣 Object — S3</span>
-          <div class="dg-col">
-            <div class="dg-node is-gold" data-hs="s3obj"><span class="ni">🪣</span><span class="nl">S3 bucket</span><span class="ns">unlimited · HTTP API</span></div>
-            <span class="dg-pill gold">backups, media, static site, data lake</span>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:14px">
-        <div class="dg-node is-muted"><span class="ni">🏢</span><span class="nl">On-prem</span><span class="ns">data center</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node" data-hs="sgw"><span class="ni">🌉</span><span class="nl">Storage Gateway</span><span class="ns">hybrid: local cache + AWS backend</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node" data-hs="datasync"><span class="ni">🚚</span><span class="nl">DataSync</span><span class="ns">online bulk copy (network)</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-bad" data-hs="snowball"><span class="ni">❄️</span><span class="nl">Snowball</span><span class="ns">offline truck — PB scale</span></div>
-      </div>
-      <div class="dg-cap"><b>EBS</b> = ek EC2 ki hard disk (1 AZ). <b>EFS</b> = shared NFS drive, multi-AZ, hazaar EC2 ek saath mount. <b>FSx</b> = Windows SMB ya Lustre HPC. <b>S3</b> = object, API se. Hybrid: <b>Storage Gateway</b> (ongoing), <b>DataSync</b> (network bulk), <b>Snowball</b> (offline PB).</div>`,
+    t: 'Shared files — protocol, AZ path, identity aur total cost',
+    html: `<div class="dg-col">
+      <div class="dg-node is-accent"><span class="nl">Block · EBS</span><span class="ns">One AZ · Multi-Attach has coordinated-write constraints</span></div>
+      <div class="dg-node is-good"><span class="nl">NFS · Regional EFS</span><span class="ns">Local target per required AZ → attached SG → TCP2049 → IAM/POSIX</span></div>
+      <div class="dg-node is-gold"><span class="nl">FSx family</span><span class="ns">Windows SMB/AD · Lustre HPC · ONTAP multiprotocol · OpenZFS NFS</span></div>
+      <div class="dg-node"><span class="nl">Object · S3</span><span class="ns">HTTP object contract; review specialized interfaces separately</span></div>
+      <div class="dg-node"><span class="nl">Hybrid / transfer</span><span class="ns">Gateway ongoing · DataSync online copy · Transfer Family partner protocol</span></div>
+    </div><div class="dg-cap">General Purpose + Elastic is a recommended variable-workload starting point. Storage minimums, activity/throughput and cold access add cost. Local Moto lab proves metadata only; actual NFS bytes/permissions require real clients. Offline transfer: current eligibility/support review; retired Snow offerings are not new-project defaults.</div>`,
   },
 
   events: {
