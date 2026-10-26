@@ -280,21 +280,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   const J = v => JSON.stringify(String(v == null ? '' : v));
   /* DynamoDB ka asli wire format: { "user_id": { "S": "42" } } */
   function ddbTyped(item) {
-    const o = {};
-    Object.entries(item || {}).forEach(([k, v]) => {
-      o[k] = typeof v === 'number' ? { N: String(v) } : typeof v === 'boolean' ? { BOOL: v } : { S: String(v) };
-    });
-    return o;
-  }
-  function ddbPlain(typed) {
-    const o = {};
-    Object.entries(typed || {}).forEach(([k, v]) => {
-      if (v && typeof v === 'object') {
-        if ('S' in v) o[k] = v.S; else if ('N' in v) o[k] = Number(v.N); else if ('BOOL' in v) o[k] = v.BOOL;
-        else o[k] = JSON.stringify(v);
-      } else o[k] = v;
-    });
-    return o;
+    const value=v=>v===null?{NULL:true}:typeof v==='number'?{N:String(v)}:typeof v==='boolean'?{BOOL:v}:Array.isArray(v)?{L:v.map(value)}:v&&typeof v==='object'?{M:Object.fromEntries(Object.entries(v).map(([k,x])=>[k,value(x)]))}:{S:String(v)};
+    return Object.fromEntries(Object.entries(item||{}).map(([k,v])=>[k,value(v)]));
   }
 
   /* ---------- mini IAM policy evaluator (simulate-principal-policy) ----------
@@ -427,7 +414,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     const norm = raw.replace(/\s+/g, ' ').trim();
     sim.history.push(norm);
     // simulator ka koi bhi crash mission ko freeze na kare — error dikhao aur chalte raho
-    try { exec(norm); }
+    try { exec(raw.trim()); }
     catch (e) {
       console.error('awscli sim error:', e);
       print('err', `simulator error: ${e.message} — command dobara try karo ya 'help' dekho`);
@@ -477,7 +464,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws lambda wait function-updated-v2 --function-name <fn> / get-function-concurrency / put-function-concurrency --reserved-concurrent-executions <n>',
         '  aws lambda put-function-event-invoke-config --function-name <fn> --destination-config file://destination.json / create-event-source-mapping / list-event-source-mappings',
         '  aws lambda invoke --function-name <fn> --cli-binary-format raw-in-base64-out --payload file://event.json output.json; inspect FunctionError/body, not status alone',
-        '  aws dynamodb list-tables / describe-table --table-name <t> / scan / query / put-item / update-table',
+        '  aws dynamodb list-tables / create-table / wait table-exists / describe-table --table-name <t> / query / scan',
+        '  aws dynamodb put-item --item file://item.json [--condition-expression <condition>] / get-item --key <typed JSON> / batch-write-item --request-items file://backfill.json',
+        '  aws dynamodb update-table --global-secondary-index-updates file://index.json / update-continuous-backups / update-time-to-live / transact-write-items',
         '  aws route53 list-hosted-zones / list-resource-record-sets --hosted-zone-id <id> / list-health-checks',
         '  aws cloudformation describe-stacks / describe-stack-events --stack-name <s>',
         '  aws cloudwatch describe-alarms / put-metric-alarm --alarm-name <n> / delete-alarms / set-alarm-state',
@@ -581,8 +570,22 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb'].includes(service)) {
       const specs = {
+        dynamodb: {
+          'list-tables': [], 'describe-table':['table-name'], 'delete-table':['table-name'], 'wait':['table-name'],
+          'create-table':['table-name','attribute-definitions*','key-schema*','billing-mode','provisioned-throughput','global-secondary-indexes','local-secondary-indexes'],
+          'update-table':['table-name','attribute-definitions*','billing-mode','provisioned-throughput','global-secondary-index-updates'],
+          'batch-write-item':['request-items'], 'transact-write-items':['transact-items','client-request-token'],
+          'update-continuous-backups':['table-name','point-in-time-recovery-specification'], 'describe-continuous-backups':['table-name'],
+          'update-time-to-live':['table-name','time-to-live-specification'], 'describe-time-to-live':['table-name'],
+          'get-item':['table-name','key','consistent-read!','no-consistent-read!'],
+          'put-item':['table-name','item','condition-expression','expression-attribute-names','expression-attribute-values','return-values'],
+          'delete-item':['table-name','key','condition-expression','expression-attribute-names','expression-attribute-values','return-values'],
+          'update-item':['table-name','key','update-expression','condition-expression','expression-attribute-names','expression-attribute-values','return-values'],
+          'query':['table-name','index-name','key-condition-expression','expression-attribute-names','expression-attribute-values','filter-expression','projection-expression','consistent-read!','no-consistent-read!','scan-index-forward!','no-scan-index-forward!','limit','exclusive-start-key','select','return-consumed-capacity'],
+          'scan':['table-name','index-name','expression-attribute-names','expression-attribute-values','filter-expression','projection-expression','consistent-read!','no-consistent-read!','limit','exclusive-start-key','select','return-consumed-capacity'],
+        },
         lambda: {
           'list-functions': [], 'get-function': ['function-name','qualifier'], 'get-function-configuration': ['function-name','qualifier'],
           'update-function-configuration': ['function-name','memory-size','timeout','handler','architectures*'], 'wait': ['function-name','qualifier'],
@@ -712,14 +715,14 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       }
       let result = value;
       try { if (flag('query') != null) result = query(value, flag('query')); }
-      catch (e) { return print('err', 'Invalid --query for this simulator subset: ' + e.message + '. Supported: dotted paths, [0], [], length(), object projections. Omit --query for full JSON.'); }
+      catch (e) { print('err', 'Invalid --query for this simulator subset: ' + e.message + '. Supported: dotted paths, [0], [], length(), object projections. Omit --query for full JSON.'); return false; }
       const output = flag('output') || 'json';
-      if (output === 'json') return print('ok', prettyJson(result));
+      if (output === 'json') { print('ok', prettyJson(result)); return true; }
       if (output === 'text') {
         const row = x => Array.isArray(x) ? x.map(z => z == null ? 'None' : String(z)).join('\t') : x && typeof x === 'object' ? Object.keys(x).sort().map(k => String(x[k])).join('\t') : x == null ? 'None' : String(x);
-        return print('ok', Array.isArray(result) && result.some(x => x && typeof x === 'object') ? result.map(row).join('\n') : row(result));
+        print('ok', Array.isArray(result) && result.some(x => x && typeof x === 'object') ? result.map(row).join('\n') : row(result)); return true;
       }
-      print('err', 'Simulator output support: --output json or text. Table/YAML formatting is not implemented.');
+      print('err', 'Simulator output support: --output json or text. Table/YAML formatting is not implemented.'); return false;
     }
 
     if(service==='s3api'&&['put-bucket-lifecycle-configuration','get-bucket-lifecycle-configuration','delete-bucket-lifecycle','put-bucket-replication','get-bucket-replication','delete-bucket-replication','put-object-lock-configuration','get-object-lock-configuration','put-object-retention','get-object-retention','put-object-legal-hold','get-object-legal-hold','put-bucket-intelligent-tiering-configuration','get-bucket-intelligent-tiering-configuration','get-bucket-versioning','put-bucket-versioning','head-object','get-object','restore-object'].includes(op)){
@@ -2091,138 +2094,93 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       }
 
       /* ===================== DYNAMODB ===================== */
-      case 'dynamodb':
-        if (op === 'list-tables') {
-          const tables = list('tables');
-          if (!tables.length) return print('ok', '{\n    "TableNames": []\n}');
-          print('ok', '{\n    "TableNames": [\n' + tables.map(t => `        "${t.name}"`).join(',\n') + '\n    ]\n}');
-        } else if (op === 'describe-table') {
-          const name = flag('table-name');
-          if (!name) return print('err', 'error: --table-name required');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          const attrDefs = [`{ "AttributeName": "${t.partitionKey}", "AttributeType": "S" }`];
-          const keySchema = [`{ "AttributeName": "${t.partitionKey}", "KeyType": "HASH" }`];
-          if (t.sortKey) {
-            attrDefs.push(`{ "AttributeName": "${t.sortKey}", "AttributeType": "S" }`);
-            keySchema.push(`{ "AttributeName": "${t.sortKey}", "KeyType": "RANGE" }`);
+      case 'dynamodb': {
+        // Bounded data/metadata engine: no physical throughput, replication or TTL clock.
+        const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x),own=(x,k)=>Object.prototype.hasOwnProperty.call(x,k),clone=x=>JSON.parse(JSON.stringify(x));
+        const invalid=message=>{throw Error('ValidationException: '+message);},required=name=>{const x=flag(name);if(x==null||x==='')throw Error('aws: error: the following arguments are required: --'+name);return x;};
+        const safeName=x=>typeof x==='string'&&x.length>0&&!['__proto__','constructor','prototype'].includes(x);
+        const bytes=x=>unescape(encodeURIComponent(String(x))).length;
+        const sizeValue=x=>x===null?1:typeof x==='string'?bytes(x):typeof x==='number'?Math.ceil(String(x).replace(/[^0-9]/g,'').length/2)+1:typeof x==='boolean'?1:Array.isArray(x)?3+x.reduce((n,v)=>n+1+sizeValue(v),0):3+Object.entries(x).reduce((n,[k,v])=>n+bytes(k)+1+sizeValue(v),0);
+        const itemSize=x=>Object.entries(x).reduce((n,[k,v])=>n+bytes(k)+sizeValue(v),0);
+        function parseText(raw,name){let text=raw;if(raw.startsWith('file://')){const file=own(sim.files,raw.slice(7))&&sim.files[raw.slice(7)];if(!file||typeof file.content!=='string')throw Error('Error parsing parameter --'+name+': Unable to load paramfile '+raw);text=file.content;}try{return JSON.parse(text);}catch(e){throw Error('Error parsing parameter --'+name+': Invalid JSON');}}
+        const doc=name=>parseText(required(name),name);
+        function structure(name,many=false){const raw=required(name);if(raw.startsWith('file://')||raw.startsWith('{')||raw.startsWith('['))return parseText(raw,name);const entries=many?flags(name):[raw];const rows=entries.map(entry=>{const row={};for(const pair of entry.split(',')){const m=pair.match(/^([A-Za-z][A-Za-z0-9]*)=([^,=]+)$/);if(!m)invalid('Invalid shorthand for --'+name);row[m[1]]=m[2]==='true'?true:m[2]==='false'?false:/^\d+$/.test(m[2])?Number(m[2]):m[2];}return row;});return many?rows:rows[0];}
+        function typedValue(v,depth=0){if(depth>32)invalid('Nesting Levels have exceeded supported limits');if(!object(v)||Object.keys(v).length!==1)invalid('Supplied AttributeValue must contain exactly one supported datatype');const [type]=Object.keys(v),value=v[type];if(type==='S'&&typeof value==='string')return value;if(type==='BOOL'&&typeof value==='boolean')return value;if(type==='NULL'&&value===true)return null;if(type==='N'&&typeof value==='string'&&/^-?(?:\d+(?:\.\d*)?|\.\d+)(?:[Ee][+-]?\d+)?$/.test(value)){const n=Number(value);if(!Number.isFinite(n)||Math.abs(n)>Number.MAX_SAFE_INTEGER||value.replace(/^[+-]?0*|[.eE+-]/g,'').length>15)invalid('Simulator numeric subset: use finite numbers with at most15 significant digits within safe range; AWS supports up to38 digits');return n;}if(type==='L'&&Array.isArray(value))return value.map(x=>typedValue(x,depth+1));if(type==='M'&&object(value))return plain(value,depth+1);invalid('Unsupported or invalid AttributeValue; simulator models S/N/BOOL/NULL/L/M, not binary/sets');}
+        function plain(value,depth=0){if(!object(value))invalid('Expected an attribute map');const out={};for(const [k,v]of Object.entries(value)){if(!safeName(k))invalid('Invalid attribute name for simulator');out[k]=typedValue(v,depth);}return out;}
+        function definitions(value){if(!Array.isArray(value)||!value.length||value.some(v=>!object(v)||!safeName(v.AttributeName)||!['S','N'].includes(v.AttributeType))||new Set(value.map(v=>v.AttributeName)).size!==value.length)invalid('Unique AttributeDefinitions with S/N key types required; binary keys not modeled');return Object.fromEntries(value.map(v=>[v.AttributeName,v.AttributeType]));}
+        function schema(value,defs){if(!Array.isArray(value)||!value.length||value.length>2||value.some(v=>!object(v)||!safeName(v.AttributeName)||!defs[v.AttributeName]||!['HASH','RANGE'].includes(v.KeyType))||value.filter(v=>v.KeyType==='HASH').length!==1||value.filter(v=>v.KeyType==='RANGE').length>1||new Set(value.map(v=>v.AttributeName)).size!==value.length)invalid('KeySchema requires one HASH and optional distinct RANGE with matching AttributeDefinitions');return {partitionKey:value.find(v=>v.KeyType==='HASH').AttributeName,sortKey:value.find(v=>v.KeyType==='RANGE')?.AttributeName||null};}
+        const keys=t=>[t.partitionKey,t.sortKey].filter(Boolean),defs=t=>t.attributeTypes||Object.fromEntries(keys(t).map(k=>[k,'S']));
+        function validateItem(t,row,keyOnly=false){for(const k of keys(t)){const v=row[k],type=defs(t)[k];if(v===undefined||v===null||type==='S'&&(typeof v!=='string'||!v.length)||type==='N'&&typeof v!=='number')invalid('The provided key element does not match the schema: '+k);if(typeof v==='string'&&bytes(v)>(k===t.partitionKey?2048:1024))invalid('Key attribute exceeds maximum length: '+k);}if(keyOnly&&Object.keys(row).length!==keys(t).length)invalid('The provided key element does not match the schema');if(!keyOnly&&itemSize(row)>400*1024)invalid('Item size has exceeded the maximum allowed size400KB');for(const index of [...(t.gsis||[]),...(t.lsis||[])])for(const k of keys(index)){if(row[k]!==undefined&&(row[k]===null||typeof row[k]!==((defs(t)[k]||'S')==='N'?'number':'string')||row[k]===''||typeof row[k]==='string'&&bytes(row[k])>(k===index.partitionKey?2048:1024)))invalid('Type mismatch, size violation or empty index key: '+k);}return row;}
+        const equalKey=(t,a,b)=>keys(t).every(k=>typeof a[k]===typeof b[k]&&a[k]===b[k]),keyOf=(t,row)=>Object.fromEntries(keys(t).map(k=>[k,row[k]]));
+        function table(name=required('table-name'),active=true){const t=list('tables').find(t=>t.name===name);if(!t)throw Error('ResourceNotFoundException: Requested resource not found: Table '+name);if(active&&t.status&&t.status!=='ACTIVE'&&!(active==='data'&&t.status==='UPDATING'))throw Error('ResourceInUseException: Table '+name+' is '+t.status+'; wait for ACTIVE');return t;}
+        const touch=t=>{t.revision=(t.revision||0)+1;t.lastRead=null;};
+        function cap(value){if(!object(value)||!Number.isInteger(value.ReadCapacityUnits)||value.ReadCapacityUnits<1||!Number.isInteger(value.WriteCapacityUnits)||value.WriteCapacityUnits<1)invalid('ReadCapacityUnits and WriteCapacityUnits must be positive integers');return {rcu:value.ReadCapacityUnits,wcu:value.WriteCapacityUnits};}
+        function indexView(i){return {IndexName:i.name,KeySchema:keys(i).map((k,j)=>({AttributeName:k,KeyType:j?'RANGE':'HASH'})),Projection:clone(i.projection),IndexStatus:i.status||'ACTIVE',...(i.rcu?{ProvisionedThroughput:{ReadCapacityUnits:i.rcu,WriteCapacityUnits:i.wcu}}:{})};}
+        function view(t){return {TableName:t.name,TableStatus:t.status||'ACTIVE',AttributeDefinitions:Object.entries(defs(t)).map(([AttributeName,AttributeType])=>({AttributeName,AttributeType})),KeySchema:keys(t).map((AttributeName,i)=>({AttributeName,KeyType:i?'RANGE':'HASH'})),BillingModeSummary:{BillingMode:t.billing||'PROVISIONED'},ProvisionedThroughput:{ReadCapacityUnits:t.billing==='PAY_PER_REQUEST'?0:t.rcu||5,WriteCapacityUnits:t.billing==='PAY_PER_REQUEST'?0:t.wcu||5},ItemCount:(t.items||[]).length,...(t.gsis?.length?{GlobalSecondaryIndexes:t.gsis.map(indexView)}:{}),...(t.lsis?.length?{LocalSecondaryIndexes:t.lsis.map(indexView)}:{})};}
+        function expressionContext(names={},values={}){if(!object(names)||Object.entries(names).some(([k,v])=>!/^#\w+$/.test(k)||!safeName(v))||!object(values)||Object.keys(values).some(k=>!/^:\w+$/.test(k)))invalid('Invalid expression attribute names/values map');const parsed=plain(values),used=[];return {used,attr(token){let a=token;if(token.startsWith('#')){if(!own(names,token))invalid('Expression attribute name not defined: '+token);a=names[token];}else if(DDB_RESERVED.includes(token.toUpperCase()))invalid('Attribute name is a reserved keyword: '+token+'; use --expression-attribute-names');if(!safeName(a)||!/^#?\w+$/.test(token))invalid('Invalid attribute path; nested paths not modeled');used.push(a);return a;},value(token){if(!own(parsed,token))invalid('Expression attribute value not defined: '+token);return parsed[token];}};}
+        const compare=(a,op,b)=>a!==undefined&&typeof a===typeof b&&(op==='='?JSON.stringify(a)===JSON.stringify(b):op==='<>'?JSON.stringify(a)!==JSON.stringify(b):op==='<'?a<b:op==='<='?a<=b:op==='>'?a>b:a>=b);
+        function predicate(raw,ctx){if(!raw)return ()=>true;const clauses=raw.split(/\s+AND\s+/i),tests=clauses.map(clause=>{let m=clause.trim().match(/^(attribute_not_exists|attribute_exists)\s*\(\s*([#\w]+)\s*\)$/);if(m){const a=ctx.attr(m[2]);return row=>m[1]==='attribute_exists'?own(row,a):!own(row,a);}m=clause.trim().match(/^([#\w]+)\s*(<=|>=|<>|=|<|>)\s*(:\w+)$/);if(!m)invalid('Unsupported condition/filter expression; simulator supports AND, scalar comparisons and attribute_exists/not_exists');const a=ctx.attr(m[1]),v=ctx.value(m[3]);return row=>compare(row[a],m[2],v);});return row=>tests.every(test=>test(row||{}));}
+        const flagContext=()=>expressionContext(flag('expression-attribute-names')?doc('expression-attribute-names'):{},flag('expression-attribute-values')?doc('expression-attribute-values'):{});
+        function condition(t,row,raw,ctx){const old=(t.items||[]).find(x=>equalKey(t,x,row));return {old,ok:predicate(raw,ctx)(old||{})};}
+        function write(t,row,kind='put'){const index=(t.items||[]).findIndex(x=>equalKey(t,x,row));t.items=t.items||[];if(kind==='delete'){if(index>=0)t.items.splice(index,1);}else if(index>=0)t.items[index]=clone(row);else t.items.push(clone(row));touch(t);}
+        function projected(t,index,row){if(!index||index.projection.ProjectionType==='ALL')return clone(row);const attrs=new Set([...keys(t),...keys(index),...(index.projection.NonKeyAttributes||[])]);return Object.fromEntries(Object.entries(row).filter(([k])=>attrs.has(k)));}
+        function gsi(value,t,types,kind='gsi'){if(!object(value)||!safeName(value.IndexName)||!/^[A-Za-z0-9_.-]{3,255}$/.test(value.IndexName))invalid('Invalid index name');const key=schema(value.KeySchema,types),projection=value.Projection;if(!object(projection)||!['ALL','KEYS_ONLY','INCLUDE'].includes(projection.ProjectionType)||projection.ProjectionType==='INCLUDE'&&(!Array.isArray(projection.NonKeyAttributes)||!projection.NonKeyAttributes.length||projection.NonKeyAttributes.some(x=>!safeName(x))||projection.NonKeyAttributes.length>20)||projection.ProjectionType!=='INCLUDE'&&projection.NonKeyAttributes)invalid('Valid index Projection required');if(kind==='lsi'&&(key.partitionKey!==t.partitionKey||!key.sortKey||!t.sortKey))invalid('LSI requires the table partition key and an alternate sort key on a composite-key table');let capacity={};if(t.billing==='PROVISIONED'&&kind==='gsi')capacity=cap(value.ProvisionedThroughput);else if(value.ProvisionedThroughput)invalid('ProvisionedThroughput not supported on this index/billing mode');return {name:value.IndexName,...key,projection:clone(projection),status:'CREATING',...capacity};}
+        function updateRow(t,key,raw,ctx){const row=clone((t.items||[]).find(x=>equalKey(t,x,key))||key);let m=String(raw||'').match(/^SET\s+([#\w]+)\s*=\s*([#\w]+)\s*([+-])\s*(:\w+)$/i);if(m){const target=ctx.attr(m[1]),source=ctx.attr(m[2]),n=ctx.value(m[4]);if(keys(t).includes(target))invalid('Cannot update attribute in the primary key');if(typeof row[source]!=='number'||typeof n!=='number')invalid('Arithmetic operands must be numbers');row[target]=row[source]+(m[3]==='+'?n:-n);}else{m=String(raw||'').match(/^(SET|ADD)\s+([#\w]+)\s*(?:=\s*)?(:\w+)$/i);if(!m)invalid('Simulator UpdateExpression subset: SET attr = :v, SET attr = attr +/- :n, ADD attr :n');const target=ctx.attr(m[2]),v=ctx.value(m[3]);if(keys(t).includes(target))invalid('Cannot update attribute in the primary key');if(m[1].toUpperCase()==='ADD'){if(typeof v!=='number'||row[target]!==undefined&&typeof row[target]!=='number')invalid('ADD requires numeric operands in simulator');row[target]=(row[target]||0)+v;}else row[target]=v;}return validateItem(t,row);}
+        try {
+          if(op==='list-tables')return resultJson({TableNames:list('tables').map(t=>t.name).sort()});
+          if(op==='wait'){const name=required('table-name'),t=list('tables').find(t=>t.name===name);if(toks[3]==='table-not-exists'){if(t)throw Error('Waiter TableNotExists failed: table still exists');return print('ok','');}if(toks[3]!=='table-exists')invalid('Supported DynamoDB waiters: table-exists / table-not-exists');if(!t)throw Error('Waiter TableExists failed: ResourceNotFoundException');if(t.status!=='ACTIVE'){t.status='ACTIVE';touch(t);}return print('ok','');}
+          if(op==='create-table'){
+            const name=required('table-name');if(!/^[A-Za-z0-9_.-]{3,255}$/.test(name)||!safeName(name))invalid('TableName must be3..255 letters/digits/_.-');if(list('tables').some(t=>t.name===name))throw Error('ResourceInUseException: Table already exists: '+name);
+            const types=definitions(structure('attribute-definitions',true)),key=schema(structure('key-schema',true),types),billing=flag('billing-mode')||'PROVISIONED';if(!['PROVISIONED','PAY_PER_REQUEST'].includes(billing))invalid('BillingMode must be PROVISIONED or PAY_PER_REQUEST');const t={name,...key,billing,attributeTypes:types,status:'CREATING',items:[],revision:1,gsis:[],lsis:[]};if(billing==='PROVISIONED')Object.assign(t,cap(structure('provisioned-throughput')));else if(flag('provisioned-throughput'))invalid('ProvisionedThroughput cannot be specified with PAY_PER_REQUEST');
+            for(const [name,target,kind,limit]of [['global-secondary-indexes','gsis','gsi',20],['local-secondary-indexes','lsis','lsi',5]])if(flag(name)){const indexes=doc(name);if(!Array.isArray(indexes)||indexes.length>limit)invalid('Invalid index array or default quota exceeded');t[target]=indexes.map(x=>gsi(x,t,types,kind));}
+            const allIndexes=[...t.gsis,...t.lsis];if(new Set(allIndexes.map(i=>i.name)).size!==allIndexes.length)invalid('Duplicate index name');const used=new Set([...keys(t),...allIndexes.flatMap(keys)]);if(Object.keys(types).some(k=>!used.has(k)))invalid('AttributeDefinitions must contain only table/index key attributes');list('tables').push(t);return resultJson({TableDescription:view(t)});
           }
-          const cap = t.billing === 'PAY_PER_REQUEST'
-            ? `"BillingModeSummary": { "BillingMode": "PAY_PER_REQUEST" }`
-            : `"ProvisionedThroughput": { "ReadCapacityUnits": ${t.rcu || 5}, "WriteCapacityUnits": ${t.wcu || 5} }`;
-          print('ok', `{ "Table": {
-    "TableName": "${t.name}",
-    "AttributeDefinitions": [${attrDefs.join(', ')}],
-    "KeySchema": [${keySchema.join(', ')}],
-    ${cap},
-    "ItemCount": ${t.items ? t.items.length : 0},
-    "TableStatus": "ACTIVE"
-} }`);
-        } else if (op === 'scan') {
-          const name = flag('table-name');
-          if (!name) return print('err', 'error: --table-name required');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          const items = t.items || [];
-          print('ok', `{ "Items": [${items.map(it => JSON.stringify(ddbTyped(it))).join(', ')}], "Count": ${items.length}, "ScannedCount": ${items.length} }`);
-          if (items.length) print('sys', `(scan ne poori table padhi — ${items.length} items ka read capacity kharch. Badi table par scan = mehenga + slow; query use karo)`);
-        } else if (op === 'get-item') {
-          const name = flag('table-name');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          const keyRaw = flag('key');
-          if (!keyRaw) return print('err', `error: --key required   (e.g. --key '{"${t.partitionKey}":{"S":"42"}}')`);
-          let key;
-          try { key = ddbPlain(JSON.parse(keyRaw)); } catch (e) { return print('err', `Error parsing parameter '--key': Invalid JSON — single quotes ke andar likho: --key '{"${t.partitionKey}":{"S":"42"}}'`); }
-          if (key[t.partitionKey] == null) return print('err', `ValidationException: The provided key element does not match the schema (partition key '${t.partitionKey}' chahiye)`);
-          const hit = (t.items || []).find(it => String(it[t.partitionKey]) === String(key[t.partitionKey]) && (!t.sortKey || key[t.sortKey] == null || String(it[t.sortKey]) === String(key[t.sortKey])));
-          print('ok', hit ? `{ "Item": ${JSON.stringify(ddbTyped(hit))} }` : '{}   ← item nahi mila (get-item khaali {} deta hai, error nahi)');
-        } else if (op === 'query') {
-          const name = flag('table-name');
-          if (!name) return print('err', 'error: --table-name required');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          let pkVal = null;
-          const kce = flag('key-condition-expression');
-          if (kce != null) {
-            // asli syntax: --key-condition-expression "user_id = :u" --expression-attribute-values '{":u":{"S":"42"}}'
-            let names = {}, values = {};
-            try { names = JSON.parse(flag('expression-attribute-names') || '{}'); } catch (e) { return print('err', "Error parsing parameter '--expression-attribute-names': Invalid JSON"); }
-            try { values = JSON.parse(flag('expression-attribute-values') || '{}'); } catch (e) { return print('err', "Error parsing parameter '--expression-attribute-values': Invalid JSON"); }
-            const m = kce.match(/^\s*([#\w]+)\s*=\s*(:\w+)/);
-            if (!m) return print('err', 'ValidationException: Invalid KeyConditionExpression (format: "<partition key> = :v")');
-            let attr = m[1];
-            if (attr.startsWith('#')) {
-              if (!names[attr]) return print('err', `ValidationException: An expression attribute name used in the document path is not defined; attribute name: ${attr}`);
-              attr = names[attr];
-            } else if (DDB_RESERVED.includes(attr.toUpperCase())) {
-              return print('err', `ValidationException: Invalid KeyConditionExpression: Attribute name is a reserved keyword; reserved keyword: ${attr}\n(fix: --key-condition-expression "#k = :v" --expression-attribute-names '{"#k":"${attr}"}')`);
-            }
-            if (attr !== t.partitionKey) return print('err', `ValidationException: Query condition missed key schema element: ${t.partitionKey}`);
-            const v = values[m[2]];
-            if (!v) return print('err', `ValidationException: An expression attribute value used in expression is not defined; attribute value: ${m[2]}`);
-            pkVal = String(ddbPlain({ x: v }).x);
-          } else {
-            pkVal = flag('partition-key') || flag('key-value');
-            if (pkVal == null) return print('err', `error: --key-condition-expression required\n(e.g. --key-condition-expression "${t.partitionKey} = :v" --expression-attribute-values '{":v":{"S":"..."}}')`);
-            print('sys', `(simulator shortcut — asli CLI: aws dynamodb query --table-name ${t.name} --key-condition-expression "#k = :v" --expression-attribute-names '{"#k":"${t.partitionKey}"}' --expression-attribute-values '{":v":{"S":"${pkVal}"}}')`);
+          if(op==='batch-write-item'){
+            const requests=doc('request-items');if(!object(requests)||!Object.keys(requests).length)invalid('RequestItems must be a nonempty map');const operations=[];
+            for(const [name,rows]of Object.entries(requests)){const t=table(name,'data');if(!Array.isArray(rows)||!rows.length)invalid('Each RequestItems table must contain requests');const seen=new Set();for(const request of rows){if(!object(request)||Object.keys(request).length!==1)invalid('Expected one PutRequest or DeleteRequest');const kind=own(request,'PutRequest')?'put':own(request,'DeleteRequest')?'delete':null,v=kind&&request[kind==='put'?'PutRequest':'DeleteRequest'];if(!kind||!object(v)||Object.keys(v).length!==1||!own(v,kind==='put'?'Item':'Key'))invalid('Batch writes accept Item/Key only; conditions require PutItem or transactions');const row=validateItem(t,plain(v[kind==='put'?'Item':'Key']),kind==='delete'),id=JSON.stringify(keyOf(t,row));if(seen.has(id))invalid('Provided list of item keys contains duplicates');seen.add(id);operations.push({t,row,kind});}}
+            if(operations.length>25)invalid('Too many items requested for the BatchWriteItem call; maximum25');if(bytes(JSON.stringify(requests))>16*1024*1024)invalid('Request size exceeds16MB');operations.forEach(x=>write(x.t,x.row,x.kind));return resultJson({UnprocessedItems:{}});
           }
-          const items = (t.items || []).filter(it => String(it[t.partitionKey]) === pkVal);
-          print('ok', `{ "Items": [${items.map(it => JSON.stringify(ddbTyped(it))).join(', ')}], "Count": ${items.length}, "ScannedCount": ${items.length} }`);
-        } else if (op === 'put-item') {
-          const name = flag('table-name');
-          if (!name) return print('err', 'error: --table-name required');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          let item = {};
-          const itemRaw = flag('item');
-          if (itemRaw != null) {
-            try { item = ddbPlain(JSON.parse(itemRaw)); }
-            catch (e) { return print('err', `Error parsing parameter '--item': Invalid JSON — poora JSON single quotes mein: --item '{"${t.partitionKey}":{"S":"1"}}'`); }
-          } else {
-            // purana shortcut: user_id=42 name=Ravi
-            toks.filter(tk => /^[a-zA-Z_]+=/.test(tk)).forEach(a => { const eq = a.indexOf('='); item[a.slice(0, eq)] = a.slice(eq + 1); });
+          if(op==='transact-write-items'){
+            const transactions=doc('transact-items');if(!Array.isArray(transactions)||!transactions.length||transactions.length>100)invalid('TransactItems must contain1..100 actions');const token=flag('client-request-token'),now=Date.parse(sim.account.now||'2026-10-26T00:00:00Z');if(token&&(!/^[A-Za-z0-9_-]{1,36}$/.test(token)||!safeName(token)))invalid('ClientRequestToken must be1..36 safe characters');const signature=JSON.stringify(transactions),cached=token&&sim.ddbTokens&&sim.ddbTokens[token];if(cached&&now-cached.at<600000){if(cached.signature!==signature)throw Error('IdempotentParameterMismatchException: Token reused with different request parameters');return resultJson({});}
+            const actions=[],seen=new Set(),reasons=[];let totalSize=0;
+            for(const action of transactions){if(!object(action)||Object.keys(action).length!==1)invalid('Each transaction action must contain exactly one operation');const [kind]=Object.keys(action),v=action[kind];if(!['Put','Delete','Update','ConditionCheck'].includes(kind)||!object(v))invalid('Unsupported transaction action');const t=table(v.TableName||'','data'),row=validateItem(t,plain(kind==='Put'?v.Item:v.Key),kind!=='Put'),id=t.name+JSON.stringify(keyOf(t,row));if(seen.has(id))invalid('Transaction cannot include multiple operations on one item');seen.add(id);const ctx=expressionContext(v.ExpressionAttributeNames||{},v.ExpressionAttributeValues||{});if(kind==='ConditionCheck'&&!v.ConditionExpression)invalid('ConditionExpression required for ConditionCheck');const c=condition(t,row,v.ConditionExpression,ctx);let next=row;if(kind==='Update')next=updateRow(t,row,v.UpdateExpression,ctx);totalSize+=Math.max(itemSize(next),c.old?itemSize(c.old):0);actions.push({t,row:next,kind,old:c.old});reasons.push(c.ok?'None':'ConditionalCheckFailed');}
+            if(totalSize>4*1024*1024)invalid('Transaction aggregate item size exceeds4MB');if(reasons.some(r=>r!=='None')){sim.ddbLastFailedTransaction={reasons:clone(reasons),tables:clone(list('tables')),items:clone(transactions)};throw Error('TransactionCanceledException: Transaction cancelled, please refer cancellation reasons ['+reasons.join(', ')+']');}
+            actions.filter(a=>a.kind!=='ConditionCheck').forEach(a=>write(a.t,a.row,a.kind==='Delete'?'delete':'put'));sim.ddbLastTransaction={items:clone(transactions),tables:clone(list('tables'))};if(token){sim.ddbTokens=sim.ddbTokens||{};sim.ddbTokens[token]={signature,at:now};}return resultJson({});
           }
-          if (item[t.partitionKey] == null) return print('err', `ValidationException: One of the required keys was not given a value (partition key '${t.partitionKey}')   e.g. --item '{"${t.partitionKey}":{"S":"1"}}'`);
-          t.items = t.items || [];
-          const existing = t.items.findIndex(it => String(it[t.partitionKey]) === String(item[t.partitionKey]) && (!t.sortKey || String(it[t.sortKey]) === String(item[t.sortKey])));
-          const cond = flag('condition-expression');
-          if (cond && /attribute_not_exists/.test(cond) && existing > -1)
-            return print('err', 'An error occurred (ConditionalCheckFailedException) when calling the PutItem operation: The conditional request failed\n← item pehle se hai — duplicate likha nahi gaya (idempotency kaam kar gayi ✅)');
-          if (existing > -1) t.items[existing] = item; else t.items.push(item);
-          print('ok', '');
-        } else if (op === 'delete-item') {
-          const name = flag('table-name');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          let pkVal = flag('partition-key') || flag('key-value');
-          const keyRaw = flag('key');
-          if (keyRaw) { try { pkVal = String(ddbPlain(JSON.parse(keyRaw))[t.partitionKey]); } catch (e) { return print('err', "Error parsing parameter '--key': Invalid JSON"); } }
-          if (!pkVal) return print('err', `error: --key required   (e.g. --key '{"${t.partitionKey}":{"S":"42"}}')`);
-          t.items = (t.items || []).filter(it => String(it[t.partitionKey]) !== pkVal);
-          print('ok', '');
-        } else if (op === 'update-table') {
-          const name = flag('table-name');
-          const t = find('tables', name);
-          if (!t) return print('err', `ResourceNotFoundException: Table '${name}' not found`);
-          // asli: --provisioned-throughput ReadCapacityUnits=50,WriteCapacityUnits=50   |  --billing-mode PAY_PER_REQUEST
-          const pt = flag('provisioned-throughput') || '';
-          const rcu = (pt.match(/ReadCapacityUnits=(\d+)/) || [])[1] || flag('read-capacity');
-          const wcu = (pt.match(/WriteCapacityUnits=(\d+)/) || [])[1] || flag('write-capacity');
-          const bm = flag('billing-mode');
-          if (bm) t.billing = bm.toUpperCase();
-          if (rcu) { t.rcu = Number(rcu); t.billing = 'PROVISIONED'; }
-          if (wcu) { t.wcu = Number(wcu); t.billing = 'PROVISIONED'; }
-          if (!pt && (flag('read-capacity') || flag('write-capacity')))
-            print('sys', `(simulator shortcut — asli CLI: --provisioned-throughput ReadCapacityUnits=${t.rcu || 5},WriteCapacityUnits=${t.wcu || 5})`);
-          const cap = t.billing === 'PAY_PER_REQUEST'
-            ? `"BillingModeSummary": { "BillingMode": "PAY_PER_REQUEST" }`
-            : `"ProvisionedThroughput": { "ReadCapacityUnits": ${t.rcu || 5}, "WriteCapacityUnits": ${t.wcu || 5} }`;
-          print('ok', `{ "TableDescription": { "TableName": "${t.name}", ${cap}, "TableStatus": "UPDATING" } }`);
-        } else {
-          print('err', `unknown DynamoDB op: ${op}`);
-        }
-        return;
+          const t=table(undefined,false);
+          if(op==='describe-table'){if(t.status&&t.status!=='ACTIVE'){t.status='ACTIVE';touch(t);}else{let changed=false;for(const i of [...(t.gsis||[]),...(t.lsis||[])])if(i.status!=='ACTIVE'){i.status='ACTIVE';changed=true;}if(changed)touch(t);}return resultJson({Table:view(t)});}
+          if(op==='delete-table'){list('tables').splice(list('tables').indexOf(t),1);return resultJson({TableDescription:{...view(t),TableStatus:'DELETING'}});}
+          table(t.name,['get-item','put-item','delete-item','update-item','query','scan'].includes(op)?'data':true);
+          if(op==='update-table'){
+            const next={...clone(t),billing:t.billing||'PROVISIONED'},billing=flag('billing-mode');if(billing&&!['PROVISIONED','PAY_PER_REQUEST'].includes(billing))invalid('BillingMode must be PROVISIONED or PAY_PER_REQUEST');if(billing)next.billing=billing;if(flag('provisioned-throughput')){if(next.billing==='PAY_PER_REQUEST')invalid('ProvisionedThroughput cannot be specified in PAY_PER_REQUEST mode');Object.assign(next,cap(structure('provisioned-throughput')));}if(next.billing!=='PAY_PER_REQUEST'&&(!next.rcu||!next.wcu))invalid('ProvisionedThroughput required when switching to PROVISIONED');
+            if(flag('attribute-definitions')&&!flag('global-secondary-index-updates'))invalid('AttributeDefinitions cannot change primary key schema; create a new table');
+            if(flag('global-secondary-index-updates')){const updates=doc('global-secondary-index-updates');if(!Array.isArray(updates)||updates.length!==1||!object(updates[0])||Object.keys(updates[0]).length!==1)invalid('Simulator supports one GSI Create/Delete per update');const change=updates[0];if(change.Create){const types={...defs(t),...definitions(structure('attribute-definitions',true))};for(const k of Object.keys(defs(t)))if(types[k]!==defs(t)[k])invalid('Cannot change existing key attribute type');if((next.gsis||[]).some(i=>i.status!=='ACTIVE'))throw Error('ResourceInUseException: Another GSI is building');const i=gsi(change.Create,next,types);if([...(next.gsis||[]),...(next.lsis||[])].some(x=>x.name===i.name))invalid('Index already exists');if((next.gsis||[]).length>=20)throw Error('LimitExceededException: Default GSI quota20 exceeded');const used=new Set([...keys(t),...(next.gsis||[]).flatMap(keys),...(next.lsis||[]).flatMap(keys),...keys(i)]);if(Object.keys(types).some(k=>!used.has(k)))invalid('AttributeDefinitions must contain only key attributes');next.attributeTypes=types;next.gsis=[...(next.gsis||[]),i];for(const row of next.items||[])validateItem(next,row);}else if(change.Delete&&safeName(change.Delete.IndexName)){const found=(next.gsis||[]).find(i=>i.name===change.Delete.IndexName);if(!found)invalid('Index not found');next.gsis=next.gsis.filter(i=>i!==found);const used=new Set([...keys(next),...next.gsis.flatMap(keys),...(next.lsis||[]).flatMap(keys)]);next.attributeTypes=Object.fromEntries(Object.entries(defs(next)).filter(([k])=>used.has(k)));}else invalid('Simulator supports GSI Create or Delete, not an in-place key change');}
+            if(!billing&&!flag('provisioned-throughput')&&!flag('global-secondary-index-updates'))invalid('No supported update requested');next.status='UPDATING';Object.assign(t,next);touch(t);return resultJson({TableDescription:view(t)});
+          }
+          if(op==='update-continuous-backups'||op==='describe-continuous-backups'){if(op.startsWith('update')){const p=structure('point-in-time-recovery-specification');if(!object(p)||typeof p.PointInTimeRecoveryEnabled!=='boolean'||p.RecoveryPeriodInDays!==undefined&&(!Number.isInteger(p.RecoveryPeriodInDays)||p.RecoveryPeriodInDays<1||p.RecoveryPeriodInDays>35))invalid('PITR requires boolean PointInTimeRecoveryEnabled and optional RecoveryPeriodInDays1..35');t.pitr={enabled:p.PointInTimeRecoveryEnabled,days:p.RecoveryPeriodInDays||t.pitr?.days||35};touch(t);}return resultJson({ContinuousBackupsDescription:{ContinuousBackupsStatus:'ENABLED',PointInTimeRecoveryDescription:{PointInTimeRecoveryStatus:t.pitr?.enabled?'ENABLED':'DISABLED',...(t.pitr?.enabled?{RecoveryPeriodInDays:t.pitr.days}:{})}}});}
+          if(op==='update-time-to-live'){const p=structure('time-to-live-specification');if(!object(p)||typeof p.Enabled!=='boolean'||!safeName(p.AttributeName))invalid('TimeToLiveSpecification requires Enabled boolean and AttributeName');if(t.ttl&&['ENABLING','DISABLING'].includes(t.ttl.status))throw Error('ResourceInUseException: TimeToLive is being modified');if(t.ttl?.status==='ENABLED'&&p.Enabled&&t.ttl.attribute!==p.AttributeName)invalid('Disable current TTL before changing the attribute');t.ttl={attribute:p.AttributeName,status:p.Enabled?'ENABLING':'DISABLING'};touch(t);return resultJson({TimeToLiveSpecification:p});}
+          if(op==='describe-time-to-live'){if(t.ttl&&['ENABLING','DISABLING'].includes(t.ttl.status)){t.ttl.status=t.ttl.status==='ENABLING'?'ENABLED':'DISABLED';touch(t);}return resultJson({TimeToLiveDescription:{TimeToLiveStatus:t.ttl?.status||'DISABLED',...(t.ttl?{AttributeName:t.ttl.attribute}:{})}});}
+          if(['get-item','put-item','delete-item','update-item'].includes(op)){
+            const put=op==='put-item',row=validateItem(t,plain(doc(put?'item':'key')),!put),old=(t.items||[]).find(x=>equalKey(t,x,row));
+            if(op==='get-item'){const proof={op,revision:t.revision||0,key:keyOf(t,row),items:old?[clone(old)]:[],consistent:toks.includes('--consistent-read')};t.lastRead=null;if(resultJson(old?{Item:ddbTyped(old)}:{})===true)t.lastRead=proof;return;}
+            const ctx=flagContext(),c=condition(t,row,flag('condition-expression'),ctx),returnValues=flag('return-values')||'NONE';if(!['NONE','ALL_OLD',...(op==='update-item'?['ALL_NEW']:[])].includes(returnValues))invalid('Unsupported ReturnValues for operation');let next=row;if(op==='update-item')next=updateRow(t,row,required('update-expression'),ctx);
+            if(!c.ok){t.lastCondition={key:keyOf(t,row),applied:false,attempted:clone(next),existing:clone(c.old||{}),revision:t.revision||0};throw Error('ConditionalCheckFailedException: The conditional request failed; existing item preserved');}
+            write(t,next,op==='delete-item'?'delete':'put');if(flag('condition-expression'))t.lastCondition={key:keyOf(t,row),applied:true,attempted:clone(next),revision:t.revision||0};return resultJson(returnValues==='ALL_NEW'?{Attributes:ddbTyped(next)}:returnValues==='ALL_OLD'&&old?{Attributes:ddbTyped(old)}:{});
+          }
+          if(op==='query'||op==='scan'){
+            const name=flag('index-name'),index=name&&[...(t.gsis||[]),...(t.lsis||[])].find(i=>i.name===name),isGsi=!!index&&(t.gsis||[]).includes(index),strong=toks.includes('--consistent-read');if(name&&!index)invalid('The table does not have the specified index: '+name);if(index&&index.status!=='ACTIVE')throw Error('ResourceNotFoundException: Index '+name+' is not ACTIVE');if(isGsi&&strong)invalid('Consistent reads are not supported on global secondary indexes');const ctx=flagContext(),key=index||t;let rows=(t.items||[]).filter(row=>!index||keys(index).every(k=>row[k]!==undefined));
+            if(op==='query'){const raw=required('key-condition-expression'),m=raw.match(/^\s*([#\w]+)\s*=\s*(:\w+)(?:\s+AND\s+([\s\S]+))?\s*$/i);if(!m)invalid('Query requires partition-key equality and optional sort-key condition');const attr=ctx.attr(m[1]),value=ctx.value(m[2]);if(attr!==key.partitionKey)invalid('Query condition missed key schema element: '+key.partitionKey);if(typeof value!==((defs(t)[attr]||'S')==='N'?'number':'string'))invalid('Condition parameter type does not match schema');rows=rows.filter(row=>row[attr]===value);if(m[3]){const term=m[3].trim();let sm=term.match(/^([#\w]+)\s+BETWEEN\s+(:\w+)\s+AND\s+(:\w+)$/i),test;if(sm){const a=ctx.attr(sm[1]),lo=ctx.value(sm[2]),hi=ctx.value(sm[3]);if(a!==key.sortKey)invalid('Sort condition must target sort key');test=row=>compare(row[a],'>=',lo)&&compare(row[a],'<=',hi);}else if((sm=term.match(/^begins_with\(\s*([#\w]+)\s*,\s*(:\w+)\s*\)$/))){const a=ctx.attr(sm[1]),prefix=ctx.value(sm[2]);if(a!==key.sortKey||typeof prefix!=='string')invalid('begins_with requires a string sort key');test=row=>typeof row[a]==='string'&&row[a].startsWith(prefix);}else{sm=term.match(/^([#\w]+)\s*(<=|>=|=|<|>)\s*(:\w+)$/);if(!sm)invalid('Invalid sort-key condition');const a=ctx.attr(sm[1]),v=ctx.value(sm[3]);if(a!==key.sortKey)invalid('Sort condition must target sort key');test=row=>compare(row[a],sm[2],v);}rows=rows.filter(test);}}
+            if(op==='query'){const sk=key.sortKey;rows.sort((a,b)=>sk?(a[sk]<b[sk]?-1:a[sk]>b[sk]?1:0):0);if(toks.includes('--no-scan-index-forward'))rows.reverse();}
+            if(flag('exclusive-start-key')){const start=plain(doc('exclusive-start-key'));validateItem(t,Object.fromEntries(keys(t).map(k=>[k,start[k]])),true);const i=rows.findIndex(row=>equalKey(t,row,start));if(i<0)invalid('ExclusiveStartKey outside this query fixture');rows=rows.slice(i+1);}
+            const filterCtx=flagContext(),filter=predicate(flag('filter-expression'),filterCtx);if(op==='query'&&filterCtx.used.some(k=>keys(key).includes(k)))invalid('FilterExpression can only contain non-primary-key attributes');const limitRaw=flag('limit'),limit=limitRaw===null?Infinity:Number(limitRaw);if(!(limit>0)||limit!==Infinity&&!Number.isInteger(limit))invalid('Limit must be a positive integer');let total=0,count=0;while(count<rows.length&&count<limit){const size=itemSize(projected(t,index,rows[count]));if(count&&total+size>1024*1024)break;total+=size;count++;}const evaluated=rows.slice(0,count),more=count<rows.length;
+            const selection=flag('select');if(selection&&!['ALL_ATTRIBUTES','ALL_PROJECTED_ATTRIBUTES','COUNT','SPECIFIC_ATTRIBUTES'].includes(selection))invalid('Unknown Select value');if(isGsi&&selection==='ALL_ATTRIBUTES'&&index.projection.ProjectionType!=='ALL')invalid('GSI cannot fetch nonprojected attributes from table');if(selection==='SPECIFIC_ATTRIBUTES'&&!flag('projection-expression'))invalid('SPECIFIC_ATTRIBUTES requires ProjectionExpression');let items=evaluated.filter(filter).map(row=>projected(t,index,row));if(flag('projection-expression')){if(selection&&selection!=='SPECIFIC_ATTRIBUTES')invalid('ProjectionExpression requires SPECIFIC_ATTRIBUTES when Select is supplied');const attrs=required('projection-expression').split(',').map(a=>ctx.attr(a.trim()));items=items.map(row=>Object.fromEntries(Object.entries(row).filter(([k])=>attrs.includes(k))));}
+            const result={...(selection==='COUNT'?{}:{Items:items.map(ddbTyped)}),Count:items.length,ScannedCount:evaluated.length};if(more&&evaluated.length){const last=evaluated.at(-1);result.LastEvaluatedKey=ddbTyped(Object.fromEntries([...new Set([...keys(t),...keys(key)])].map(k=>[k,last[k]])));}
+            const capacity=flag('return-consumed-capacity');if(capacity&&!['NONE','TOTAL','INDEXES'].includes(capacity))invalid('ReturnConsumedCapacity must be NONE/TOTAL/INDEXES');if(capacity&&capacity!=='NONE')result.ConsumedCapacity={TableName:t.name,CapacityUnits:Math.max(1,Math.ceil(total/4096))*(strong?1:.5)};
+            const proof={op,index:name||null,revision:t.revision||0,items:selection==='COUNT'?[]:clone(items),keyCondition:flag('key-condition-expression'),scannedCount:evaluated.length,hasMore:more,consistent:strong};t.lastRead=null;if(resultJson(result)===true)t.lastRead=proof;return;
+          }
+          return print('err','Unknown DynamoDB operation: '+op+'. Use help for modeled operations.');
+        } catch(e){return print('err',e.message);}
+      }
 
       /* ===================== ROUTE 53 ===================== */
       case 'route53': {

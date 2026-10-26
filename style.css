@@ -987,7 +987,7 @@ pre {
 .td-verdict.bad { background: #ffb34710; border: 1px solid #ffb34744; }
 
 /* ---- triage ---- */
-.tg-symptom { background: linear-gradient(135deg, #2a0f13, #1a0d16); border: 1px solid #f8717155; border-radius: 12px; padding: 12px 16px; line-height: 1.65; font-size: .94rem; margin-bottom: 12px; }
+.tg-symptom { overflow-wrap: anywhere; background: linear-gradient(135deg, #2a0f13, #1a0d16); border: 1px solid #f8717155; border-radius: 12px; padding: 12px 16px; line-height: 1.65; font-size: .94rem; margin-bottom: 12px; }
 .tg-symptom-h { font-size: .74rem; letter-spacing: 1.4px; font-weight: 800; color: var(--bad); margin-bottom: 6px; }
 .tg-progress { display: flex; gap: 10px; flex-wrap: wrap; margin: 4px 0 10px; }
 .tg-pill { background: var(--panel2); border: 1px solid var(--border); border-radius: 20px; padding: 4px 13px; font-size: .8rem; color: var(--text); }

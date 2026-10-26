@@ -59,6 +59,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `12-s3-lifecycle-lock-replication` | 🪣 S3 Advanced | lifecycle/CRR metadata, governance retention + legal hold + marker, restored-byte check; explicit tiering/filter/replication gaps and scoped cleanup |
 | `13-efs-shared-storage` | 📁 EFS / FSx / hybrid | target SG repair, lifecycle/access point readbacks; unsupported throughput update handled with separate Elastic fixture; no NFS runtime |
 | `14-lambda-handler-config` | ⚡ Lambda / API Gateway | actual host SVG derivatives, version/idempotency/partial failures; real config CLI; honest missing-Docker/PC limits |
+| `15-dynamodb-access-patterns` | 📊 DynamoDB | 1,000-item migration and full attribute comparison, GSI/PITR/TTL, conditional duplicate, atomic checkout/rollback; scoped cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

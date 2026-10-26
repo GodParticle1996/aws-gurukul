@@ -332,25 +332,8 @@ const VISUALS = {
   },
 
   dynamodb: {
-    t: 'DynamoDB — NoSQL at scale',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node is-accent pulse" data-hs="table"><span class="ni">📊</span><span class="nl">Table</span><span class="ns">Users</span></div>
-        <div class="dg-col" style="margin-top:8px">
-          <div class="dg-node is-good" data-hs="item"><span class="ni">📋</span><span class="nl">Item</span><span class="ns">user_id: 42 (partition key)</span></div>
-          <div class="dg-flow">
-            <div class="dg-node" data-hs="attr"><span class="ni">🔑</span><span class="nl">Attributes</span><span class="ns">name, email, age</span></div>
-            <div class="dg-node is-gold" data-hs="sortkey"><span class="ni">🔢</span><span class="nl">Sort key</span><span class="ns">created_at</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="rcu">RCU = read capacity units</span>
-        <span class="dg-pill acc" data-hs="wcu">WCU = write capacity units</span>
-        <span class="dg-pill gold" data-hs="gsi">GSI = secondary index (different key)</span>
-        <span class="dg-pill good" data-hs="dax">DAX = in-memory cache (microseconds)</span>
-      </div>
-      <div class="dg-cap"><b>Partition key</b> = data kaise baanta. <b>Sort key</b> = uske andar order. <b>RCU/WCU</b> = capacity (ya on-demand). <b>GSI</b> = dusre attribute se query. <b>DAX</b> = cache. Single-digit ms latency, any scale.</div>`,
+    t: 'DynamoDB — access pattern aur actual data proof',
+    html: `<div class="dg-flow"><div class="dg-node is-accent" data-hs="table"><span class="ni">📊</span><span class="nl">cartId HASH</span><span class="ns">Separate carts-v2 table</span></div><span class="dg-arrow">→</span><div class="dg-node is-good" data-hs="gsi"><span class="ni">📑</span><span class="nl">bySeller GSI</span><span class="ns">sellerId + updatedAt; eventual</span></div></div><div class="dg-flow"><span class="dg-pill acc" data-hs="item">Item≤400KB incl.names</span><span class="dg-pill gold" data-hs="rcu">Read rounds4KB</span><span class="dg-pill gold" data-hs="wcu">Write rounds1KB</span><span class="dg-pill good" data-hs="sortkey">Full HASH+RANGE unique</span><span class="dg-pill acc" data-hs="dax">DAX: reviewed eventual-read cache</span></div><div class="dg-cap">Primary key immutable. Verify backfill + index ACTIVE + request-level condition + actual query rows. Hot keys, quotas, replica consistency and complete cost still matter.</div>`,
   },
 
   sqssns: {

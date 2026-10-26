@@ -185,7 +185,7 @@ AG.registerDecisions([
     icon: '🗄️',
     title: 'Kaunsa database? — RDS, Aurora, DynamoDB, ElastiCache, Redshift, Athena...',
     short: 'Database chuno',
-    tldr: 'Pehle query ka shape: ek row by key (OLTP) ya lakhon rows ka aggregate (analytics)? Phir: joins/transactions chahiye (SQL) ya fixed access pattern par massive scale (DynamoDB)?',
+    tldr: 'Pehle query ka shape: ek row by key (OLTP) ya lakhon rows ka aggregate (analytics)? Phir relational joins/unknown queries (SQL) ya known key access with explicit invariants (DynamoDB)?',
     levels: ['rds', 'dynamodb', 'datastore'],
     start: 'q1',
     nodes: {
@@ -200,7 +200,7 @@ AG.registerDecisions([
         ],
       },
       q2: {
-        q: 'Joins, transactions across tables, ya complex ad-hoc SQL chahiye?',
+        q: 'Relational joins/constraints ya changing ad-hoc SQL chahiye?',
         options: [
           { t: 'Haan — relational data (orders ↔ customers ↔ payments)', next: 'q3' },
           { t: 'Nahi — access patterns fix hain (get by key, query by partition), scale bahut bada', next: 'dynamodb' },
@@ -265,12 +265,12 @@ AG.registerDecisions([
       },
       dynamodb: {
         leaf: true, icon: '📊', pick: 'Amazon DynamoDB',
-        one: 'Serverless key-value/document DB — single-digit ms latency kisi bhi scale par.',
+        one: 'Managed key-value/document DB for known key access; performance depends on distribution, units and quotas.',
         when: ['Access patterns pehle se pata (get user by id, orders by customer)', 'Millions requests/second, spiky traffic (on-demand mode)', 'Serverless apps (Lambda + DynamoDB)', 'Shopping cart, session, IoT, gaming state'],
         avoid: ['Ad-hoc SQL, joins, reporting', 'Access pattern pata nahi — table design galat hoga'],
-        gotchas: ['Partition key high-cardinality rakho (user_id), low-cardinality (status) = hot partition', 'Item max 400 KB', 'Scan poori table padhta hai — mehenga; Query use karo', 'GSI eventually consistent'],
-        cost: 'On-demand ~$0.625 per 10 lakh writes, ~$0.125 per 10 lakh reads; storage ~$0.25/GB-mahina.',
-        exam: '"key-value", "single-digit millisecond", "serverless", "massive scale" → DynamoDB. "microseconds" → DAX lagao.',
+        gotchas: ['High cardinality plus distributed traffic; hot item/index can still exceed physical partition capacity', 'Item max 400 KB', 'Scan poori table padhta hai — mehenga; Query use karo', 'GSI eventual; LSI strong optional and creation-time only; primary key immutable'],
+        cost: 'Approx US East Standard: $0.625/million write units, $0.125/million read units; provisioned $0.00065/WCU-h and $0.00013/RCU-h. Round sizes; indexes/storage/backup add cost.',
+        exam: '"key-value", "single-digit millisecond", "serverless", "massive scale" → DynamoDB. "eventual read acceleration to microseconds" → DAX candidate; validate freshness/cost.',
         iac: `resource "aws_dynamodb_table" "sessions" {
   name         = "user-sessions"
   billing_mode = "PAY_PER_REQUEST"
@@ -363,7 +363,7 @@ AG.registerDecisions([
     icon: '⚡',
     title: 'Cache kahan lagaun? — CloudFront, API Gateway cache, ElastiCache, DAX',
     short: 'Caching layer',
-    tldr: 'Cache user ke jitna paas, utna tez aur sasta. Static/public content → CloudFront edge. Har user ka alag data → app ke paas ElastiCache. DynamoDB reads → DAX.',
+    tldr: 'Cache user ke jitna paas, utna tez aur sasta. Static/public content → CloudFront edge. Har user ka alag data → app ke paas ElastiCache. Repeated eventual DynamoDB reads → reviewed DAX; strong reads pass through.',
     levels: ['cloudfront', 'dynamodb', 'datastore'],
     start: 'q1',
     nodes: {

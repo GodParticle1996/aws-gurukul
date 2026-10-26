@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 6 `lambda` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate 7 `dynamodb`** (master plan §5.B7), then continue levels without per-level approval.
+**Phase A complete; Phase B through Intermediate 7 `dynamodb` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate `caching`** (master plan §5.B7b, selected new level), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -35,8 +35,100 @@ Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
 Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6 completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 205 stages, 54/54 terminal missions,
-56 interactive labs, 14 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 208 stages, 53/53 terminal missions,
+60 interactive labs, 15 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,198 DynamoDB checks.
+
+## Intermediate 7 `dynamodb` loop completed (2026-10-26 UTC)
+
+1. Read old full DynamoDB level/VISUALS and master5.B7. Removed “limited transactions”, any-scale/guaranteed
+   latency claims, stale2.5× price ratio, invented gaming incident, PK-alone uniqueness with composite keys,
+   permanent logical-key=physical-partition claim, blanket banking=SQL rule and leaderboard gameId+DAX answer.
+   Deleted fake --partition-key/--read-capacity and impossible apply-f primary-key rewrite. Same level ID retained.
+2. New IIFE `data-int-7-dynamodb.js`: eight question/analogy/mechanism cards, four myths, decision/comparison/tree,
+   nine exam cues; dryrun→unit/cost flowlab→store bins→reserved-word CLI fill→triage→12-action migration terminal→
+   lab15→eight bonus MCQs. Four interview MCQs plus atomic-checkout terminal, eight flashcards and optional
+   billable AWS data/throughput/recovery homework with cleanup. Runnable create/backfill/index/condition examples
+   precede hands-on mission; numbered chunks name exact files, readiness and expected data.
+3. Verified400KB item size including UTF-8 names/values, composite full-key uniqueness, immutable primary key,
+   physical partition designed3000read/1000write units/s with4KB/1KB rounding, adaptive/burst and warm/cap/quota
+   limits. High cardinality does not guarantee uniformly distributed traffic or fixed physical placement. Query/
+   Scan1MB evaluated pages, post-read filters, continuation on empty pages and strong Scan not snapshot reviewed.
+4. GSI eventual only, inherits billing mode/separate provisioned capacity, projection/sparse key risks and online
+   ACTIVE requirement; base-table data operations remain available during build. LSI same HASH/creation-time only,
+   optional strong reads/shared capacity,5index/10GB collection limits. GSI20 is adjustable default quota. DAX
+   eventual-read caching versus strong pass-through, S3 large-object pointers and sorted-set ranking distinguished.
+5. Current public US East offer publication2026-09-11 captured: Standard on-demand$0.125/M read units and$0.625/M
+   write units; paid provisioned$0.00013/RCU-hour and$0.00065/WCU-hour (not the catalog first25-free allowance tier).
+   Planner models22hbase+2hpeak/day,30days,minimum300eventual reads/s150writes/s5KB3×peak, and declared hottest
+   physical partition shares100%/10%; no hash-placement prediction. Example needs900read/2250write units/s;
+   fixed peak provisioned approx$1137.24/month vs on-demand$1530.90 gross. ₹88/$. Storage/index/backup/replica/
+   transfer/free allowances/credits/tax excluded. All972settings checked; lower required workload cannot win.
+6. Transactions100distinct items/4MB sameaccount/Region, no two actions on one item,2× units and10minute token
+   window verified. Batch25/16MB is non-atomic and unconditional, retries UnprocessedItems. TTL Number epoch
+   seconds/deletion lag days; Streams24h/per-item order versus idempotent consumers; PITR1–35days/new-table restore/
+   latest typically5min behind and no cheaper shorter window; PITR-based S3 export no table RCUs reviewed.
+7. Current Global Tables MREC async/per-item LWW/local transaction atomicity versus MRSC strong three-Region
+   topology (3replicas or2replicas+witness), immutable consistency mode and current Region eligibility reviewed.
+   MRSC lacks TTL/LSI/transactions; GSI eventual. September2026 primary announcement supports15eligible Regions and
+   cross-continent choices; obsolete same-continent assumption excluded. No replication runtime simulated/proven.
+8. Ran scoped Moto5.2.4 probe BEFORE README:1,000carts (active950/saved50), actual paginated Scan/backfill, complete
+   attribute equality,1000distinct cartId keys/max1item per logical key. Added sellerId+numeric updatedAt GSI; query
+  100rows→101after newcart. Strong GSI correctly rejected. PITR35/TTL metadata readback; conditional duplicate
+   rejected and total499 retained. Quantity2 transaction rolled back stock1/orderAbsent; quantity1 atomically
+   committed stock0/order1. Same-token replay re-evaluated conditions in Moto: documented divergence from AWS10min
+   idempotency. Counts do not prove physical placement/throttling; metadata is not TTL age/PITR history/cutover.
+9. Lab15 script/README authored from actual captures; exact repository setup/exercises/cleanup replay passed.
+   Three uniquely named owned tables, explicit loopback endpoint on EVERY CLI/SDK call, dummy keys/lab-local config,
+   no realAWS/~/.aws/shared reset/Docker/install. Only ledger-owned tables deleted; final OWNED_TABLES_REMAIN[].
+   Writers paused; live migration explicitly needs change capture/delete reconciliation/catch-up/cutover/rollback.
+10. DynamoDB simulator replaced with guarded typed S/N/BOOL/NULL/L/M subset, strict identities/schema/key/size,
+    real JSON/shorthand/files, full composite-key delete/get, conditional writes/update, batch validation, GSI/LSI
+    metadata, table/index/TTL observation readiness, billing/PITR/TTL, sorted key queries/filter/pagination and
+    deterministic transaction rollback/commit/token replay. Numeric model limited to15digits/safe magnitude;
+    binary/sets/general expressions, actual throughput/ageing/global replication are explicitly not modeled.
+    Quoted attribute whitespace now preserved; successful read proof is withheld on client query/output error.
+11. Main12actions require preserved source/all attributes, correct target/index/safety settings, actual duplicate
+    rejection and final current three-row seller query. Interview requires intended failed multi-action rollback,
+    successful atomic outcome and final strong order read; independent writes cannot substitute. Omissions,
+    wrong schema/data/TTL/PITR/index/seller, read-only inspection, stale proof, deleting source/target, strongGSI,
+    truncated/projection/Count-only results, malformed JSON/flags/types/conditions and oversized batches lose.
+    Focused suite found/fixed COUNT-only early win. Both solutions win only on final step; clean replays pass.
+12. Focused `validate-dynamodb.js` wired in-process: **2,198 checks**,972planner states.15MCQs0length flags,
+    positions4/4/3/4;3inline choices0flags,all three correct positions used. Updated database/cache decisions and
+    DynamoDB visual. Full validator green:38levels,208stages,53/53missions,60interactive,15real labs. Mission total
+    falls byone because old redundant history-only explorer and fake repair are replaced by one coherent migration.
+13. Browser38samples at1280/360:all eight cards/stages,dryrun decisions,planner and12-command keyboard mission;
+    no errors/page overflow. Fixed28px mobile triage overflow with realistic long-error wrapping; shortened slider
+    labels and fixed a diagram label collision. Geometric label/node intersections checked during all dryrun steps.
+    Inspected intro/dryrun/planner start+solved/terminal screenshots at both widths and lesson examples. Roman-script,
+    pronoun,Python/JS syntax and diff whitespace checks clean. Local commit only; no push/deployment.
+
+Evidence (gitignored durable workspace): `.overhaul-evidence/DDB-PROBE-{SETUP,EXERCISES,CLEANUP}.txt`,
+`DDB-REPO-{SETUP,EXERCISES,CLEANUP}.txt`, `DDB-FOCUSED.txt`, `DDB-FINAL-VALIDATE.txt`,
+`DDB-BROWSER-REPORT.json`, `dynamodb-screenshots/`, `DYNAMODB-US-EAST-PRICES.json`, `DYNAMODB-PRICE-ROWS.json`.
+Next **Intermediate `caching`** (§5.B7b, user-selected new level); continue automatically with per-level local commits.
+
+DynamoDB primary sources checked2026-10-26:
+- [Key distribution](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/bp-partition-key-design.html),
+  [adaptive capacity](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/burst-adaptive-capacity.html),
+  [on-demand warm/scaling/caps](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/on-demand-capacity-mode.html),
+  [constraints/units](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Constraints.html).
+- [Read consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/HowItWorks.ReadConsistency.html),
+  [Query filters](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Query.FilterExpression.html),
+  [Scan](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Scan.html),
+  [GSI online build](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/GSI.OnlineOps.html),
+  [LSI](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/LSI.html),
+  [DAX consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html).
+- [Transactions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html),
+  [BatchWriteItem](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_BatchWriteItem.html),
+  [TTL](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html),
+  [Streams](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Streams.html),
+  [PITR](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/PointInTimeRecovery_Howitworks.html),
+  [Export](https://docs.aws.amazon.com/amazondynamodb/latest/APIReference/API_ExportTableToPointInTime.html).
+- [Global consistency/topology/features](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_HowItWorks.html),
+  [September2026 MRSC Regions](https://aws.amazon.com/about-aws/whats-new/2026/09/dynamodb-mrsc-additional-regions/),
+  [pricing](https://aws.amazon.com/dynamodb/pricing/),
+  [public US East catalog](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonDynamoDB/current/us-east-1/index.json).
 
 ## Intermediate 6 `lambda` loop completed (2026-10-26 UTC)
 
