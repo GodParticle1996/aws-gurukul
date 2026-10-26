@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 5 `efs` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate 6 `lambda`** (master plan §5.B6), then continue levels without per-level approval.
+**Phase A complete; Phase B through Intermediate 6 `lambda` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate 7 `dynamodb`** (master plan §5.B7), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -32,11 +32,99 @@ lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement 
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
 Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
-Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5 completion/validation recorded below; latest local commit identifies delivery.
+Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6 completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 201 stages, 54/54 terminal missions,
-52 interactive labs, 13 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 205 stages, 54/54 terminal missions,
+56 interactive labs, 14 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda checks.
+
+## Intermediate 6 `lambda` loop completed (2026-10-26 UTC)
+
+1. Read full old Lambda level/VISUALS and master5.B6. Removed fixed15-minute idle/cold-start promise, VPC+100ms,
+   “more memory” wrong answer, infinite scaling, whole-stack idle$0,1000rps=DDoS, invented startup incident and
+   history-only list/invoke missions. Same ID preserved. Old block removed, new file registered in track order.
+2. New IIFE `data-int-6-lambda.js`: eight question/analogy cards, four myths, decision/comparison playbook,nine exam
+   cues; dryrun→flowlab→bins→match→triage→seven-step terminal→lab14→eight bonus MCQs. Four interview MCQs plus
+   three-action mapping/batch terminal,eight flashcards,optional billable AWS runtime work and scoped cleanup.
+   Numbered mission chunks and runnable config/concurrency examples added before hands-on stage.
+3. Verified standard on-demand Event Function scope vs newer offerings: standard900s, memory128..10,240MB,
+   tmp512..10,240MB, buffered sync6MB each, streamed response200MB, async1MB (Oct2025). Current eligible Managed
+   Instances async/ESM5400s exception is explicit. SnapStart current Java11+/Python3.12+/.NET8+ and supported image
+   formats; compatibility/uniqueness/connections/pricing reviewed. No obsolete Java-only/ZIP-only/free blanket claim.
+4. Invocation retry owner taught separately: sync caller, async function queue/error/age/destination, source-specific
+   polling. Two extra default retries apply to async function errors; throttle/system backoff/age differs. Standard
+   SQS mapping needs ReportBatchItemFailures plus failed IDs, appropriate visibility/redrive and idempotency; FIFO
+   ordering not silently treated as Standard. Reserved concurrency isolates/caps, does not prewarm. PC qualified
+   version/alias, allocation/execution/spillover cost and current new-account quota caveats included.
+5. API type/auth boundaries verified: HTTP30s vs REST regional/private29s default with increase/trade-off option,
+   edge29s; common10kRPS vs listed2500RPS Regions; API keys not authentication or blanket DDoS protection. New function
+   URLs sinceOct2025 need both InvokeFunctionUrl and InvokeFunction permissions. VPC public subnet gives no public
+   function IP; correct NAT/supportedIPv6/service-endpoint design required, with no fixed VPC latency promise.
+6. Public US East Lambda offer publication2026-10-22 captured again in durable local evidence. On-demand x86/arm,
+   PC allocation and PC execution rates plus$0.20/million small-payload request rate verified. INIT billed. Planner
+   explicitly uses a synthetic CPU/IO model, separate national-scale scenario, fixed required work/calls/cold-share,
+   30-day prepared allocation and approximate peak coverage. All2,880 settings tested. Example1GB/base900ms,
+   5million calls,x86,PC0,cold5%:modeled p991200ms,approx$77.25/₹6,798 gross monthly before excluded services.
+7. Tested Moto before lab authoring: config update/wait→1024MB/15s/Successful; reserved10; async retry2/age3600/
+   failure SQS; Standard SQS ESM partial-response metadata; scoped S3 service permission/get-policy; publish version.
+   Invoke returns200 **FunctionError:Handled**, body Docker socket unavailable. PC API404. No runtime readiness or
+   trigger delivery claimed. Every metadata CLI call explicitly pins loopback endpoint, dummy keys/local config.
+8. Actual trusted-SVG handler on host Python executed against isolated Moto S3: **19 checks**. First delivery3 real
+   SVG derivative writes; repeat0 writes/3 byte-verified duplicates. Four concurrent deliveries of new version
+   produce3 writes/9 verified duplicates. Exact old VersionId survives stale-event replay; good/bad SQS response
+   reports only bad-1. Invalid nested data guarded and corrupt existing derivative rejected. Original bytes,
+   actual dimensions and distinct versions checked. Not a JPEG/PNG codec or production untrusted-image processor.
+9. Lab14 README/app/controller/test authored from captures; exact repository replay passed. Metadata resources:
+   two empty owned buckets,two empty queues,scoped role/policy,function and ESM; no automatic notifications/messages.
+   Host tests own separate versioned-input/output buckets and cleanup in finally. Metadata cleanup deletes recorded
+   mapping/function/owned logs/queues/buckets/policy/role; final two lookups[]/[] verified. Docker absent during run;
+   no install/start,container networking or successful runtime output invented. Docker follow-up explicitly pending.
+10. Simulator rewritten with guarded real flags/JSON/files, memory/timeout/architecture validation, pending update
+    and real waiter, strict function identity, current revision proof,reserved/regional cap checks,async PUT replace,
+    SQS mapping readiness/permissions/visibility,qualified PC metadata,published versions,service permission policy,
+    logs tail and realistic transport-vs-function-error behavior. Namespaced AG.lambdaTiming is a declared model.
+    SVG fixture reads actual source version/body,conditionally stores derivatives and verifies duplicates; no generic
+    Python/codec/IAM interpreter or elapsed-time model. Async202/DryRun204 never fabricate completed outputs.
+11. Main solution requires all seven intended actions and only wins on final successful current-version payload/data
+    proof. Interview requires mapping option,readiness and partial-result proof, preserving existing derivative bytes.
+    Omitted steps,read-only commands,wrong function/output/version,disabled/duplicate mappings,broad reset/deletion,
+    max memory/timeout/reserve,throttle,missing role/queue,invalid flags/JSON/qualifiers and stale invocation proof fail.
+    `validate-lambda.js` wired in-process: **8,342 checks**,2880planner settings,clean replays and geometry. **15 MCQs:
+    0 length flags,positions4/4/4/3; three inline choices:0 flags,positions1/1/1.**
+12. Updated linked compute tree and Lambda visual for current scope/cost/quotas/retry/output distinctions. Full validator
+    green:38levels,205stages,54/54missions,56interactive,14labs. Browser38samples1280/360:all eight cards/stages,
+    dryrun inline decisions,planner and keyboard mission pass;zero errors/page overflow. Fixed52px overflow caused by
+    an unbroken slash phrase. Inspected intro/dryrun/planner start+solved/terminal screenshots and lesson examples.
+    Pronoun,Python syntax and diff whitespace checks clean. Local commit only; no push/realAWS/Docker/install.
+
+Evidence now persists under `aws-gurukul/.overhaul-evidence/` (gitignored):
+`REPO-HANDLER-TEST.txt`, `REPO-LAMBDA-{SETUP,EXERCISES,CLEANUP}.txt`, `LAMBDA-FINAL-VALIDATE.txt`,
+`LAMBDA-BROWSER-REPORT.json`, `lambda-screenshots/`, `LAMBDA-US-EAST-PRICES.json`, `LAMBDA-PRICE-ROWS.json`.
+Earlier `/tmp` captures disappeared when the environment resumed; prior level paths remain historical verification
+records. New local evidence uses the durable workspace folder. Existing venv reused. Port4566 was absent on resume;
+normal Moto launched in managed foreground session87023 after detached launcher did not persist. No shared reset.
+Retired only this run's stale detached PID ledger by rename; use the managed session for owned shutdown if needed.
+Next Intermediate7 `dynamodb` (§5.B7); keep per-level commits/automatic continuation, ask before push.
+
+Lambda primary sources checked in this logical session:
+- [Current quotas and compute-model exceptions](https://docs.aws.amazon.com/lambda/latest/dg/gettingstarted-limits.html),
+  [SnapStart support/compatibility](https://docs.aws.amazon.com/lambda/latest/dg/snapstart.html),
+  [concurrency](https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html),
+  [reserved](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html),
+  [provisioned](https://docs.aws.amazon.com/lambda/latest/dg/provisioned-concurrency.html).
+- [Async retry/error handling](https://docs.aws.amazon.com/lambda/latest/dg/invocation-async-error-handling.html),
+  [async config PUT replaces fields](https://docs.aws.amazon.com/lambda/latest/api/API_PutFunctionEventInvokeConfig.html),
+  [SQS visibility/mapping](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html),
+  [partial batch responses](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html),
+  [S3 source/version/filter contract](https://docs.aws.amazon.com/lambda/latest/dg/with-s3.html),
+  [recursive-detection limits](https://docs.aws.amazon.com/lambda/latest/dg/invocation-recursion.html).
+- [VPC internet path](https://docs.aws.amazon.com/lambda/latest/dg/configuration-vpc-internet.html),
+  [API Gateway Regional quotas](https://docs.aws.amazon.com/apigateway/latest/developerguide/limits.html),
+  [REST integration timeout](https://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-execution-service-limits-table.html),
+  [HTTP timeout](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-quotas.html),
+  [function URL auth](https://docs.aws.amazon.com/lambda/latest/dg/urls-auth.html),
+  [Lambda pricing](https://aws.amazon.com/lambda/pricing/),
+  [public US East offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSLambda/current/us-east-1/index.json).
 
 ## Intermediate 5 `efs` loop completed (2026-10-26 UTC)
 

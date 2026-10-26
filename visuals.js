@@ -322,23 +322,13 @@ const VISUALS = {
   },
 
   lambda: {
-    t: 'Lambda + API Gateway — serverless!',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node"><span class="ni">📱</span><span class="nl">Client</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-accent pulse" data-hs="apigw"><span class="ni">🚪</span><span class="nl">API Gateway</span><span class="ns">HTTP endpoint</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-gold" data-hs="lambda"><span class="ni">⚡</span><span class="nl">Lambda</span><span class="ns">function</span></div>
-        <div class="dg-down flow"></div>
-        <div class="dg-node is-good"><span class="ni">🗄️</span><span class="nl">DynamoDB</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="coldstart">Cold start = first invocation slow</span>
-        <span class="dg-pill gold" data-hs="trigger">Triggers: API GW, S3, DynamoDB streams, EventBridge</span>
-        <span class="dg-pill good" data-hs="bill">Bill = ms × memory × invocations</span>
-      </div>
-      <div class="dg-cap"><b>Lambda</b> = code chalao bina server manage kiye. Triggers se invoke. <b>Cold start</b> = pehli baar slow (container spin-up). <b>API Gateway</b> = HTTP endpoint jo Lambda ko route karta hai. Pay-per-invocation — idle = $0.</div>`,
+    t: 'Lambda — invocation contract, bounded capacity aur verified output',
+    html: `<div class="dg-col">
+      <div class="dg-node is-accent"><span class="nl">Sync / async / poll mapping</span><span class="ns">Caller retry · Lambda event queue · source-specific batch/redrive</span></div>
+      <div class="dg-node is-gold"><span class="nl">Standard Event Function</span><span class="ns">Code + execution role + trigger · memory/CPU, deadline, INIT and quotas</span></div>
+      <div class="dg-node is-good"><span class="nl">Output evidence</span><span class="ns">Exact source VersionId → stable keys → conditional writes → verified bytes</span></div>
+      <div class="dg-node"><span class="nl">HTTP door</span><span class="ns">HTTP / REST / WebSocket / function URL: auth, feature and timeout decision</span></div>
+    </div><div class="dg-cap">Reserved concurrency caps/isolates capacity; provisioned concurrency prepares qualified environments with extra costs. HTTP200 can contain FunctionError; inspect body and actual data. In-app SVG runtime and latency are bounded fixtures; local host handler tests actual Moto S3 bytes. Docker invocation remains unverified.</div>`,
   },
 
   dynamodb: {

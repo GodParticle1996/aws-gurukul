@@ -18,7 +18,7 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'Ek request/job ka kaam kitni der chalta hai?',
-        why: 'Lambda ek invocation ko maximum 15 minute deta hai. 15 minute se lamba kaam Lambda par chal hi nahi sakta.',
+        why: 'This tree starts with standard on-demand Event Functions (900s maximum). Newer eligible Managed Instances async/ESM and other Lambda models have separate limits; review the exact compute contract before a production choice.',
         options: [
           { t: '15 minute se kam (API call, file process, event handle)', next: 'q2' },
           { t: '15 minute se zyada ya hamesha chalta rehta hai (server, worker)', next: 'q3' },
@@ -27,7 +27,7 @@ AG.registerDecisions([
       },
       q2: {
         q: 'Traffic ka shape kaisa hai?',
-        why: 'Lambda ka paisa sirf chalne ke time ka lagta hai. Idle time ka paisa zero. Isliye spiky traffic par Lambda sasta, aur 24×7 bhaari traffic par mehenga padta hai.',
+        why: 'On-demand execution duration follows billed work/INIT. Prepared capacity, API, storage/log/network costs remain separate. Compare equal availability/performance requirements; no fixed RPS or traffic shape alone proves cheaper compute.',
         hint: 'Spiky = din mein kuch ghante traffic, raat ko lagbhag zero. Steady = har second requests aati rehti hain.',
         options: [
           { t: 'Spiky ya kam — kabhi 0, kabhi 500 req/s', next: 'lambda' },
@@ -59,26 +59,26 @@ AG.registerDecisions([
       },
       lambda: {
         leaf: true, icon: 'λ', pick: 'AWS Lambda',
-        one: 'Function upload karo, event aane par AWS chalata hai. Server nahi, idle ka bill nahi.',
-        why: 'Kaam 15 minute se chhota hai aur traffic spiky hai — Lambda sirf chalne ke milliseconds ka paisa leta hai, aur 0 se hazaaron parallel copies tak khud scale karta hai.',
+        one: 'Standard on-demand event-driven compute; infrastructure management reduced, workload correctness and cost still reviewed.',
+        why: 'Short events with variable demand can fit. Scaling remains bounded by function/account/downstream quotas; billed initialization, execution and associated services matter.',
         when: [
           'S3 upload par thumbnail banana, SQS message process karna, API Gateway ke peeche chhota API',
           'Traffic din mein upar-neeche hota hai, raat ko lagbhag zero',
           'Cron jaisa kaam — EventBridge Scheduler har 5 minute Lambda chalaye',
         ],
         avoid: [
-          '15 minute se lamba kaam (hard limit)',
-          '24×7 steady bhaari traffic — steady traffic par Fargate/EC2 sasta padta hai',
-          'Latency-sensitive API jahan cold start (pehli request par 100 ms – 1 s+) bardasht nahi — ya Provisioned Concurrency ka paisa do',
+          'Longer than900s in standard on-demand scope; evaluate other supported compute contracts',
+          'Sustained demand without an equal-requirement cost/performance comparison',
+          'Strict latency without measured cold/warm distributions and a reviewed SnapStart/PC or alternative plan',
           'Bahut lambi-chaudi connection pools (RDS) — har Lambda copy naya DB connection kholti hai; RDS Proxy lagao',
         ],
         gotchas: [
-          'Account mein default 1,000 concurrent executions (region mein, sab functions mila ke) — ek function saari concurrency kha sakta hai; reserved concurrency lagao',
+          'Common Regional default1,000 concurrency, but new accounts may be lower; reserved cap/isolation differs from provisioned readiness',
           'Memory badhane se CPU bhi badhta hai (128 MB – 10,240 MB) — kabhi-kabhi zyada memory = jaldi khatam = sasta',
-          'VPC ke andar Lambda ko internet chahiye toh NAT Gateway chahiye (aur NAT ka bill)',
+          'VPC internet path needs correct NAT/supportedIPv6 design; public subnet alone gives no public IP; AWS endpoints cover selected services',
         ],
-        cost: '$0.20 per 10 lakh requests + $0.0000166667 per GB-second. Example: 50 lakh requests/mahina, 512 MB, 200 ms → 5,00,000 GB-s ≈ $8.3 + $1 = ~$9/mahina. Idle = $0.',
-        exam: '"event-driven", "LEAST operational overhead", "pay only when code runs" → Lambda. "processing takes 30 minutes" → Lambda NAHI (Fargate/Batch/EC2).',
+        cost: 'Approx US East first-tier x86$0.20/million small-payload requests + $0.0000166667/GB-s; arm rate differs.5million×0.5GB×0.2s =500,000GB-s ≈$8.33+$1 before INIT/other services/free credits. PC allocation/execution separate.',
+        exam: 'Event-driven/least server management → Lambda candidate. Standard job30minutes exceeds900s; evaluate Fargate/Batch/EC2 or a supported newer compute model with its own limits.',
         iac: `resource "aws_lambda_function" "thumb" {
   function_name = "make-thumbnail"
   runtime       = "python3.12"
@@ -88,7 +88,7 @@ AG.registerDecisions([
   memory_size   = 512
   timeout       = 30      # seconds (max 900)
 }`,
-        example: 'Photo app: user photo S3 par upload karta hai → S3 event → Lambda 3 size ke thumbnails banata hai. Raat ko 0 uploads = $0 bill.',
+        example: 'Versioned S3 photo → duplicate-safe worker → three derivatives in separate output path; verify exact source version/body and failure capture. Other service costs remain even without function invocations.',
         level: 'lambda',
       },
       fargate: {

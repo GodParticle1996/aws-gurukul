@@ -120,6 +120,14 @@ AG.cdnResponse = function (account, distribution, path) {
   return object?{status:200,version:object.version,source:'origin fixture'}:{status:404,reason:'Object missing'};
 };
 
+// Bounded CPU/IO benchmark fixture, not an AWS latency prediction.
+AG.lambdaTiming = function (fn) {
+  const workload = fn.workload || {}, memory = fn.memory || 128;
+  const floor = workload.ioFloorMs || 300, base = workload.baseMs || 800;
+  return { warmMs: Math.round(floor + Math.max(0, base - floor) * Math.pow(1024 / memory, 0.8)),
+    initMs: Math.round((workload.initMs || 300) * Math.sqrt(1024 / memory)) };
+};
+
 AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   // deep-clone the account so replays start fresh
   const sim = {
@@ -465,7 +473,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws ec2 modify-instance-metadata-options --instance-id <id> --http-tokens required  |  modify-instance-attribute --instance-type Value=<t>',
         '  aws ec2 create-snapshot --volume-id <vol> --description <d>  |  describe-snapshots  |  allocate-address / associate-address / describe-addresses',
         '  aws rds describe-db-instances / modify-db-instance --db-instance-identifier <id> / create-db-snapshot',
-        '  aws lambda list-functions / invoke / get-function / update-function-configuration / get-policy --function-name <fn>',
+        '  aws lambda list-functions / get-function-configuration / update-function-configuration --function-name <fn> --memory-size <MB> --timeout <seconds>',
+        '  aws lambda wait function-updated-v2 --function-name <fn> / get-function-concurrency / put-function-concurrency --reserved-concurrent-executions <n>',
+        '  aws lambda put-function-event-invoke-config --function-name <fn> --destination-config file://destination.json / create-event-source-mapping / list-event-source-mappings',
+        '  aws lambda invoke --function-name <fn> --cli-binary-format raw-in-base64-out --payload file://event.json output.json; inspect FunctionError/body, not status alone',
         '  aws dynamodb list-tables / describe-table --table-name <t> / scan / query / put-item / update-table',
         '  aws route53 list-hosted-zones / list-resource-record-sets --hosted-zone-id <id> / list-health-checks',
         '  aws cloudformation describe-stacks / describe-stack-events --stack-name <s>',
@@ -570,8 +581,19 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda'].includes(service)) {
       const specs = {
+        lambda: {
+          'list-functions': [], 'get-function': ['function-name','qualifier'], 'get-function-configuration': ['function-name','qualifier'],
+          'update-function-configuration': ['function-name','memory-size','timeout','handler','architectures*'], 'wait': ['function-name','qualifier'],
+          'put-function-concurrency': ['function-name','reserved-concurrent-executions'], 'get-function-concurrency': ['function-name'], 'delete-function-concurrency': ['function-name'],
+          'put-function-event-invoke-config': ['function-name','qualifier','maximum-retry-attempts','maximum-event-age-in-seconds','destination-config'], 'get-function-event-invoke-config': ['function-name','qualifier'],
+          'create-event-source-mapping': ['function-name','event-source-arn','batch-size','function-response-types*','enabled!','no-enabled!'],
+          'update-event-source-mapping': ['uuid','batch-size','function-response-types*','enabled!','no-enabled!'], 'get-event-source-mapping': ['uuid'], 'delete-event-source-mapping': ['uuid'], 'list-event-source-mappings': ['function-name','event-source-arn'],
+          'invoke': ['function-name','qualifier','invocation-type','payload','cli-binary-format','log-type'],
+          'put-provisioned-concurrency-config': ['function-name','qualifier','provisioned-concurrent-executions'], 'get-provisioned-concurrency-config': ['function-name','qualifier'], 'delete-provisioned-concurrency-config': ['function-name','qualifier'], 'publish-version': ['function-name'],
+          'add-permission': ['function-name','statement-id','action','principal','source-arn','source-account'], 'get-policy': ['function-name'], 'delete-function': ['function-name'],
+        },
         efs: {
           'describe-file-systems':['file-system-id','creation-token'], 'create-file-system':['creation-token','encrypted!','no-encrypted!','performance-mode','throughput-mode','provisioned-throughput-in-mibps','availability-zone-name','tags*'],
           'delete-file-system':['file-system-id'], 'update-file-system':['file-system-id','throughput-mode','provisioned-throughput-in-mibps'],
@@ -650,7 +672,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         const allowed = serviceSpec[op].concat(['query', 'output', 'region', 'profile', 'endpoint-url', 'no-cli-pager!', 'no-paginate!']);
         let positionalSeen=false;
         for (let i = op === 'wait' ? 4 : 3; i < toks.length;) {
-          if(service==='s3api'&&op==='get-object'&&!toks[i].startsWith('--')&&!positionalSeen){positionalSeen=true;i++;continue;}
+          if((service==='s3api'&&op==='get-object'||service==='lambda'&&op==='invoke')&&!toks[i].startsWith('--')&&!positionalSeen){positionalSeen=true;i++;continue;}
           const name = toks[i].startsWith('--') ? toks[i].slice(2) : '';
           const spec = allowed.find(a => a.replace(/[*!]$/, '') === name);
           if (!spec) return print('err', `Unknown options: ${toks[i]}. This simulator models the documented flags listed by help.`);
@@ -1850,50 +1872,223 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       }
 
       /* ===================== LAMBDA ===================== */
-      case 'lambda':
-        if (op === 'list-functions') {
-          const fns = list('lambdas');
-          if (!fns.length) return print('ok', '{\n    "Functions": []\n}');
-          print('ok', '{\n    "Functions": [\n' +
-            fns.map(f => `        { "FunctionName": "${f.name}", "Runtime": "${f.runtime}", "Handler": "${f.handler}", "LastModified": "${f.lastModified || '2024-03-20T00:00:00.000+0000'}", "State": "${f.state || 'Active'}", "MemorySize": ${f.memory || 128}, "Timeout": ${f.timeout || 3} }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'invoke') {
-          const name = flag('function-name');
-          if (!name) return print('err', 'error: --function-name required');
-          const fn = find('lambdas', name);
-          if (!fn) return print('err', `ResourceNotFoundException: Function '${name}' not found`);
-          print('ok', `{ "StatusCode": 200, "ExecutedVersion": "$LATEST" }\n${fn.invokeResult || '{"status":"ok"}'}`);
-        } else if (op === 'get-function') {
-          const name = flag('function-name');
-          const fn = find('lambdas', name);
-          if (!fn) return print('err', `ResourceNotFoundException: Function '${name}' not found`);
-          print('ok', `{ "Configuration": { "FunctionName": "${fn.name}", "Runtime": "${fn.runtime}", "Handler": "${fn.handler}", "State": "${fn.state || 'Active'}", "MemorySize": ${fn.memory || 128}, "Timeout": ${fn.timeout || 3} } }`);
-        } else if (op === 'update-function-configuration') {
-          const name = flag('function-name');
-          const fn = find('lambdas', name);
-          if (!fn) return print('err', `ResourceNotFoundException: Function '${name}' not found`);
-          const mem = flag('memory-size');
-          const to = flag('timeout');
-          if (mem) fn.memory = Number(mem);
-          if (to) fn.timeout = Number(to);
-          print('ok', `{ "FunctionName": "${fn.name}", "MemorySize": ${fn.memory||128}, "Timeout": ${fn.timeout||3} }`);
-        } else if (op === 'get-policy') {
-          const name = flag('function-name');
-          const fn = find('lambdas', name);
-          if (!fn) return print('err', `ResourceNotFoundException: Function '${name}' not found`);
-          if (fn.policy) print('ok', fn.policy);
-          else print('err', `ResourceNotFoundException: The resource you requested does not exist`);
-        } else if (op === 'delete-function') {
-          const name = flag('function-name');
-          const fns = list('lambdas');
-          const idx = fns.findIndex(f => f.name === name);
-          if (idx < 0) return print('err', `ResourceNotFoundException: Function '${name}' not found`);
-          fns.splice(idx, 1);
-          print('ok', '');
-        } else {
-          print('err', `unknown Lambda op: ${op}`);
+      case 'lambda': {
+        const clone=x=>JSON.parse(JSON.stringify(x));
+        const object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+        const required=n=>{const value=flag(n);if(!value)throw Error(`aws: error: the following arguments are required: --${n}`);return value;};
+        function read(n, fallback) {
+          let raw=flag(n);if(raw===null)return fallback;
+          if(raw.startsWith('file://')||raw.startsWith('fileb://')) {
+            const name=raw.slice(raw.startsWith('fileb://')?8:7);
+            const f=Object.prototype.hasOwnProperty.call(sim.files,name)&&sim.files[name];
+            if(!f||typeof f.content!=='string')throw Error(`Error parsing parameter --${n}: Unable to load paramfile; use ls/cat`);
+            raw=f.content;
+          }
+          try{return JSON.parse(raw);}catch(e){throw Error(`InvalidRequestContentException: --${n} must contain valid JSON`);}
         }
-        return;
+        const functions=()=>list('lambdas'),mappings=()=>list('eventSourceMappings');
+        function getFn() {
+          const raw=required('function-name');
+          const match=raw.match(/^(?:arn:aws:lambda:([a-z0-9-]+):123456789012:function:)?([A-Za-z0-9_-]+)(?::([A-Za-z0-9_$-]+))?$/);
+          if(!match||match[1]&&match[1]!==sim.account.region)throw Error('ResourceNotFoundException: Function name/ARN not found in this fixture Region');
+          const fn=functions().find(f=>f.name===match[2]);if(!fn)throw Error(`ResourceNotFoundException: Function '${match[2]}' not found`);
+          const qualifier=flag('qualifier')||match[3];return {fn,qualifier};
+        }
+        const role=f=>list('roles').find(r=>r.name===f.roleName);
+        const queue=arn=>list('queues').find(q=>q.arn===arn);
+        const mapping=()=>{const id=required('uuid'),m=mappings().find(m=>m.uuid===id);if(!m)throw Error('ResourceNotFoundException: Unknown event source mapping');return m;};
+        const numeric=(name,min,max)=>{const raw=required(name),v=Number(raw);if(!/^\d+$/.test(raw)||!Number.isSafeInteger(v)||v<min||v>max)throw Error(`InvalidParameterValueException: --${name} must be integer ${min}..${max}`);return v;};
+        const revision=f=>f.revisionId||'r0';
+        function completeUpdate(f) {if(f.pendingConfig){Object.assign(f,f.pendingConfig);delete f.pendingConfig;f.lastUpdateStatus='Successful';f.revisionId='r'+((f.revisionCounter||0)+1);f.revisionCounter=(f.revisionCounter||0)+1;}}
+        function config(f,version) {return {FunctionName:f.name,Runtime:f.runtime,Handler:f.handler,MemorySize:f.memory||128,Timeout:f.timeout||3,State:f.state||'Active',LastUpdateStatus:f.pendingConfig?'InProgress':f.lastUpdateStatus||'Successful',RevisionId:revision(f),Version:f._version||version||'$LATEST',Architectures:f.architectures||['x86_64']};}
+        const mapView=m=>({UUID:m.uuid,FunctionArn:`arn:aws:lambda:${sim.account.region}:123456789012:function:${m.functionName}`,EventSourceArn:m.eventSourceArn,BatchSize:m.batchSize,FunctionResponseTypes:clone(m.responseTypes),State:m.state});
+        const advanceMap=m=>{if(m.pendingState){m.state=m.pendingState;delete m.pendingState;}};
+        function selected(f,q) {if(!q||q==='$LATEST')return f;const v=f.aliases&&f.aliases[q]||q;const saved=f.versions&&Object.prototype.hasOwnProperty.call(f.versions,v)&&f.versions[v];if(!saved)throw Error('ResourceNotFoundException: Published version/alias not found');return {...saved,name:f.name,roleName:f.roleName,workload:f.workload,_version:v};}
+        function validateMapping(f,arn,batch,types) {
+          const q=queue(arn);if(!q)throw Error('InvalidParameterValueException: EventSourceArn must identify an existing SQS queue in this bounded simulator');
+          if(arn.split(':')[3]!==sim.account.region)throw Error('InvalidParameterValueException: SQS and function must use same Region');
+          if(q.isFifo)throw Error('Simulator scope: This SVG batch fixture uses Standard SQS; FIFO needs ordering-aware failure handling');
+          if((q.visibilityTimeout===undefined?30:q.visibilityTimeout)<(f.timeout||3))throw Error('InvalidParameterValueException: Function timeout cannot exceed queue visibility timeout; AWS recommends visibility at least6x timeout plus batch window');
+          if(!Number.isInteger(batch)||batch<1||batch>10)throw Error('Simulator scope: SQS batch-size1..10 here; larger Standard batches require a batching window');
+          if(!Array.isArray(types)||types.some(t=>t!=='ReportBatchItemFailures')||new Set(types).size!==types.length)throw Error('InvalidParameterValueException: Use distinct supported FunctionResponseTypes');
+          const r=role(f);if(!r||!r.lambda||r.lambda.trust!=='lambda.amazonaws.com'||!(r.lambda.receiveQueues||[]).includes(arn))throw Error('InvalidParameterValueException: Execution role lacks required SQS permissions in fixture');
+        }
+        try {
+          if(op==='list-functions')return resultJson({Functions:functions().map(f=>config(f))});
+          if(op==='get-function'||op==='get-function-configuration') {
+            const {fn,qualifier}=getFn(),c=config(selected(fn,qualifier),qualifier);
+            return resultJson(op==='get-function'?{Configuration:c,Concurrency:fn.reservedConcurrency===undefined?{}:{ReservedConcurrentExecutions:fn.reservedConcurrency}}:c);
+          }
+          if(op==='update-function-configuration') {
+            const {fn,qualifier}=getFn();if(qualifier)throw Error('InvalidParameterValueException: Published versions are immutable; update $LATEST');
+            if(fn.pendingConfig)throw Error('ResourceConflictException: Function update in progress; wait function-updated-v2');
+            const pending={};
+            if(flag('memory-size')!==null)pending.memory=numeric('memory-size',128,10240);
+            if(flag('timeout')!==null)pending.timeout=numeric('timeout',1,900);
+            if(flag('handler')!==null)pending.handler=required('handler');
+            if(flag('architectures')!==null){const values=flags('architectures');if(values.length!==1||!['x86_64','arm64'].includes(values[0]))throw Error('InvalidParameterValueException: Choose one x86_64 or arm64 architecture');pending.architectures=values;}
+            if(!Object.keys(pending).length)throw Error('InvalidParameterValueException: Supply supported configuration changes');
+            fn.pendingConfig=pending;fn.lastUpdateStatus='InProgress';return resultJson(config(fn));
+          }
+          if(op==='wait') {
+            if(!['function-updated','function-updated-v2','function-active','function-active-v2'].includes(toks[3]))throw Error('Unknown Lambda waiter; use function-updated-v2 or function-active-v2');
+            const {fn}=getFn();completeUpdate(fn);return print('ok','');
+          }
+          if(['put-function-concurrency','get-function-concurrency','delete-function-concurrency'].includes(op)) {
+            const {fn}=getFn();
+            if(op==='put-function-concurrency') {
+              const value=numeric('reserved-concurrent-executions',0,100000),quota=sim.account.lambdaConcurrencyQuota||1000;
+              const other=functions().filter(f=>f!==fn).reduce((n,f)=>n+(f.reservedConcurrency||0),0);
+              if(value+other>quota-100)throw Error('InvalidParameterValueException: Leave at least100 regional concurrent executions unreserved');
+              const pc=Object.values(fn.provisioned||{}).reduce((n,p)=>n+p.requested,0);if(value<pc)throw Error('InvalidParameterValueException: Reserved concurrency cannot be below allocated provisioned concurrency');
+              fn.reservedConcurrency=value;
+            }
+            if(op==='delete-function-concurrency'){delete fn.reservedConcurrency;return print('ok','');}
+            return resultJson(fn.reservedConcurrency===undefined?{}:{ReservedConcurrentExecutions:fn.reservedConcurrency});
+          }
+          if(['put-function-event-invoke-config','get-function-event-invoke-config'].includes(op)) {
+            const {fn,qualifier}=getFn(),key=qualifier||'$LATEST';selected(fn,qualifier);
+            if(op==='get-function-event-invoke-config'){const cfg=fn.asyncConfigs&&fn.asyncConfigs[key];if(!cfg)throw Error('ResourceNotFoundException: No async invoke configuration');return resultJson(clone(cfg));}
+            const cfg={};
+            if(flag('maximum-retry-attempts')!==null)cfg.MaximumRetryAttempts=numeric('maximum-retry-attempts',0,2);
+            if(flag('maximum-event-age-in-seconds')!==null)cfg.MaximumEventAgeInSeconds=numeric('maximum-event-age-in-seconds',60,21600);
+            if(flag('destination-config')!==null) {
+              const d=read('destination-config');if(!object(d)||Object.keys(d).some(k=>!['OnFailure','OnSuccess'].includes(k)))throw Error('InvalidParameterValueException: DestinationConfig needs supported OnFailure/OnSuccess objects');
+              for(const [kind,value] of Object.entries(d)) {
+                if(!object(value)||typeof value.Destination!=='string')throw Error('InvalidParameterValueException: Destination ARN string required');
+                const q=queue(value.Destination),r=role(fn);
+                if(!q||!r||!r.lambda||!(r.lambda.sendQueues||[]).includes(q.arn))throw Error('InvalidParameterValueException: This simulator supports existing permitted SQS destinations; execution role needs SendMessage');
+                if(value.Destination===fn.name)throw Error('InvalidParameterValueException: Invalid destination');
+              }
+              cfg.DestinationConfig=clone(d);
+            }
+            if(!Object.keys(cfg).length)throw Error('InvalidParameterValueException: Provide async invocation settings');
+            (fn.asyncConfigs||(fn.asyncConfigs={}))[key]=cfg;return resultJson(clone(cfg));
+          }
+          if(op==='create-event-source-mapping') {
+            const {fn}=getFn(),arn=required('event-source-arn'),batch=flag('batch-size')===null?10:numeric('batch-size',1,10000),types=flags('function-response-types');
+            validateMapping(fn,arn,batch,types);
+            if(toks.includes('--enabled')&&toks.includes('--no-enabled'))throw Error('InvalidParameterValueException: Mutually exclusive enable flags');
+            if(mappings().some(m=>m.functionName===fn.name&&m.eventSourceArn===arn))throw Error('ResourceConflictException: Mapping for this function/event source already exists; update the mapping');
+            const seq=(sim.account.lambdaMappingSequence||0)+1,uuid='11111111-0000-4000-8000-'+String(seq).padStart(12,'0');
+            const m={uuid,functionName:fn.name,eventSourceArn:arn,batchSize:batch,responseTypes:types,state:'Creating',pendingState:toks.includes('--no-enabled')?'Disabled':'Enabled'};
+            sim.account.lambdaMappingSequence=seq;mappings().push(m);return resultJson(mapView(m));
+          }
+          if(op==='update-event-source-mapping') {
+            const m=mapping(),f=functions().find(f=>f.name===m.functionName);if(!f)throw Error('ResourceNotFoundException: Mapping function missing');
+            const batch=flag('batch-size')===null?m.batchSize:numeric('batch-size',1,10000),types=flag('function-response-types')===null?m.responseTypes:flags('function-response-types');
+            validateMapping(f,m.eventSourceArn,batch,types);
+            if(toks.includes('--enabled')&&toks.includes('--no-enabled'))throw Error('InvalidParameterValueException: Mutually exclusive enable flags');
+            m.batchSize=batch;m.responseTypes=types;m.pendingState=toks.includes('--no-enabled')?'Disabled':toks.includes('--enabled')?'Enabled':m.pendingState||m.state;m.state='Updating';return resultJson(mapView(m));
+          }
+          if(op==='get-event-source-mapping'){const m=mapping();advanceMap(m);return resultJson(mapView(m));}
+          if(op==='list-event-source-mappings') {
+            const f=flag('function-name')?getFn().fn:null,arn=flag('event-source-arn');
+            const rows=mappings().filter(m=>(!f||m.functionName===f.name)&&(!arn||m.eventSourceArn===arn));rows.forEach(advanceMap);return resultJson({EventSourceMappings:rows.map(mapView)});
+          }
+          if(op==='delete-event-source-mapping'){const m=mapping();mappings().splice(mappings().indexOf(m),1);return resultJson({...mapView(m),State:'Deleting'});}
+          if(op==='publish-version') {
+            const {fn}=getFn();if(fn.pendingConfig)throw Error('ResourceConflictException: Finish configuration update before publishing');
+            const versions=fn.versions||(fn.versions={}),number=String(Math.max(0,...Object.keys(versions).map(Number).filter(Number.isFinite))+1);
+            versions[number]={runtime:fn.runtime,handler:fn.handler,memory:fn.memory,timeout:fn.timeout,architectures:clone(fn.architectures||['x86_64']),revisionId:revision(fn),state:'Active'};
+            return resultJson({...config(fn),Version:number});
+          }
+          if(['put-provisioned-concurrency-config','get-provisioned-concurrency-config','delete-provisioned-concurrency-config'].includes(op)) {
+            const {fn}=getFn(),qualifier=required('qualifier');if(qualifier==='$LATEST')throw Error('InvalidParameterValueException: Provisioned concurrency requires published version or alias, not $LATEST');selected(fn,qualifier);
+            const all=fn.provisioned||(fn.provisioned={});
+            if(op==='put-provisioned-concurrency-config') {
+              const amount=numeric('provisioned-concurrent-executions',1,100000),other=Object.entries(all).filter(([q])=>q!==qualifier).reduce((n,[,p])=>n+p.requested,0);
+              if(other+amount>(fn.reservedConcurrency===undefined?(sim.account.lambdaConcurrencyQuota||1000)-100:fn.reservedConcurrency))throw Error('InvalidParameterValueException: Provisioned concurrency exceeds available reserved/regional capacity');
+              all[qualifier]={requested:amount,allocated:0,status:'IN_PROGRESS'};
+            }
+            if(op==='delete-provisioned-concurrency-config'){delete all[qualifier];return print('ok','');}
+            const p=all[qualifier];if(!p)throw Error('ProvisionedConcurrencyConfigNotFoundException: No configuration for qualifier');
+            if(op==='get-provisioned-concurrency-config'){p.allocated=p.requested;p.status='READY';}
+            return resultJson({RequestedProvisionedConcurrentExecutions:p.requested,AvailableProvisionedConcurrentExecutions:p.allocated,AllocatedProvisionedConcurrentExecutions:p.allocated,Status:p.status});
+          }
+          if(op==='get-policy') {
+            const {fn}=getFn();if(!fn.policy)throw Error('ResourceNotFoundException: Function policy does not exist');return resultJson({Policy:typeof fn.policy==='string'?fn.policy:JSON.stringify(fn.policy),RevisionId:'policy-fixture'});
+          }
+          if(op==='add-permission') {
+            const {fn}=getFn(),sid=required('statement-id'),action=required('action'),principal=required('principal');
+            if(action!=='lambda:InvokeFunction'||!['s3.amazonaws.com','sns.amazonaws.com','events.amazonaws.com'].includes(principal))throw Error('Simulator scope: InvokeFunction service permissions for S3/SNS/EventBridge only');
+            if(!/^[A-Za-z0-9_-]{1,100}$/.test(sid))throw Error('InvalidParameterValueException: Invalid statement ID');
+            const policy=typeof fn.policy==='string'?JSON.parse(fn.policy):clone(fn.policy||{Version:'2012-10-17',Statement:[]});
+            if(!Array.isArray(policy.Statement))throw Error('InvalidParameterValueException: Policy Statement must be array');
+            if(policy.Statement.some(s=>s.Sid===sid))throw Error('ResourceConflictException: Statement ID already exists');
+            const st={Sid:sid,Effect:'Allow',Principal:{Service:principal},Action:action,Resource:`arn:aws:lambda:${sim.account.region}:123456789012:function:${fn.name}`};
+            const account=flag('source-account'),arn=flag('source-arn');if(account&&!/^\d{12}$/.test(account))throw Error('InvalidParameterValueException: SourceAccount must be12 digits');
+            if(account||arn)st.Condition={...(account?{StringEquals:{'AWS:SourceAccount':account}}:{}),...(arn?{ArnLike:{'AWS:SourceArn':arn}}:{})};
+            policy.Statement.push(st);fn.policy=policy;return resultJson({Statement:JSON.stringify(st)});
+          }
+          if(op==='delete-function'){const {fn}=getFn();functions().splice(functions().indexOf(fn),1);return print('ok','');}
+          if(op==='invoke') {
+            const {fn,qualifier}=getFn(),target=selected(fn,qualifier),type=flag('invocation-type')||'RequestResponse';
+            if(!['RequestResponse','Event','DryRun'].includes(type))throw Error('InvalidParameterValueException: InvocationType must be RequestResponse, Event or DryRun');
+            if(flag('log-type')&&flag('log-type')!=='None')throw Error('Simulator scope: use logs tail for fixture logs; encoded LogResult is not modeled');
+            let outfile;
+            for(let i=3;i<toks.length;i++){if(toks[i].startsWith('--')){if(!['--no-cli-pager','--no-paginate'].includes(toks[i]))i++;}else outfile=toks[i];}
+            if(!outfile)throw Error('aws: error: outfile is required for invoke');
+            if(['__proto__','constructor','prototype'].includes(outfile))throw Error('Simulator: choose an ordinary output filename');
+            const payload=read('payload',{}),raw=JSON.stringify(payload);let bytes=0;
+            for(const char of raw){const cp=char.codePointAt(0);bytes+=cp<128?1:cp<2048?2:cp<65536?3:4;}
+            if(bytes>(type==='Event'?1:6)*1024*1024)throw Error('RequestTooLargeException: Payload exceeds invocation limit');
+            if(type==='DryRun')return resultJson({StatusCode:204});
+            if(fn.reservedConcurrency===0||(fn.busyConcurrent||0)>=(fn.reservedConcurrency===undefined?sim.account.lambdaConcurrencyQuota||1000:fn.reservedConcurrency))throw Error('TooManyRequestsException: ReservedFunctionConcurrentInvocationLimitExceeded');
+            if(type==='Event'){(fn.pendingEvents||(fn.pendingEvents=[])).push(clone(payload));return resultJson({StatusCode:202});}
+            const metrics=AG.lambdaTiming(target),pc=qualifier&&fn.provisioned&&fn.provisioned[qualifier];
+            const prepared=pc&&pc.status==='READY'&&pc.allocated>(fn.busyConcurrent||0);
+            const duration=metrics.warmMs+(prepared?0:metrics.initMs),number=(fn.invocationSequence||0)+1,requestId='fixture-request-'+number;
+            fn.invocationSequence=number;
+            let body,error=false;
+            const processRecord=record=>{
+              const work=target.workload,r=role(fn);
+              if(!work||work.kind!=='svg-fixture')throw Error('Simulator scope: No runnable SVG workload fixture on this function');
+              if(target.handler!=='app.handler')throw Error('Runtime.HandlerNotFound: app.handler is the fixture entry point');
+              if(!r||!r.lambda||r.lambda.trust!=='lambda.amazonaws.com'||r.lambda.sourceBucket!==work.sourceBucket||r.lambda.outputBucket!==work.outputBucket)throw Error('AccessDenied: Execution role lacks reviewed source/output permissions');
+              if(!object(record)||record.eventSource!=='aws:s3'||!object(record.s3)||!object(record.s3.bucket)||!object(record.s3.object))throw Error('ValueError: Expected S3 bucket/object event record');
+              const info=record.s3.object;if(typeof info.key!=='string'||typeof info.versionId!=='string')throw Error('ValueError: URL-encoded key and exact VersionId required');
+              let key;try{key=decodeURIComponent(info.key.replace(/\+/g,' '));}catch(e){throw Error('ValueError: Invalid URL-encoded S3 object key');}
+              if(record.s3.bucket.name!==work.sourceBucket||key!==work.sourceKey)throw Error('ValueError: Event does not match fixture input bucket/key; inspect source filter');
+              if(work.sourceBucket===work.outputBucket)throw Error('ValueError: Separate source/output buckets required by this fixture; avoid recursion');
+              const source=list('buckets').find(b=>b.name===work.sourceBucket),output=list('buckets').find(b=>b.name===work.outputBucket);
+              const rows=source&&(source.versions||{})[key],v=Array.isArray(rows)&&rows.find(v=>v.versionId===info.versionId&&!v.deleteMarker);
+              if(!v||typeof v.body!=='string')throw Error('NoSuchVersion: Source version/body not available');
+              if(!output)throw Error('NoSuchBucket: Output bucket not found');
+              if(!/^<svg\b[^>]*viewBox="0 0 320 240"/.test(v.body))throw Error('Simulator scope: Only seeded trusted SVG viewBox fixture is transformed; generic image codecs not modeled');
+              let written=0,duplicates=0;output.objects=output.objects||[];
+              for(const size of [64,128,256]) {
+                const name='thumbs/'+encodeURIComponent(work.sourceBucket+'/'+key+'/'+info.versionId)+'/'+size+'.svg';
+                const transformed=v.body.replace(/\bwidth="[0-9]+"/,'width="'+size+'"').replace(/\bheight="[0-9]+"/,'height="'+size+'"');
+                const existing=output.objects.find(o=>o.key===name);
+                if(existing){if(existing.body!==transformed)throw Error('ValueError: Existing derivative differs; do not acknowledge corrupt output');duplicates++;}
+                else{output.objects.push({key:name,size:transformed.length,body:transformed,sourceVersion:info.versionId,width:size,height:size});written++;}
+              }
+              return {sourceVersion:info.versionId,written,duplicates};
+            };
+            try {
+              if(duration>(target.timeout||3)*1000)throw Error('Sandbox.Timedout: '+requestId+' Task timed out after '+Number(target.timeout||3).toFixed(2)+' seconds');
+              if(!target.workload){try{body=JSON.parse(target.invokeResult||'{"status":"ok"}');}catch(e){body=target.invokeResult;}}
+              else {
+                if(!object(payload)||!Array.isArray(payload.Records)||!payload.Records.length)throw Error('ValueError: Invoke payload must contain nonempty Records');
+                const records=payload.Records;
+                if(records[0]&&records[0].eventSource==='aws:sqs') {
+                  const failures=[];
+                  for(const record of records){if(!object(record)||typeof record.messageId!=='string'||!record.messageId)throw Error('ValueError: SQS messageId required for partial response');try{if(record.eventSource!=='aws:sqs')throw Error('ValueError: Mixed event sources unsupported');const event=JSON.parse(record.body);if(!object(event)||!Array.isArray(event.Records)||!event.Records.length)throw Error('ValueError: SQS body needs S3 Records');event.Records.forEach(processRecord);}catch(e){failures.push({itemIdentifier:record.messageId});}}
+                  body={batchItemFailures:failures};
+                }else body={results:records.map(processRecord)};
+              }
+            }catch(e){error=true;body={errorType:e.message.split(':')[0],errorMessage:e.message};}
+            const report={functionName:fn.name,revisionId:revision(target),executedVersion:target._version||qualifier||'$LATEST',body:clone(body),error,durationMs:duration};
+            (sim.downloads||(sim.downloads={}))[outfile]=report;fn.lastInvoke=clone(report);
+            const logs=list('logGroups');let group=logs.find(g=>g.name==='/aws/lambda/'+fn.name);if(!group){group={name:'/aws/lambda/'+fn.name,events:[]};logs.push(group);}
+            group.events.push('START RequestId: '+requestId,...(error?[body.errorMessage]:[]),'REPORT RequestId: '+requestId+' Duration: '+duration.toFixed(2)+' ms Memory Size: '+target.memory+' MB (bounded benchmark fixture)');
+            print('sys','In-memory response '+outfile+': '+JSON.stringify(body));
+            return resultJson({StatusCode:200,...(error?{FunctionError:'Unhandled'}:{}),ExecutedVersion:report.executedVersion});
+          }
+          return print('err','Unknown Lambda operation: '+op+'; use help for supported API scope');
+        }catch(e){return print('err',e.message);}
+      }
 
       /* ===================== DYNAMODB ===================== */
       case 'dynamodb':
@@ -2341,7 +2536,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
 
       /* ===================== CLOUDWATCH LOGS ===================== */
       case 'logs':
-        if (op === 'describe-log-groups') {
+        if (op === 'tail') {
+          const name=toks[3],group=list('logGroups').find(g=>g.name===name);
+          if(!group)return print('err','ResourceNotFoundException: Log group not found; inspect exact /aws/lambda/function name');
+          return print('ok',(group.events||[]).join('\n')||'(no events in this fixture)');
+        } else if (op === 'describe-log-groups') {
           const lgs = list('logGroups');
           if (!lgs.length) return print('ok', '{\n    "logGroups": []\n}');
           print('ok', '{\n    "logGroups": [\n' +

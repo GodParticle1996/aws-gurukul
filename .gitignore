@@ -21,3 +21,6 @@ docker-labs/**/terraform.tfstate*
 docker-labs/**/.terraform.lock.hcl
 
 docker-labs/**/.lab/
+
+# Local audit captures and browser screenshots (persist across /tmp resets).
+.overhaul-evidence/
