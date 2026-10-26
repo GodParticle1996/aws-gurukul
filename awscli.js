@@ -63,6 +63,40 @@ const DDB_RESERVED = ['STATUS', 'NAME', 'DATE', 'USER', 'TIMESTAMP', 'DATA', 'CO
   'ORDER', 'YEAR', 'TIME', 'ZONE', 'COMMENT', 'GROUP', 'LEVEL', 'LIMIT', 'NUMBER', 'PATH', 'ROLE', 'SESSION', 'STATE', 'TTL', 'URL',
   'ITEMS', 'TOTAL', 'SOURCE', 'REGION', 'TOKEN', 'TEXT', 'USERS', 'HASH', 'RANGE'];
 
+// Bounded authoritative-answer model. No recursive cache, network probe or real DNS.
+// Shared by the CLI and mission predicates so a win checks serving state.
+AG.dnsAnswer = function (account, zone, name, type, cursor = 0) {
+  const canonical = x => String(x || '').toLowerCase().replace(/\.$/, '') + '.';
+  const records = (zone.servedRecords || zone.records || []).filter(r => canonical(r.Name || r.name) === canonical(name) && (r.Type || r.type) === type);
+  const healthy = r => {
+    if (r.HealthCheckId) {
+      const h = (account.healthChecks || []).find(h => h.id === r.HealthCheckId);
+      if (!h) return false;
+      const c = h.config || {};
+      const up = c.Disabled ? true : c.Inverted ? !h.observedHealthy : h.observedHealthy;
+      if (!up) return false;
+    }
+    if (r.AliasTarget && r.AliasTarget.EvaluateTargetHealth) {
+      const a = (account.dnsAliases || []).find(a => canonical(a.dnsName) === canonical(r.AliasTarget.DNSName));
+      return !!a && a.healthy;
+    }
+    return true;
+  };
+  let chosen = records;
+  if (records.some(r => r.Failover)) {
+    const primary = records.find(r => r.Failover === 'PRIMARY'), secondary = records.find(r => r.Failover === 'SECONDARY');
+    chosen = primary && healthy(primary) ? [primary] : secondary && healthy(secondary) ? [secondary] : primary ? [primary] : [];
+  } else if (records.some(r => r.Weight !== undefined)) {
+    let pool = records.filter(r => r.Weight > 0 && healthy(r));
+    if (!pool.length) pool = records.filter(healthy);
+    if (!pool.length) pool = records; // all unhealthy: fail-open, not empty answer
+    const sum = pool.reduce((n, r) => n + r.Weight, 0);
+    let ticket = cursor % (sum || pool.length || 1);
+    chosen = pool.length ? [pool.find(r => { ticket -= sum ? r.Weight : 1; return ticket < 0; })] : [];
+  }
+  return chosen.flatMap(r => r.AliasTarget ? (((account.dnsAliases || []).find(a => canonical(a.dnsName) === canonical(r.AliasTarget.DNSName)) || {}).addresses || []).filter(ip => type === 'AAAA' ? ip.includes(':') : !ip.includes(':')) : (r.ResourceRecords || [{ Value: r.value }]).map(v => v.Value)).filter(Boolean);
+};
+
 AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   // deep-clone the account so replays start fresh
   const sim = {
@@ -430,7 +464,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws configure get region / list / set region <r>',
         '  terraform init / plan / apply / validate / destroy / state list',
         '  apply -f <file>   (ls se files dekho — non-tf files ke liye)',
-        '  ls · clear · hint · help',
+        '  aws route53 create-health-check --caller-reference <unique> --health-check-config file://<json>',
+        '  aws route53 change-resource-record-sets --hosted-zone-id <zone> --change-batch file://<json>',
+        '  aws route53 get-change --id <change> / wait resource-record-sets-changed --id <change>',
+        '  aws route53 test-dns-answer --hosted-zone-id <zone> --record-name <name> --record-type A',
+        '  ls · cat <mission-file> · clear · hint · help',
       ].join('\n'));
       return;
     }
@@ -451,6 +489,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     const tk = tokenize(norm);
     if (tk.error) { print('err', tk.error); return; }
     const toks = tk.toks;
+
+    if (toks[0] === 'cat') {
+      if (toks.length !== 2) return print('err', 'usage: cat <mission-file> (ls lists available files)');
+      const f = Object.prototype.hasOwnProperty.call(sim.files, toks[1]) && sim.files[toks[1]];
+      return print(f && typeof f.content === 'string' ? 'ok' : 'err', f && typeof f.content === 'string' ? f.content : `cat: ${toks[1]}: No readable mission file`);
+    }
 
     /* ---------- GENERIC FILE APPLY (apply -f <file>) ----------
        Non-Terraform files (e.g. fix-policy.json, fix-sg.json) ke liye.
@@ -490,8 +534,16 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53'].includes(service)) {
       const specs = {
+        route53: {
+          'list-hosted-zones': [], 'get-hosted-zone': ['id'], 'create-hosted-zone': ['name','caller-reference','hosted-zone-config','vpc'], 'delete-hosted-zone': ['id'],
+          'list-resource-record-sets': ['hosted-zone-id'], 'change-resource-record-sets': ['hosted-zone-id','change-batch'],
+          'list-health-checks': [], 'get-health-check': ['health-check-id'], 'get-health-check-status': ['health-check-id'],
+          'create-health-check': ['caller-reference','health-check-config'], 'delete-health-check': ['health-check-id'],
+          'update-health-check': ['health-check-id','health-check-version','disabled!','no-disabled!','inverted!','no-inverted!','failure-threshold','resource-path'],
+          'get-change': ['id'], 'wait': ['id'], 'test-dns-answer': ['hosted-zone-id','record-name','record-type','resolver-ip','edns0-client-subnet-ip','edns0-client-subnet-mask'],
+        },
         ec2: {
           'allocate-address': ['domain', 'dry-run!', 'no-dry-run!'], 'release-address': ['allocation-id', 'dry-run!', 'no-dry-run!'],
           'create-nat-gateway': ['subnet-id','allocation-id','connectivity-type','client-token', 'dry-run!', 'no-dry-run!'], 'delete-nat-gateway': ['nat-gateway-id', 'dry-run!', 'no-dry-run!'], 'describe-nat-gateways': ['nat-gateway-ids*','filters*'],
@@ -1819,43 +1871,182 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         return;
 
       /* ===================== ROUTE 53 ===================== */
-      case 'route53':
-        if (op === 'list-hosted-zones') {
-          const zones = list('hostedZones');
-          if (!zones.length) return print('ok', '{\n    "HostedZones": []\n}');
-          print('ok', '{\n    "HostedZones": [\n' +
-            zones.map(z => `        { "Id": "/hostedzone/${z.id}", "Name": "${z.name}.", "Config": { "PrivateZone": false }, "ResourceRecordSetCount": ${(z.records || []).length} }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'list-resource-record-sets') {
-          const zid = (flag('hosted-zone-id') || '').replace('/hostedzone/', '');
-          const z = list('hostedZones').find(x => x.id === zid);
-          if (!z) return print('err', 'NoSuchHostedZone');
-          print('ok', '{\n    "ResourceRecordSets": [\n' +
-            (z.records || []).map(r => `        { "Name": "${r.name}", "Type": "${r.type}", "TTL": 300, "ResourceRecords": [{ "Value": "${r.value}" }] }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'list-health-checks') {
-          const hcs = list('healthChecks');
-          if (!hcs.length) return print('ok', '{\n    "HealthChecks": []\n}');
-          print('ok', '{\n    "HealthChecks": [\n' +
-            hcs.map(h => `        { "Id": "${h.id}", "Type": "${h.type || 'HTTPS'}", "FullyQualifiedDomainName": "${h.fqdn || ''}", "HealthCheckStatus": "${h.status || 'Healthy'}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'get-health-check') {
-          const id = flag('health-check-id');
-          if (!id) return print('err', 'error: --health-check-id required');
-          const h = list('healthChecks').find(x => x.id === id);
-          if (!h) return print('err', `NoSuchHealthCheck: ${id}`);
-          print('ok', `{ "HealthCheck": { "Id": "${h.id}", "Type": "${h.type || 'HTTPS'}", "FullyQualifiedDomainName": "${h.fqdn || ''}" } }`);
-        } else if (op === 'create-health-check') {
-          const fqdn = flag('fqdn');
-          if (!fqdn) return print('err', 'error: --fqdn required');
-          const hcs = list('healthChecks');
-          const id = 'hc-' + Date.now().toString(36);
-          hcs.push({ id, type: 'HTTPS', fqdn, status: 'Healthy' });
-          print('ok', `{ "HealthCheck": { "Id": "${id}", "Type": "HTTPS", "FullyQualifiedDomainName": "${fqdn}" } }`);
-        } else {
-          print('err', `unknown Route53 op: ${op}`);
-        }
-        return;
+      case 'route53': {
+        const clone = v => JSON.parse(JSON.stringify(v));
+        const canonical = x => String(x || '').toLowerCase().replace(/\.$/, '') + '.';
+        const ipv4 = x => typeof x === 'string' && /^(\d{1,3}\.){3}\d{1,3}$/.test(x) && x.split('.').every(n => Number(n) <= 255);
+        const ipv6 = x => {
+          if(typeof x!=='string'||!/^[0-9a-f:]+$/i.test(x)||x.includes(':::'))return false;
+          const halves=x.split('::'); if(halves.length>2)return false;
+          const groups=x.split(':').filter(Boolean);
+          return groups.every(g=>g.length<=4)&&(halves.length===2?groups.length<8:groups.length===8&&!x.startsWith(':')&&!x.endsWith(':'));
+        };
+        const object = x => !!x && typeof x === 'object' && !Array.isArray(x);
+        const required = name => { const v=flag(name); if(!v) throw Error(`aws: error: the following arguments are required: --${name}`); return v; };
+        const doc = name => {
+          const raw=required(name);
+          let text=raw;
+          if(raw.startsWith('file://')) {
+            const file=Object.prototype.hasOwnProperty.call(sim.files,raw.slice(7)) && sim.files[raw.slice(7)];
+            if(!file || typeof file.content!=='string') throw Error(`Error parsing parameter --${name}: Unable to load paramfile ${raw}; use ls and cat.`);
+            text=file.content;
+          }
+          try { const v=JSON.parse(text); if(!object(v)) throw Error('expected an object'); return v; }
+          catch(e) { throw Error(`Error parsing parameter --${name}: Invalid JSON object (${e.message})`); }
+        };
+        const zones=()=>list('hostedZones'), checks=()=>list('healthChecks'), changes=()=>list('dnsChanges');
+        const zone = name => { const id=required(name).replace(/^\/hostedzone\//,''); const z=zones().find(z=>z.id===id); if(!z) throw Error(`NoSuchHostedZone: ${id}`); return z; };
+        const hc = () => { const id=required('health-check-id'), h=checks().find(h=>h.id===id); if(!h) throw Error(`NoSuchHealthCheck: ${id}`); return h; };
+        const record = r => r.Name ? clone(r) : {Name:canonical(r.name),Type:r.type,TTL:r.ttl===undefined?300:r.ttl,ResourceRecords:[{Value:r.value}]};
+        const records = z => (z.records||[]).map(record);
+        const info = z => ({Id:'/hostedzone/'+z.id,Name:canonical(z.name),CallerReference:z.callerReference||'course-fixture',Config:{PrivateZone:!!z.private},ResourceRecordSetCount:records(z).length});
+        const healthInfo = h => ({Id:h.id,CallerReference:h.callerReference||'course-fixture',HealthCheckVersion:h.version||1,HealthCheckConfig:h.config||{Type:h.type||'HTTPS',FullyQualifiedDomainName:h.fqdn||''}});
+        const sameKey = (a,b) => a.Name===b.Name && a.Type===b.Type && a.SetIdentifier===b.SetIdentifier;
+        const stable = x => JSON.stringify(x && typeof x==='object' ? Array.isArray(x) ? x.map(v=>JSON.parse(stable(v))) : Object.fromEntries(Object.keys(x).sort().map(k=>[k,JSON.parse(stable(x[k]))])) : x);
+        const nextChange = (z,snapshot,comment) => {
+          const seq=(sim.account.dnsChangeCounter||0)+1; sim.account.dnsChangeCounter=seq;
+          const c={Id:'/change/C'+String(seq).padStart(9,'0'),Status:'PENDING',SubmittedAt:'2026-01-01T00:00:00Z',Comment:comment||'',zoneId:z.id,seq,snapshot:clone(snapshot)};
+          changes().push(c); return c;
+        };
+        const changeInfo = c => ({Id:c.Id,Status:c.Status,SubmittedAt:c.SubmittedAt,Comment:c.Comment});
+        try {
+          if(op==='list-hosted-zones') return resultJson({HostedZones:zones().map(info),IsTruncated:false,MaxItems:'100'});
+          if(op==='get-hosted-zone') {const z=zone('id');return resultJson({HostedZone:info(z),DelegationSet:{NameServers:z.private?[]:['ns-1.sim.invalid','ns-2.sim.invalid']}});}
+          if(op==='create-hosted-zone') {
+            const name=canonical(required('name')), caller=required('caller-reference');
+            if(name.length>254 || !/^(?:[a-z0-9_*-]+\.)+$/.test(name)) throw Error('InvalidInput: Invalid domain name');
+            if(caller.length>128) throw Error('InvalidInput: CallerReference exceeds 128 characters');
+            if(zones().some(z=>z.callerReference===caller)||(sim.account.dnsUsedZoneCallers||[]).includes(caller)) throw Error('HostedZoneAlreadyExists: CallerReference was already used; inspect existing zones.');
+            let cfg={}; if(flag('hosted-zone-config')) {cfg=doc('hosted-zone-config');if(cfg.PrivateZone!==undefined&&typeof cfg.PrivateZone!=='boolean')throw Error('InvalidInput: PrivateZone must be boolean');}
+            if(cfg.PrivateZone||flag('vpc')) throw Error('Simulator scope: create-hosted-zone supports public zones only; private VPC associations are taught separately.');
+            const seq=(sim.account.dnsZoneCounter||0)+1,id='Z'+String(seq).padStart(9,'0');
+            const z={id,name,callerReference:caller,private:false,records:[{Name:name,Type:'NS',TTL:172800,ResourceRecords:[{Value:'ns-1.sim.invalid.'},{Value:'ns-2.sim.invalid.'}]},{Name:name,Type:'SOA',TTL:900,ResourceRecords:[{Value:'ns-1.sim.invalid. hostmaster.sim.invalid. 1 7200 900 1209600 86400'}]}]};
+            sim.account.dnsZoneCounter=seq; zones().push(z); z.servedRecords=clone(z.records);
+            return resultJson({HostedZone:info(z),ChangeInfo:changeInfo(nextChange(z,z.records)),DelegationSet:{NameServers:['ns-1.sim.invalid','ns-2.sim.invalid']}});
+          }
+          if(op==='delete-hosted-zone') {
+            const z=zone('id'); if(records(z).some(r=>!['NS','SOA'].includes(r.Type))) throw Error('HostedZoneNotEmpty: Delete non-default record sets before deleting the hosted zone.');
+            zones().splice(zones().indexOf(z),1); (sim.account.dnsUsedZoneCallers||(sim.account.dnsUsedZoneCallers=[])).push(z.callerReference);
+            return resultJson({ChangeInfo:changeInfo(nextChange(z,[]))});
+          }
+          if(op==='list-resource-record-sets') {const z=zone('hosted-zone-id'); return resultJson({ResourceRecordSets:records(z),IsTruncated:false,MaxItems:'300'});}
+          if(op==='change-resource-record-sets') {
+            const z=zone('hosted-zone-id'), batch=doc('change-batch'), before=records(z), draft=clone(before);
+            if(!Array.isArray(batch.Changes)||!batch.Changes.length) throw Error('InvalidChangeBatch: Changes must be a nonempty array');
+            for(const change of batch.Changes) {
+              if(!object(change)||!['CREATE','UPSERT','DELETE'].includes(change.Action)||!object(change.ResourceRecordSet)) throw Error('InvalidChangeBatch: Each change needs Action CREATE/UPSERT/DELETE and ResourceRecordSet');
+              const r=clone(change.ResourceRecordSet);
+              if(typeof r.Name!=='string'||typeof r.Type!=='string') throw Error('InvalidChangeBatch: Record Name and Type required');
+              r.Name=canonical(r.Name);
+              if(r.Name.length>254||r.Name.split('.').some(l=>l.length>63)||!/^(?:[a-z0-9_*-]+\.)+$/.test(r.Name))throw Error('InvalidChangeBatch: Invalid DNS record name');
+              if(r.Name!==canonical(z.name)&&!r.Name.endsWith('.'+canonical(z.name))) throw Error(`InvalidChangeBatch: ${r.Name} is not permitted in zone ${z.name}`);
+              if(!['A','AAAA','CNAME','TXT','MX','NS','SOA'].includes(r.Type)) throw Error('Simulator scope: supported record types A, AAAA, CNAME, TXT, MX, NS, SOA');
+              if(r.Type==='CNAME'&&r.Name===canonical(z.name)) throw Error('InvalidChangeBatch: CNAME at the zone apex is not permitted; use an Alias A/AAAA for a supported target.');
+              if(r.SetIdentifier!==undefined&&(typeof r.SetIdentifier!=='string'||!r.SetIdentifier.length)) throw Error('InvalidChangeBatch: SetIdentifier must be a nonempty string');
+              if(['Region','GeoLocation','GeoProximityLocation','CidrRoutingConfig','MultiValueAnswer'].some(k=>r[k]!==undefined)) throw Error('Simulator scope: simple, weighted and failover record writes only; other policies are lesson decisions.');
+              if(r.Weight!==undefined&&(!Number.isInteger(r.Weight)||r.Weight<0||r.Weight>255||!r.SetIdentifier)) throw Error('InvalidChangeBatch: Weighted records require SetIdentifier and integer Weight 0..255');
+              if(r.Failover!==undefined&&(!['PRIMARY','SECONDARY'].includes(r.Failover)||!r.SetIdentifier)) throw Error('InvalidChangeBatch: Failover records require SetIdentifier and PRIMARY/SECONDARY');
+              if(r.Weight!==undefined&&r.Failover!==undefined) throw Error('InvalidChangeBatch: Cannot combine Weight and Failover');
+              if(r.SetIdentifier!==undefined&&r.Weight===undefined&&r.Failover===undefined) throw Error('InvalidChangeBatch: SetIdentifier needs a routing policy');
+              if(r.HealthCheckId&&!checks().some(h=>h.id===r.HealthCheckId)) throw Error(`NoSuchHealthCheck: ${r.HealthCheckId}`);
+              if(r.HealthCheckId&&r.Weight===undefined&&!r.Failover) throw Error('InvalidChangeBatch: Simple routing does not support associated record health checks; use a supported health-aware policy.');
+              if(r.AliasTarget!==undefined) {
+                const a=r.AliasTarget;
+                if(!object(a)||!['A','AAAA'].includes(r.Type)||typeof a.DNSName!=='string'||typeof a.HostedZoneId!=='string'||typeof a.EvaluateTargetHealth!=='boolean') throw Error('InvalidChangeBatch: Alias A/AAAA requires DNSName, HostedZoneId and boolean EvaluateTargetHealth');
+                if(r.TTL!==undefined||r.ResourceRecords!==undefined) throw Error('InvalidChangeBatch: Alias record must not contain TTL or ResourceRecords');
+                const target=(sim.account.dnsAliases||[]).find(t=>canonical(t.dnsName)===canonical(a.DNSName)&&t.hostedZoneId===a.HostedZoneId);
+                if(!target) throw Error('InvalidChangeBatch: Alias target DNSName/HostedZoneId is not an available target in this mission. Read ALB metadata.');
+              } else {
+                if(!Number.isInteger(r.TTL)||r.TTL<0||r.TTL>2147483647||!Array.isArray(r.ResourceRecords)||!r.ResourceRecords.length||r.ResourceRecords.some(v=>!object(v)||typeof v.Value!=='string'||!v.Value.length)) throw Error('InvalidChangeBatch: Non-alias record requires integer TTL and nonempty ResourceRecords Value strings');
+                if(r.Type==='A'&&r.ResourceRecords.some(v=>!ipv4(v.Value))) throw Error('InvalidChangeBatch: ARRDATAIllegalIPv4Address; A ResourceRecords require IPv4 addresses, not ALB hostnames.');
+                if(r.Type==='AAAA'&&r.ResourceRecords.some(v=>!ipv6(v.Value))) throw Error('InvalidChangeBatch: Invalid IPv6 hextet address (mapped IPv4 syntax is outside this simulator subset)');
+                if(r.Type==='CNAME'&&r.ResourceRecords.length!==1) throw Error('InvalidChangeBatch: CNAME requires exactly one value');
+                if(r.Weight!==undefined&&r.ResourceRecords.length!==1) throw Error('InvalidChangeBatch: Weighted record requires a single resource record value');
+              }
+              const idx=draft.findIndex(x=>sameKey(x,r));
+              if(change.Action==='CREATE'&&idx>=0) throw Error('InvalidChangeBatch: Record set already exists; use UPSERT for replacement');
+              if(change.Action==='DELETE') {
+                if(idx<0||stable(draft[idx])!==stable(r)) throw Error('InvalidChangeBatch: Tried to delete record set, but values do not match current values');
+                if(r.Name===canonical(z.name)&&['NS','SOA'].includes(r.Type)) throw Error('InvalidChangeBatch: Cannot delete the zone apex NS/SOA record set');
+                draft.splice(idx,1);
+              } else if(idx<0) draft.push(r); else draft[idx]=r;
+              // Route53 aligns a weighted non-alias group's TTL to the last
+              // specified value; rejecting a mismatch would teach a false API rule.
+              if(change.Action!=='DELETE'&&r.Weight!==undefined&&!r.AliasTarget) draft.filter(x=>x.Name===r.Name&&x.Type===r.Type&&x.Weight!==undefined&&!x.AliasTarget).forEach(x=>x.TTL=r.TTL);
+            }
+            for(const r of draft) {
+              const group=draft.filter(x=>x.Name===r.Name&&x.Type===r.Type);
+              if(r.Type==='CNAME'&&draft.some(x=>x.Name===r.Name&&x.Type!=='CNAME')) throw Error('InvalidChangeBatch: CNAME cannot coexist with other records at the same name');
+              const policy=x=>x.Weight!==undefined?'weighted':x.Failover?'failover':'simple';
+              if(group.some(x=>policy(x)!==policy(r))) throw Error('InvalidChangeBatch: Cannot mix routing policies for the same name and type');
+              if(r.Failover&&group.filter(x=>x.Failover===r.Failover).length>1) throw Error('InvalidChangeBatch: Only one PRIMARY and one SECONDARY permitted per failover group');
+            }
+            // Atomic validation above. Desired config and serving snapshot are separate.
+            if(!z.servedRecords) z.servedRecords=clone(before);
+            z.records=draft; const c=nextChange(z,draft,batch.Comment); return resultJson({ChangeInfo:changeInfo(c)});
+          }
+          if(op==='get-change'||op==='wait') {
+            if(op==='wait'&&toks[3]!=='resource-record-sets-changed') throw Error('aws: error: supported waiter: resource-record-sets-changed');
+            const id=required('id').replace(/^\/change\//,''), c=changes().find(c=>c.Id.replace(/^\/change\//,'')===id);
+            if(!c) throw Error(`NoSuchChange: ${id}`);
+            if(op==='get-change') return resultJson({ChangeInfo:changeInfo(c)});
+            const z=zones().find(z=>z.id===c.zoneId);
+            if(z&&(!z.servedSequence||z.servedSequence<c.seq)) {z.servedRecords=clone(c.snapshot);z.servedSequence=c.seq;}
+            changes().filter(x=>x.zoneId===c.zoneId&&x.seq<=c.seq).forEach(x=>x.Status='INSYNC');
+            return print('ok',''); // explicit teaching transition, not a real propagation timer
+          }
+          if(op==='list-health-checks') return resultJson({HealthChecks:checks().map(healthInfo),IsTruncated:false,MaxItems:'100'});
+          if(op==='get-health-check') return resultJson({HealthCheck:healthInfo(hc())});
+          if(op==='create-health-check') {
+            const caller=required('caller-reference'), input=doc('health-check-config');
+            if(caller.length>64) throw Error('InvalidInput: CallerReference exceeds 64 characters');
+            if(!['HTTP','HTTPS','TCP'].includes(input.Type)) throw Error('Simulator scope: endpoint HTTP/HTTPS/TCP checks only; calculated and CloudWatch checks are not executed here.');
+            if(input.IPAddress!==undefined&&!ipv4(input.IPAddress)) throw Error('Simulator scope: health-check IPAddress supports IPv4 in this mission.');
+            if(!input.IPAddress&&!input.FullyQualifiedDomainName) throw Error('InvalidInput: IPAddress or FullyQualifiedDomainName required');
+            if(input.FullyQualifiedDomainName!==undefined&&(typeof input.FullyQualifiedDomainName!=='string'||!input.FullyQualifiedDomainName.length)) throw Error('InvalidInput: FullyQualifiedDomainName must be a nonempty string');
+            const cfg={Port:input.Type==='HTTPS'?443:80,ResourcePath:'/',RequestInterval:30,FailureThreshold:3,Inverted:false,Disabled:false,...input};
+            if(![10,30].includes(cfg.RequestInterval)||!Number.isInteger(cfg.FailureThreshold)||cfg.FailureThreshold<1||cfg.FailureThreshold>10||!Number.isInteger(cfg.Port)||cfg.Port<1||cfg.Port>65535||typeof cfg.Inverted!=='boolean'||typeof cfg.Disabled!=='boolean') throw Error('InvalidInput: RequestInterval 10/30 seconds, FailureThreshold 1..10, valid Port and boolean flags required');
+            if(input.Type==='TCP'&&input.Port===undefined) throw Error('InvalidInput: TCP requires Port');
+            if(typeof cfg.ResourcePath!=='string'||!cfg.ResourcePath.startsWith('/')) throw Error('InvalidInput: ResourcePath must start with /');
+            const old=checks().find(h=>h.callerReference===caller);
+            if(old) {if(stable(old.config)!==stable(cfg)) throw Error('HealthCheckAlreadyExists: CallerReference reused with different configuration');return resultJson({HealthCheck:healthInfo(old)});}
+            if((sim.account.dnsUsedHealthCallers||[]).includes(caller)) throw Error('HealthCheckAlreadyExists: CallerReference belongs to a deleted health check');
+            const seq=(sim.account.dnsHealthCounter||0)+1,id='00000000-0000-4000-8000-'+String(seq).padStart(12,'0');
+            const fixture=(sim.account.dnsHealthFixtures||{})[cfg.IPAddress||cfg.FullyQualifiedDomainName];
+            const h={id,callerReference:caller,config:cfg,version:1,observedHealthy:fixture===true};
+            sim.account.dnsHealthCounter=seq;checks().push(h);return resultJson({HealthCheck:healthInfo(h)});
+          }
+          if(op==='update-health-check') {
+            const h=hc(), cfg=clone(h.config||{});
+            if(flag('health-check-version')!==null&&Number(flag('health-check-version'))!==(h.version||1)) throw Error('HealthCheckVersionMismatch: Read current version before update');
+            if(toks.includes('--disabled'))cfg.Disabled=true; if(toks.includes('--no-disabled'))cfg.Disabled=false;
+            if(toks.includes('--inverted'))cfg.Inverted=true; if(toks.includes('--no-inverted'))cfg.Inverted=false;
+            if(flag('failure-threshold')!==null) {const n=Number(flag('failure-threshold'));if(!Number.isInteger(n)||n<1||n>10)throw Error('InvalidInput: FailureThreshold must be 1..10');cfg.FailureThreshold=n;}
+            if(flag('resource-path')!==null) {if(!flag('resource-path').startsWith('/'))throw Error('InvalidInput: ResourcePath must start with /');cfg.ResourcePath=flag('resource-path');}
+            h.config=cfg;h.version=(h.version||1)+1; return resultJson({HealthCheck:healthInfo(h)});
+          }
+          if(op==='delete-health-check') {
+            const h=hc();
+            checks().splice(checks().indexOf(h),1);(sim.account.dnsUsedHealthCallers||(sim.account.dnsUsedHealthCallers=[])).push(h.callerReference);return print('ok','');
+          }
+          if(op==='get-health-check-status') {
+            const h=hc(),cfg=h.config||{},healthy=cfg.Disabled|| (cfg.Inverted?!h.observedHealthy:h.observedHealthy);
+            return resultJson({HealthCheckObservations:[{Region:'ap-south-1',IPAddress:'192.0.2.53',StatusReport:{Status:healthy?'Success: HTTP Status Code: 200 (mission fixture)':'Failure: HTTP connection failed (mission fixture)',CheckedTime:'2026-01-01T00:00:00Z'}}]});
+          }
+          if(op==='test-dns-answer') {
+            const z=zone('hosted-zone-id'),name=required('record-name'),type=required('record-type');
+            if(z.private) throw Error('InvalidInput: TestDNSAnswer supports public hosted zones only');
+            if(flag('resolver-ip')||flag('edns0-client-subnet-ip')||flag('edns0-client-subnet-mask')) throw Error('Simulator scope: resolver/EDNS location policies not modeled. Omit optional location flags.');
+            const rs=(z.servedRecords||records(z)).filter(r=>canonical(r.Name||r.name)===canonical(name)&&(r.Type||r.type)===type);
+            if(rs.some(r=>r.HealthCheckId&&!checks().some(h=>h.id===r.HealthCheckId)))throw Error('Simulator: referenced health check was deleted. Real AWS permits deletion, but future routing health is unpredictable. Repair/remove the stale HealthCheckId; no fabricated answer returned.');
+            if(rs.some(r=>['Region','GeoLocation','GeoProximityLocation','CidrRoutingConfig','MultiValueAnswer'].some(k=>r[k]!==undefined))) throw Error('Simulator scope: test-dns-answer supports simple/weighted/failover only.');
+            const cursor=sim.account.dnsAnswerCursor||0, data=AG.dnsAnswer(sim.account,z,name,type,cursor);sim.account.dnsAnswerCursor=cursor+1;
+            const exists=(z.servedRecords||records(z)).some(r=>canonical(r.Name||r.name)===canonical(name));
+            return resultJson({Nameserver:'ns-1.sim.invalid',RecordName:canonical(name),RecordType:type,RecordData:data,ResponseCode:exists?'NOERROR':'NXDOMAIN',Protocol:'UDP'});
+          }
+          throw Error(`aws: error: unknown Route 53 operation '${op}'. Try list-hosted-zones or help.`);
+        } catch(e) { return print('err',e.message); }
+      }
 
       /* ===================== CLOUDFORMATION ===================== */
       case 'cloudformation':
@@ -2153,7 +2344,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if (arns.length) lbs = lbs.filter(l => arns.includes(l.arn || l.id));
           if ((names.length || arns.length) && !lbs.length) return print('err', 'LoadBalancerNotFound: One or more load balancers not found');
           return resultJson({ LoadBalancers: lbs.map(l => ({ LoadBalancerArn: l.arn || `arn:aws:elasticloadbalancing:${sim.account.region || 'us-east-1'}:123456789012:loadbalancer/app/${l.name}/0000000000000001`,
-            LoadBalancerName: l.name, Type: l.type, Scheme: l.scheme, DNSName: l.dns,
+            LoadBalancerName: l.name, Type: l.type, Scheme: l.scheme, DNSName: l.dns, CanonicalHostedZoneId: l.canonicalHostedZoneId,
             State: { Code: 'active' }, SecurityGroups: l.sgIds || [], AvailabilityZones: (l.subnetIds || []).map(id => { const sub = list('subnets').find(s => s.id === id); return { SubnetId: id, ZoneName: sub && sub.az }; }) })) });
         }
         if (op === 'describe-listeners') {

@@ -233,12 +233,12 @@ const VISUALS = {
         <div class="dg-down flow"></div>
         <div class="dg-split">
           <div class="dg-node is-good" data-hs="simple"><span class="ni">➡️</span><span class="nl">Simple</span><span class="ns">one record</span></div>
-          <div class="dg-node is-gold" data-hs="weighted"><span class="ni">⚖️</span><span class="nl">Weighted</span><span class="ns">10%/90% split</span></div>
-          <div class="dg-node is-accent" data-hs="latency"><span class="ni">⚡</span><span class="nl">Latency</span><span class="ns">closest region</span></div>
-          <div class="dg-node is-bad" data-hs="failover"><span class="ni">🔄</span><span class="nl">Failover</span><span class="ns">primary down → secondary</span></div>
+          <div class="dg-node is-gold" data-hs="weighted"><span class="ni">⚖️</span><span class="nl">Weighted</span><span class="ns">90/10 DNS weights</span></div>
+          <div class="dg-node is-accent" data-hs="latency"><span class="ni">⚡</span><span class="nl">Latency</span><span class="ns">lowest measured latency</span></div>
+          <div class="dg-node is-bad" data-hs="failover"><span class="ni">🔄</span><span class="nl">Failover</span><span class="ns">health signal + cache delay</span></div>
         </div>
       </div>
-      <div class="dg-cap"><b>Route 53</b> = AWS ka DNS (port 53). Routing policies: <b>Simple</b> (1 record), <b>Weighted</b> (A/B testing), <b>Latency</b> (closest region), <b>Failover</b> (DR), <b>Geolocation</b> (country-based). Health checks bhi.</div>`,
+      <div class="dg-cap"><b>Route 53</b> authoritative DNS answers choose karta hai. <b>Alias</b> eligible apex AWS targets ke liye; <b>Weighted</b> DNS-answer proportions, <b>Latency</b> AWS measured regional latency, <b>Failover</b> health + cache/data runbook. Geolocation user location; geoproximity distance+bias; IP-based CIDRs; multivalue up to8 healthy answers. DNS client cache flush ya DB replication nahi karta.</div>`,
   },
 
   cloudfront: {

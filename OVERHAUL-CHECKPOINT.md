@@ -1,7 +1,7 @@
-# AWS Gurukul overhaul checkpoint — 2026-10-25
+# AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 1 `vpcdeep` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate 2 `route53`** (master plan §5.B2), then continue levels without per-level approval.
+**Phase A complete; Phase B through Intermediate 2 `route53` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate 3 `cloudfront`** (master plan §5.B3), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -32,10 +32,76 @@ lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement 
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
 Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
-Per-level commits are authorized. No push/deployment. `git log -3 --oneline` shows the baseline and two level commits.
+Intermediate1 local commit: **e59e258**. Intermediate2 completion and validation recorded below; latest local commit identifies the level delivery.
+Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 185 stages, 51/51 terminal missions,
-36 interactive labs, 9 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 189 stages, 51/51 terminal missions,
+40 interactive labs, 10 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 checks.
+
+## Intermediate 2 `route53` loop completed (2026-10-26 UTC)
+
+1. Read full old level and VISUALS entry. Removed CNAME/Alias muddle, ALB hostname as A Value, geographically closest
+   latency claim, geoproximity=latency+bias, default10s check, guaranteed seconds RTO/RPO, exact user split and
+   invented real-company story. Preserved level ID `route53` and progress identity.
+2. New `data-int-2-route53.js`: eight question/analogy cards, four myths, comparison/decision playbook, nine exam cues;
+   dryrun → flowlab → policy match → Alias/CNAME bins → triage → serving-state terminal → lab10 → eight bonus MCQs;
+   four interview MCQs + repair terminal, eight flashcards and explicitly optional billable AWS work/cleanup.
+3. Tested actual Moto CLI before lab authoring: scoped VPC/two subnets/ALB/zone; Alias target metadata read from ALB;
+   weighted90/10 and failover HealthCheckId persist. Waiter/get-change immediately INSYNC in current Moto.
+   Health status returns canned200 for documentation IP; `test-dns-answer` returns404. Neither proves real DNS/probes.
+   Moto canonical ALB zone is placeholder Z2P70J7EXAMPLE; real Mumbai ALB canonical ID verified separately in AWS docs.
+4. Lab10 README/scripts written from captured output, repository replay and missing-health association repair passed.
+   Cleanup deletes exact lab records, saved check/zone/ALB/subnets/VPC; four empty lists verify saved resources absent.
+   Setup clears task resource variables before recording partial progress; isolated credentials/config under .lab.
+   Shared emulator unchanged, no reset/real AWS/Docker/install.
+5. Replaced Route53 simulator with public zone APIs, realistic record reads, JSON file/inline ChangeBatch CREATE/UPSERT/
+   exact DELETE, atomic invalid edits, health CRUD/defaults/version checks, get-change/waiter and bounded DNS answers.
+   Added readable mission `cat` and returned ALB CanonicalHostedZoneId. Namespaced AG.dnsAnswer shares serving-state
+   algorithm with predicates. New service handlers retain bounded --query support and clear unsupported-scope errors.
+6. Desired records remain separate from authoritative serving snapshot until explicit waiter. Five-action intended solution
+   needs each action, wins only after final waiter; all seven planned records, original zone/NS/SOA/ALB/private assets,
+   enabled non-inverted correct /ready check and actual fixture answer must agree. Describes/get-change/answer alone
+   do not publish desired config. Last change waiter propagates preceding same-zone snapshots in this explicit model;
+   elapsed real propagation and recursive/client caches are not simulated. Old waiter cannot roll back newer serving state.
+7. Wrong ratios/TTL/IP/roles, missing association, disabled/inverted/wrong-path check, pending-only edits and protected
+   asset deletion fail. AWS permits deleting a referenced health check (HealthCheckInUse is deprecated): simulator permits
+   deletion, mission fails, and diagnostic answer reports unpredictable real routing instead of inventing an answer.
+   Weighted TTL mismatches align to last specified TTL, per AWS docs. Allzero/zero-weight fallback and both-unhealthy
+   failover-primary fallback are covered. Public test-dns-answer rejects private zones/unsupported location policy scope.
+8. `validate-dns.js` wired in-process: **5,066 checks**, all **1,400 planner settings**, intended and omitted actions,
+   reset/replay, idempotent caller references/UPSERT, malformed files/JSON/flags, atomic changes, real field semantics,
+   DNS answer health/weights, IPv6 validation and fixed-demand cheats. **15 MCQs: 0 length-bias flags; positions4/4/4/3.**
+   Full `node validate.js`: **ALL CHECKS PASSED**, 38 levels, 189 stages, 51/51 missions, 40 interactive labs, 10 real labs.
+9. Corrected linked r53policy Decision Dojo: IP-based choice, approximate geolocation vs actual compliance, direct
+   geoproximity, zero-weight fallback and DNS-answer vs user split. Concept visual now distinguishes measured latency.
+10. Browser screenshots reviewed at1280px/360px: intro, dryrun, flowlab start/solved, terminal start/solved; all eight
+    lesson cards per width and both inline decisions. **38 samples**, zero console/page errors or document overflow.
+    Fixed4px mobile planner overflow from unbroken formula and shortened slider unit. Pronoun lint/diff whitespace clean.
+
+Evidence: `/tmp/aws-gurukul-route53/` contains `01-`…`18-` Moto probe captures, `REPO-SETUP.txt`, `REPO-EXERCISES.txt`,
+`REPO-REPAIR.txt`, `REPO-CLEANUP.txt`, `FINAL-VALIDATE.txt`, `BROWSER-REPORT.json`, `screenshots/`.
+No push. Next: Intermediate3 `cloudfront`, master §5.B3; keep per-level loop and continue without per-level approval.
+
+Route53 sources checked this session (primary AWS docs):
+- [Eight policy choices](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html),
+  [weighted/zero-weight behavior](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-weighted.html),
+  [ResourceRecordSet API: weighted cardinality, TTL and failover](https://docs.aws.amazon.com/Route53/latest/APIReference/API_ResourceRecordSet.html).
+- [Alias vs non-alias](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resource-record-sets-choosing-alias-non-alias.html),
+  [AliasTarget health constraints](https://docs.aws.amazon.com/Route53/latest/APIReference/API_AliasTarget.html),
+  [ALB endpoints/canonical zone IDs](https://docs.aws.amazon.com/general/latest/gr/elb.html).
+- [Health config/default30s/threshold3](https://docs.aws.amazon.com/Route53/latest/APIReference/API_HealthCheckConfig.html),
+  [checker behavior/HTTP status](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/health-checks-creating-values.html),
+  [health-aware selection](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/health-checks-how-route-53-chooses-records.html),
+  [create/check caller reference](https://docs.aws.amazon.com/Route53/latest/APIReference/API_CreateHealthCheck.html),
+  [delete associated check is permitted/unpredictable](https://docs.aws.amazon.com/Route53/latest/APIReference/API_DeleteHealthCheck.html).
+- [Direct geoproximity expansion Jan10,2024](https://aws.amazon.com/about-aws/whats-new/2024/01/amazon-route-53-expands-geoproximity-routing/),
+  [distance/bias](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-geoproximity.html),
+  [multivalue](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-multivalue.html),
+  [IP-based](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy-ipbased.html).
+- [Private zone precedence/NXDOMAIN](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zone-private-considerations.html),
+  [private zone resolution](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/hosted-zones-private.html),
+  [VPC DNS attributes](https://docs.aws.amazon.com/vpc/latest/userguide/AmazonDNS-concepts.html),
+  [pricing](https://aws.amazon.com/route53/pricing/).
 
 ## Intermediate 1 `vpcdeep` loop completed
 

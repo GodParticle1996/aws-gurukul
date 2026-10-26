@@ -15,7 +15,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const DIR = __dirname;
 const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'labs.js', 'decisions.js'];
-const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-intermediate.js', 'data-advanced.js', 'data-architect.js',
+const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-intermediate.js', 'data-advanced.js', 'data-architect.js',
   'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js'];
 const ALL = [...ENGINE, ...DATA, 'app.js'];
 let FAIL = 0;
@@ -505,6 +505,10 @@ catch (e) { bad('ALB/ASG regressions: ' + e.message); }
 console.log('\n4️⃣e Three-tier architecture / wrong-path checks');
 try { require('./validate-architecture.js'); }
 catch (e) { bad('Architecture regressions: ' + e.message); }
+
+console.log('\n4️⃣f Route53 records / health / propagation checks');
+try { require('./validate-dns.js'); }
+catch (e) { bad('Route53 regressions: ' + e.message); }
 
 /* ================= 5. FILL STAGES ================= */
 console.log('\n5️⃣  Fill stages');
