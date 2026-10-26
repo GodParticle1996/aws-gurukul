@@ -336,6 +336,11 @@ const VISUALS = {
     html: `<div class="dg-flow"><div class="dg-node is-accent" data-hs="table"><span class="ni">📊</span><span class="nl">cartId HASH</span><span class="ns">Separate carts-v2 table</span></div><span class="dg-arrow">→</span><div class="dg-node is-good" data-hs="gsi"><span class="ni">📑</span><span class="nl">bySeller GSI</span><span class="ns">sellerId + updatedAt; eventual</span></div></div><div class="dg-flow"><span class="dg-pill acc" data-hs="item">Item≤400KB incl.names</span><span class="dg-pill gold" data-hs="rcu">Read rounds4KB</span><span class="dg-pill gold" data-hs="wcu">Write rounds1KB</span><span class="dg-pill good" data-hs="sortkey">Full HASH+RANGE unique</span><span class="dg-pill acc" data-hs="dax">DAX: reviewed eventual-read cache</span></div><div class="dg-cap">Primary key immutable. Verify backfill + index ACTIVE + request-level condition + actual query rows. Hot keys, quotas, replica consistency and complete cost still matter.</div>`,
   },
 
+  caching: {
+    t: 'Caching — scope, origin aur refill',
+    html: `<div class="dg-flow"><div class="dg-node is-accent"><span class="ni">📱</span><span class="nl">Scoped request</span><span class="ns">tenant + product + response variation</span></div><span class="dg-arrow">→</span><div class="dg-node is-good"><span class="ni">⚡</span><span class="nl">Cache</span><span class="ns">TTL, eviction, coalescing</span></div><span class="dg-arrow">→</span><div class="dg-node"><span class="ni">🗄️</span><span class="nl">Origin</span><span class="ns">authoritative transaction path</span></div></div><div class="dg-flow"><span class="dg-pill gold">Hit ≠ fresh/authorized</span><span class="dg-pill acc">DB commit → invalidate; race handling</span><span class="dg-pill good">Actual nodes/AZs, not HA flag alone</span></div><div class="dg-cap">Repeated catalogue reads reuse data; checkout invariants remain authoritative. TTL/replica age, refill failures and durability/eviction contracts need separate proof.</div>`,
+  },
+
   sqssns: {
     t: 'SQS / SNS / Kinesis — decoupling ka shastra',
     html: `

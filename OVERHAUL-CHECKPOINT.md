@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 7 `dynamodb` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate `caching`** (master plan §5.B7b, selected new level), then continue levels without per-level approval.
+**Phase A complete; Phase B through `caching` complete (Intermediate 1–7 plus selected new level).** User approved continuing at the Beginner
+track checkpoint. Next: **`sqssns`** (master plan §5.B8; UI ordinal9), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -32,11 +32,112 @@ lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement 
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
 Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
-Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6 completion/validation recorded below; latest local commit identifies delivery.
+Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6: **1b5495f**. Intermediate7: **0d190ca**. Caching completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 208 stages, 53/53 terminal missions,
-60 interactive labs, 15 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,198 DynamoDB checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 216 stages, 55/55 terminal missions,
+64 interactive labs, 16 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching checks.
+
+## Intermediate 8 `caching` loop completed (2026-10-26 UTC; selected new level, master§5.B7b)
+
+1. New user-selected level; audited entire existing caching Decision Dojo and current cache/DAX/HA facts first.
+   Dynamic track progress/certificate code needed no hardcoded-count changes. Added IIFE `data-int-8-caching.js`
+   after DynamoDB, registered manifest/visual and retained all existing IDs. Intermediate now12levels; total39.
+2. Eight question/analogy/mechanism cards, four myths, comparison/decision playbook/tree, nine exam cues; dryrun→
+   freshness/load flowlab→key-scope bins→control match→key-cardinality triage→seven-action private cache terminal→
+   lab16→eight MCQs. Four interview MCQs plus three-observation DAX terminal, eight flashcards and optional
+   approved billable AWS runtime/failure homework with scoped cleanup. Runnable SG/create/wait/modify/readback
+   examples and exact expected states precede hands-on. Catalogue freshness and authoritative checkout kept separate.
+3. Verified request/tenant/product/locale/currency/schema scope, cache-aside/write-through/write-behind and the
+   non-atomic DB-commit/invalidate gap. Strong source reads do not make cached hits strong. TTL bounds residency,
+   not already-stale source age; negative cache, jitter, memory eviction, stale in-flight fill and bounded failure
+   fallback covered. Per-process coalescing explicitly does not coordinate an entire fleet; leases/fencing matter.
+4. Corrected older service-name-only durability guidance: current ElastiCache Valkey9.0+ node-based durability
+   (June2026 announcement) uses a Multi-AZ transactional log. Synchronous acknowledgement waits for durability;
+   async option can lose up to10seconds and backpressures when the buffer exceeds that bound. TTL/eviction still
+   apply. Compare MemoryDB and eligible durable Valkey from exact contract/feature/Region/node/pricing needs.
+   Main mission deliberately uses traditional node-based8.0; ordinary async replica failover can lose recent writes.
+5. Current serverless supports VPC endpoints and eligible Valkey9.0+ public endpoints (IAM auth/TLS1.3), not a
+   blanket VPC-only claim. Serverless managed Multi-AZ differs from node-based Memcached sharding. REST API cache
+   versus HTTP API feature gap rechecked. DAX caches eligible eventual DynamoDB reads; strong/transaction reads pass
+   through, not cached. DAX VPC/role/app permissions, TLS9111 versus plaintext8111 and actual node placement covered.
+6. Public US East offer publication2026-10-14 captured: Valkey cache.t4g.small$0.0256/h versus Redis$0.032/h;
+   two Valkey nodes×720h approx$36.86/month compute. Serverless Valkey$0.084/GB-h,100MB minimum and$0.0000000023/ECPU
+   ($0.0023/million). Other serverless engines1GB minimum. CPU/bytes-heavy command activity and separate cost meters
+   remain. No fixed full-stack savings or equivalent-performance node/serverless price guarantee.
+7. Planner declares1000uniform products,2KiB×1.5overhead,40originSQLqueries/miss, Poisson reads/writes and fresh
+   instant source. Expected lifetime=min(TTL,next write), with usable entry-budget fraction. Required≥1000reads/s,
+   ≥3updates/s,TTL≤60s,hit≥95%,origin≤1000queries/s and coalesced hot-key refill. All1296settings checked; no reduced
+   workload/new-request-key/long-TTL bypass. Example1000reads/s,3updates/s,TTL60,4MiB,stable scope/coalescing:
+   hit98.2%,origin715queries/s,serverless approx$18.20/month versus two-node$36.86 gross reference. Not a latency,
+   distributed coordination or byte-accurate node sizing benchmark; source age and complete cost exclusions explicit.
+8. Moto5.2.4 probe before README found num-cache-clusters2→only1actual member, despite MultiAZ/AF enabled;
+   cache-clusters[]. Serverless/DAX subnet-group/delete-cache-subnet-group unsupported500. DAX stayed creating,
+   Nodes null and endpoint implementation8111 despite TLS metadata. No HA/TLS/auth/placement/runtime proof claimed.
+   Supported own IAM/network cleanup done; stopped ONLY this task's owned foreground Moto session87023, discarding
+   own undeletable metadata/tombstones. No shared reset/unrelated process kill. **Port4566 no longer running.**
+9. Lab16 core uses separate owned ThreadedMotoServer(127.0.0.1,port0) per script, so unsupported delete metadata
+   cannot pollute another lab. Every CLI/SDK call has explicit generated loopback endpoint, dummy keys/lab-local
+   config, no profiles/metadata or realAWS/~/.aws. Host Python cache actual DynamoDB tests: **34behavior checks**
+   plus cleanup.10reads→1origin+9hits;20concurrent→1origin+19coalesced. Tenant isolation/caller copies, TTL,
+   negative cache, LRU, errors, jitter/config guards and stale-fill race verified. Concurrent invalidation discards
+   old fill and returns699/version3 after2origin reads. It is not a Valkey/DAX runtime or fleet lock implementation.
+10. README/scripts authored from captures; exact repository replays passed. Metadata script attempts each
+    independent cleanup then closes its own server/process, dropping only its tombstones. Host deletes owned table.
+    Both listeners independently confirmed closed. Docker still absent on check; no install/start/container run.
+    Proposed local Valkey Docker follow-up and adapter/managed runtime remain explicitly unverified/pending.
+11. Simulator adds guarded real create/describe/modify/delete/wait ElastiCache group metadata and create/describe/
+    delete DAX, strict names/known flags, same-VPC subnet/SG validation, node count/AZ/roles, RBAC/role/TLS/SSE,
+    pending config and actual readiness. New cache/DAX duplicate flags reject before mutation. DAX observation count
+    is a declared deterministic fixture, not real elapsed time. Missing required replication-factor and malformed
+    SSE/unknown fields reject usefully. Current Valkey at-rest API default true modeled; valid initial-HA alternative
+    accepted. No cache protocol, real policy/network/TLS enforcement, failover, serverless or durability execution.
+12. Seven-step mission requires removed public ingress, app-scoped6379, preserved original data, actual two small
+    ready cross-AZ nodes, required encryption/RBAC/HA and current full metadata receipt. Interview needs three ready
+    nodes/threeAZs, scoped DDB role, TLS/SSE and current9111endpoint record. Omissions, inspection-only, stale receipt,
+    wrong port/class/version/count/AZ/role/encryption/subnet/RBAC, deletion/reopen and malformed/duplicate flags lose.
+    New immutable source TableId prevents delete/recreate under same name/data faking preservation, including
+    DynamoDB migration regression. Reading source data does not falsely count as corruption.
+13. `validate-cache.js` in-process: **2,743checks**,1296planner states,15MCQs0length flags/positions4/4/4/3;
+    three inline choices0flags/three positions. DynamoDB suite now2199checks (resource identity regression).
+    Full validator green:39levels,216stages,55/55terminal,64interactive,16real labs;27trees/143leaves/147scenarios.
+14. Browser38samples1280/360:all eight cards/stages,dryrun choices,planner andseven-command keyboard solve; no
+    errors/page overflow; diagram labels checked against node bounds. Inspected intro/dryrun/planner start+solved/
+    terminal at both widths and lesson examples; improved unit spacing. Additional18Dojo/certificate/reload samples
+    pass all tree routes and12-level36/36stars certificate plus saved new-level completion across reload. Final
+    stable decision-card screenshots inspected after suppressing capture-time animation. Roman-script/pronoun,
+    Python/JS syntax and diff whitespace checks clean. Local commit only; no push/deployment.
+
+Evidence under `.overhaul-evidence/` (gitignored durable local captures):
+`CACHING-HOST-PROBE.txt`, `CACHING-MOTO-PROBE.txt`, `CACHING-ISOLATED-METADATA.txt`,
+`CACHING-REPO-{HOST,METADATA}.txt`, `CACHING-CLEANUP-CHECK.txt`, `CACHING-FINAL-VALIDATE.txt`,
+`CACHING-FOCUSED.txt`, `CACHING-BROWSER-REPORT.json`, `CACHING-DOJO-BROWSER-REPORT.json`,
+`caching-screenshots/`, `ELASTICACHE-US-EAST-PRICES.json`, `ELASTICACHE-PRICE-ROWS.json`.
+Next **`sqssns`** (master§5.B8; UI/file ordinal9 after the selected caching addition). Then events/security/boss2;
+ask the required track checkpoint only after all Intermediate levels. Continue per-level summaries/local commits.
+
+Primary sources checked2026-10-26:
+- [Cache strategies](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Strategies.html),
+  [DB write/invalidation behavior](https://docs.aws.amazon.com/prescriptive-guidance/latest/dynamodb-elasticache-integration/cache-write.html),
+  [DAX consistency](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.consistency.html),
+  [DAX suitability](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/evaluate-dax-suitability.html).
+- [Multi-AZ/failover](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/AutoFailover.html),
+  [node replication](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Replication.html),
+  [deployment/serverless](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.corecomponents.html),
+  [serverless public endpoints](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/serverless-public-endpoints-chapter.html),
+  [public endpoint IAM/TLS](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/connecting-public-endpoint.html).
+- [Durability options/eviction](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Durability.Options.html),
+  [June2026 launch](https://aws.amazon.com/blogs/database/announcing-durability-for-amazon-elasticache/),
+  [MemoryDB features](https://docs.aws.amazon.com/memorydb/latest/devguide/servicename-feature-overview.html),
+  [resilience/deployment distinction](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/disaster-recovery-resiliency.html).
+- [CreateReplicationGroup parameters](https://docs.aws.amazon.com/AmazonElastiCache/latest/APIReference/API_CreateReplicationGroup.html),
+  [AUTH/RBAC](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/auth.html),
+  [TLS](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/in-transit-encryption.html),
+  [DAX CLI/network/TLS](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.create-cluster.cli.html),
+  [REST/HTTP cache features](https://docs.aws.amazon.com/apigateway/latest/developerguide/http-api-vs-rest.html).
+- [ElastiCache prices](https://aws.amazon.com/elasticache/pricing/),
+  [public US East offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonElastiCache/current/us-east-1/index.json),
+  [official Valkey local installation/container entrypoint](https://valkey.io/topics/installation/).
 
 ## Intermediate 7 `dynamodb` loop completed (2026-10-26 UTC)
 

@@ -5,10 +5,10 @@
   const rows=()=>[101,102,103].map((id,i)=>({cartId:'cart-'+id,status:'active',sellerId:i===1?'seller-2':'seller-1',updatedAt:1800000000+i,expiresAt:1900000000+i,total:499,version:1}));
   const fresh=()=>({cartId:'cart-104',status:'active',sellerId:'seller-1',updatedAt:1800000004,expiresAt:1900000004,total:499,version:1});
   const typed=row=>Object.fromEntries(Object.entries(row).map(([k,v])=>[k,typeof v==='number'?{N:String(v)}:{S:v}]));
-  const seed=()=>({region:'ap-south-1',tables:[{name:'carts-v1',partitionKey:'status',sortKey:'cartId',attributeTypes:{status:'S',cartId:'S'},billing:'PAY_PER_REQUEST',status:'ACTIVE',items:rows()}]});
+  const seed=()=>({region:'ap-south-1',tables:[{name:'carts-v1',tableId:'11111111-1111-4111-8111-111111111111',partitionKey:'status',sortKey:'cartId',attributeTypes:{status:'S',cartId:'S'},billing:'PAY_PER_REQUEST',status:'ACTIVE',items:rows()}]});
   const tab=(s,name='carts-v2')=>(s.account.tables||[]).find(t=>t.name===name);
   const equalRows=(a,b)=>Array.isArray(a)&&a.length===b.length&&b.every(row=>a.some(x=>Object.keys(x).length===Object.keys(row).length&&Object.entries(row).every(([k,v])=>x[k]===v)));
-  function preserved(s){const t=tab(s,'carts-v1');return !!t&&t.partitionKey==='status'&&t.sortKey==='cartId'&&t.billing==='PAY_PER_REQUEST'&&equalRows(t.items,rows())&&(s.account.tables||[]).length===2;}
+  function preserved(s){const t=tab(s,'carts-v1');return !!t&&t.tableId==='11111111-1111-4111-8111-111111111111'&&t.partitionKey==='status'&&t.sortKey==='cartId'&&t.billing==='PAY_PER_REQUEST'&&equalRows(t.items,rows())&&(s.account.tables||[]).length===2;}
   function schemaReady(s){const t=tab(s);return !!t&&t.partitionKey==='cartId'&&!t.sortKey&&t.attributeTypes?.cartId==='S'&&t.billing==='PAY_PER_REQUEST'&&t.status==='ACTIVE';}
   function indexReady(s){const t=tab(s),i=t?.gsis?.find(i=>i.name==='bySeller');return !!i&&t.gsis.length===1&&i.partitionKey==='sellerId'&&i.sortKey==='updatedAt'&&i.projection.ProjectionType==='ALL'&&i.status==='ACTIVE'&&t.attributeTypes.sellerId==='S'&&t.attributeTypes.updatedAt==='N';}
   function resultReady(s){const t=tab(s),r=t?.lastRead;return !!r&&r.op==='query'&&r.index==='bySeller'&&!r.consistent&&!r.hasMore&&r.revision===(t.revision||0)&&equalRows(r.items,[rows()[0],rows()[2],fresh()]);}
