@@ -122,16 +122,16 @@ AG.registerDecisions([
     icon: '🌍',
     title: 'Global users ke liye — CloudFront, Global Accelerator ya Route 53?',
     short: 'Edge: CloudFront vs GA',
-    tldr: 'Content cache ho sakta hai (HTTP) → CloudFront. Cache nahi hota, TCP/UDP, static anycast IP, fast regional failover → Global Accelerator. Sirf DNS se nearest region par bhejna → Route 53 latency routing.',
+    tldr: 'HTTP content/API edge TLS, WAF and optional cache → CloudFront. TCP/UDP or reviewed global static entry/failover → Global Accelerator candidate. DNS-only measured latency selection → Route53. CloudFront optional Anycast Static IP lists also exist; compare exact requirement.',
     levels: ['cloudfront', 'route53', 'edge'],
     start: 'q1',
     nodes: {
       q1: {
-        q: 'Traffic HTTP hai aur responses cache ho sakte hain?',
+        q: 'HTTP(S) website/API edge delivery chahiye, ya transport/static-entry priority hai?',
         why: 'CloudFront edge par response rakh leta hai — agla user origin tak gaye bina jawab paata hai. Global Accelerator kuch cache nahi karta; sirf user ko AWS ke private backbone par sabse paas wale healthy endpoint tak jaldi pahunchata hai.',
         options: [
-          { t: 'Haan — website, images, video, API GET responses', next: 'cfe' },
-          { t: 'Nahi — TCP/UDP (gaming, VoIP, IoT), ya har request dynamic', next: 'q2' },
+          { t: 'HTTP website/images/video/API, cached or deliberately uncached', next: 'cfe' },
+          { t: 'TCP/UDP, or global static-entry/failover priority without CDN need', next: 'q2' },
         ],
       },
       q2: {
@@ -144,11 +144,11 @@ AG.registerDecisions([
       },
       cfe: {
         leaf: true, icon: '🌍', pick: 'Amazon CloudFront',
-        one: 'CDN — 600+ edge locations par cache, origin (S3/ALB) par load kam.',
+        one: 'HTTP CDN with750+PoPs; eligible cache reuse can reduce origin load. Dynamic APIs can use reviewed no-cache/forwarding.',
         when: ['Static website (S3 + OAC)', 'Video streaming, downloads', 'Dynamic sites bhi — TLS edge par, AWS backbone se origin', 'WAF + Shield edge par lagana'],
-        avoid: ['UDP / non-HTTP traffic', 'Static IP requirement'],
-        gotchas: ['S3 origin ko private rakho — Origin Access Control (OAC)', 'Signed URLs/cookies se paid content protect', 'CloudFront Functions (sasta, header rewrite) vs Lambda@Edge (zyada power)'],
-        cost: 'Data transfer out ~$0.085/GB (first tier) — free tier 1 TB/mahina.',
+        avoid: ['UDP/non-HTTP transport', 'Assuming ordinary distribution DNS supplies a fixed customer IP; review optional Anycast Static IP lists or GA'],
+        gotchas: ['Private S3 REST origin + attached OAC + exact SourceArn policy; website origin cannot use OAC', 'Signed URLs/cookies se paid content protect', 'Functions lightweight viewer JS vs Lambda@Edge network/body/origin logic; private VPC origins now supported'],
+        cost: 'Pay-as-you-go US example approx$0.085/GB DTO, $0.010/10,000 HTTPS requests; monthly1TB/10million allowance. Flat-rate plans also exist; geography/features differ.',
         exam: '"cache static content globally", "reduce latency for global users", "S3 static website with HTTPS" → CloudFront.',
         level: 'cloudfront',
       },
@@ -174,6 +174,7 @@ AG.registerDecisions([
       },
     },
     scenarios: [
+      { s: 'Authenticated HTTP API needs edge TLS/WAF and deliberate no-cache behavior.', answer: 'cfe', explain: 'CloudFront supports dynamic uncached HTTP; configure auth/header/Host forwarding and verify real responses.' },
       { s: 'News website ke images aur articles duniya bhar mein tez load hone chahiye.', answer: 'cfe', explain: 'Cacheable HTTP → CloudFront.' },
       { s: 'Online game (UDP) ke players 3 continents mein; client mein IPs hardcoded hain.', answer: 'ga', explain: 'UDP + static IP → Global Accelerator.' },
       { s: 'Do regions mein same web app; bas users ko paas wale region bhejna hai, budget tight.', answer: 'r53lat', explain: 'DNS latency routing simple aur sasta.' },

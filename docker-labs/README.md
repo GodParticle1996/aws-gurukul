@@ -55,6 +55,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `08-three-tier-terraform` | 🏆 Boss architecture | connected two-AZ Terraform stack, scoped SG chain, instance role, ALB/ASG/RDS/S3, per-AZ egress, API review and destroy |
 | `09-nat-endpoint-peering` | 🌐 VPC Deep Dive | zonal NAT/EIP, managed S3 prefix routes, interface ENIs, active peer + two routes, Flow Log metadata and cleanup |
 | `10-route53-routing` | 📡 Route53 | actual CLI Alias/weighted/failover JSON, primary health association repair, honest DNS/probe limits and scoped cleanup |
+| `11-cloudfront-oac` | 🌍 CloudFront | real OAC/config/ETag/policy requests, invalidation metadata; explicit Moto attachment/ETag/status limits; scoped cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

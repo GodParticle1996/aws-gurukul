@@ -248,12 +248,12 @@ const VISUALS = {
         <div class="dg-col">
           <div class="dg-node"><span class="ni">👤</span><span class="nl">User (India)</span></div>
           <div class="dg-arrow flow"></div>
-          <div class="dg-node is-accent pulse" data-hs="edge"><span class="ni">📍</span><span class="nl">Edge (Mumbai)</span><span class="ns">cache hit ⚡</span></div>
+          <div class="dg-node is-accent pulse" data-hs="edge"><span class="ni">📍</span><span class="nl">Selected PoP</span><span class="ns">cache hit ⚡</span></div>
         </div>
         <div class="dg-link"><span class="dg-pill acc">cache miss?</span><div class="dg-arrow flow"></div></div>
         <div class="dg-col">
           <div class="dg-node is-gold" data-hs="origin"><span class="ni">🗄️</span><span class="nl">Origin</span><span class="ns">S3 / ALB</span></div>
-          <span class="dg-pill gold">us-east-1 (far)</span>
+          <span class="dg-pill gold">Chosen origin region</span>
         </div>
       </div>
       <div class="dg-flow" style="margin-top:12px">
@@ -261,7 +261,7 @@ const VISUALS = {
         <span class="dg-pill good" data-hs="behavior">Cache behavior = rules per path</span>
         <span class="dg-pill gold" data-hs="signedurl">Signed URLs = private content</span>
       </div>
-      <div class="dg-cap"><b>CloudFront</b> = content ko 400+ edge locations par cache karta hai. User ko nearest edge se milta hai = fast. Origin (S3/ALB) se sirf cache miss par laata hai. <b>Signed URLs</b> = premium/private content access.</div>`,
+      <div class="dg-cap"><b>CloudFront</b> = 750+ PoPs par eligible HTTP responses cache karta hai. Origin permission: S3 REST + attached OAC + scoped policy. Dynamic API can use no-cache behavior; hit ratio and latency workload par depend karte hain. <b>Signed URLs/cookies</b> = app-authorized viewer access. Invalidation browser cache clear nahi karta.</div>`,
   },
 
   s3adv: {

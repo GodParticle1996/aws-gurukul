@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 2 `route53` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate 3 `cloudfront`** (master plan §5.B3), then continue levels without per-level approval.
+**Phase A complete; Phase B through Intermediate 3 `cloudfront` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate 4 `s3adv`** (master plan §5.B4), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -32,11 +32,75 @@ lists **SAA-C03**, with domain weights **30/26/24/20**. No SAA-C04 announcement 
 
 Local baseline commit **6d8ba63** preserves the reviewed, validated overhaul through Beginner 6, including the user decisions.
 Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
-Intermediate1 local commit: **e59e258**. Intermediate2 completion and validation recorded below; latest local commit identifies the level delivery.
+Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3 completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 189 stages, 51/51 terminal missions,
-40 interactive labs, 10 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 193 stages, 51/51 terminal missions,
+44 interactive labs, 11 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront checks.
+
+## Intermediate 3 `cloudfront` loop completed (2026-10-26 UTC)
+
+1. Read full old level and VISUALS entry. Removed400+ edge count, fixed20ms/10× cost promises, invented media story,
+   history-only missions, old OAI homework and fake disabled-distribution $50/month edge-reservation fee. Same ID kept.
+2. New `data-int-3-cloudfront.js`: eight question/analogy cards, four myths, decision/comparison playbook, nine exam
+   cues; dryrun → flowlab → bins → match → triage → six-action state terminal → lab11 → eight bonus MCQs;
+   four interview MCQs + four-action repair terminal, eight flashcards, optional billable AWS runtime work/cleanup.
+3. Verified current AWS overview750+PoPs (some older docs still say600+); cache-key/forwarding distinction,
+   minimumTTL overriding no-store/private, OAC REST origin/SourceArn/BPA, ACM viewer us-east-1, trusted key groups,
+   versioned assets/pointer cache vs invalidation, current VPC origins and optional CloudFront Anycast Static IP lists.
+   Functions10KB/2MB/no general network/body vs Lambda@Edge heavier events; explicit approximate pay-as-you-go gross
+   model and separate current flat-rate plans. Viewer traffic remains even with high hits; origin transfer vs GET fees differ.
+4. Ran Moto before writing lab. OAC object/config, distribution create/update, bucket policy/BPA and invalidation metadata
+   APIs work, but OAC origin attachment readback=null (field not retained), stale ETag accepted/unchanged, managed
+   list-cache-policies404. Invalidation status uppercase COMPLETED differs from AWS Completed, so AWS waiter hangs.
+   Stopped only identified probe-owned waiter, then completed scoped cleanup; shared emulator never stopped/reset.
+5. Lab11 README/setup/exercises/make-config/cleanup written from actual capture; repository replay passed. Readback OAC=null
+   explicitly marks attachment unverified. Policy exact distribution SourceArn persists, BPA alltrue. No actual edge HTTP,
+   cache/auth/TLS/latency proof. Cleanup Enabled=false then zero matching distribution/OAC/bucket; exact IDs archived.
+6. Simulator now uses real full DistributionConfig/ETag get/update (PreconditionFailed on stale version), OAC create/read/
+   update/delete and in-use protection, managed cache policy reads, deployment waiter, invalidation create/read/list/wait,
+   deterministic IDs/idempotent batch references and atomic bad inputs. Removed fake disable-distribution operation;
+   useful error teaches Enabled=false config update. Wrong OAC signing can be repaired on same OAC/current ETag.
+7. Desired vs deployed config separate; old deployed snapshot keeps serving during updates. OAC cannot be deleted while
+   old deployed config still references OAC. Namespaced AG.cdnResponse derives fixture version/status from cached bytes,
+   attached signing OAC, scoped service policy/object and unconditional explicit Deny. This is a bounded teaching fixture,
+   not a full IAM evaluator, HTTP client, TTL runtime or measured CDN. Serving/public-origin checks cannot pass via history.
+8. Main intended solution requires all six state actions and wins only on final completed eviction. Interview needs all
+   four actions. Missing OAC/policy/deployment/completion, stale ETags, public/incorrect principal/SourceArn/action,
+   wrong path, disabled distribution, cached API, absent forwarding/POST, unexpected viewer restrictions and bucket deletion
+   fail. Valid wildcard invalidation works; read-only probes do not fabricate completion. Original two origins, public-image
+   viewer contract, private object/BPA and distribution identity retained.
+9. `validate-cdn.js` wired in-process: **842 checks**, all **240 planner settings**, omission/cheat/concurrency/atomicity,
+   stale bytes vs fresh origin, OAC recovery/deletion lifecycle, parser/query/whitespace and clean replay. Geometry checks
+   catch clipped/touching nodes. **15 MCQs:0 length-bias flags; positions4/4/4/3.** Full validator passes:38 levels,
+   193 stages,51/51 terminal missions,44 interactive labs,11 real labs;27 Decision Dojo trees/143 scenarios.
+10. Updated linked edge tree for dynamic uncached HTTP, current PoPs/private origins/static-IP options/pricing and origin
+    vs viewer boundaries; old block removed, file registered. Inspected1280px/360px intro, dryrun, planner start/solved,
+    terminal start/solved and lesson screenshots; all eight cards per width checked. **38 browser samples**, zero errors
+    or document overflow. Fixed clipped left diagram nodes/phone slider label, made table swipe explicit. Pronoun lint,
+    bash syntax and diff whitespace clean.
+
+Evidence: `/tmp/aws-gurukul-cloudfront/{01-…23-*.txt,REPO-SETUP.txt,REPO-EXERCISES.txt,REPO-CLEANUP.txt,
+FINAL-VALIDATE.txt,BROWSER-REPORT.json,screenshots/}`. No Docker/real AWS/install/push.
+Next Intermediate4 `s3adv`, master §5.B4; continue per-level loop/local commits without per-level approval.
+
+CloudFront primary sources verified this session:
+- [Current750+PoP overview](https://aws.amazon.com/cloudfront/),
+  [pay-as-you-go rates/allowances/invalidation/static-IP lists](https://aws.amazon.com/cloudfront/pricing/pay-as-you-go/),
+  [current flat-rate plans](https://aws.amazon.com/cloudfront/pricing/).
+- [OAC/S3 REST, ownership, SourceArn and KMS](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-restricting-access-to-s3.html),
+  [full config/ETag update](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateDistribution.html),
+  [OAC update/signing behavior](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_UpdateOriginAccessControl.html),
+  [OAC delete/in-use](https://docs.aws.amazon.com/cloudfront/latest/APIReference/API_DeleteOriginAccessControl.html).
+- [Managed caching policies/minimumTTL](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-cache-policies.html),
+  [cache/origin request policy interaction](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/understanding-how-origin-request-policies-and-cache-policies-work-together.html),
+  [managed forwarding policies](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/using-managed-origin-request-policies.html),
+  [invalidation vs versioning/downstream cache](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html).
+- [Viewer certificate region](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cnames-and-https-requirements.html),
+  [private viewer content/trusted key groups](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/PrivateContent.html),
+  [Functions vs Lambda@Edge](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/edge-functions-choosing.html),
+  [Functions restrictions](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/cloudfront-function-restrictions.html),
+  [VPC origins](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/private-content-vpc-origins.html).
 
 ## Intermediate 2 `route53` loop completed (2026-10-26 UTC)
 
@@ -71,7 +135,7 @@ Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 189 stages, 51/
 8. `validate-dns.js` wired in-process: **5,066 checks**, all **1,400 planner settings**, intended and omitted actions,
    reset/replay, idempotent caller references/UPSERT, malformed files/JSON/flags, atomic changes, real field semantics,
    DNS answer health/weights, IPv6 validation and fixed-demand cheats. **15 MCQs: 0 length-bias flags; positions4/4/4/3.**
-   Full `node validate.js`: **ALL CHECKS PASSED**, 38 levels, 189 stages, 51/51 missions, 40 interactive labs, 10 real labs.
+   Full `node validate.js`: **ALL CHECKS PASSED**, 38 levels, 193 stages, 51/51 missions, 40 interactive labs, 10 real labs.
 9. Corrected linked r53policy Decision Dojo: IP-based choice, approximate geolocation vs actual compliance, direct
    geoproximity, zero-weight fallback and DNS-answer vs user split. Concept visual now distinguishes measured latency.
 10. Browser screenshots reviewed at1280px/360px: intro, dryrun, flowlab start/solved, terminal start/solved; all eight

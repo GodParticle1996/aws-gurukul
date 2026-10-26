@@ -97,6 +97,29 @@ AG.dnsAnswer = function (account, zone, name, type, cursor = 0) {
   return chosen.flatMap(r => r.AliasTarget ? (((account.dnsAliases || []).find(a => canonical(a.dnsName) === canonical(r.AliasTarget.DNSName)) || {}).addresses || []).filter(ip => type === 'AAAA' ? ip.includes(':') : !ip.includes(':')) : (r.ResourceRecords || [{ Value: r.value }]).map(v => v.Value)).filter(Boolean);
 };
 
+// Small S3/OAC teaching fixture, not a general IAM evaluator or HTTP client.
+AG.cdnResponse = function (account, distribution, path) {
+  if(!distribution)return {status:503,reason:'Distribution missing'};
+  const cfg=distribution.deployedConfig||(distribution.status==='Deployed'?distribution.config:null);
+  if(!cfg)return {status:503,reason:'No deployed configuration yet'};
+  if(!cfg||!cfg.Enabled)return {status:403,reason:'Distribution disabled'};
+  const origin=(cfg.Origins.Items||[]).find(o=>o.Id===cfg.DefaultCacheBehavior.TargetOriginId);
+  const bucket=origin&&(account.buckets||[]).find(b=>origin.DomainName===b.name+'.s3.ap-south-1.amazonaws.com');
+  if(!bucket)return {status:502,reason:'Fixture S3 REST origin missing'};
+  const cached=(distribution.edgeCache||[]).find(c=>c.path===path);
+  if(cached)return {status:200,version:cached.version,source:'edge fixture'};
+  const control=(account.originAccessControls||[]).find(o=>o.id===origin.OriginAccessControlId);
+  if(!control||control.config.SigningBehavior!=='always'||control.config.SigningProtocol!=='sigv4'||control.config.OriginAccessControlOriginType!=='s3')return {status:403,reason:'Signing OAC not attached'};
+  const arn='arn:aws:cloudfront::123456789012:distribution/'+distribution.id,resource='arn:aws:s3:::'+bucket.name+path;
+  const arr=x=>Array.isArray(x)?x:[x],match=(pattern,value)=>typeof pattern==='string'&&(pattern==='*'||pattern===value||pattern.endsWith('*')&&value.startsWith(pattern.slice(0,-1)));
+  const statements=Array.isArray((bucket.policy||{}).Statement)?bucket.policy.Statement:[];
+  const relevant=s=>s&&arr(s.Action).some(a=>a==='s3:GetObject'||a==='s3:*'||a==='*')&&arr(s.Resource).some(r=>match(r,resource));
+  if(statements.some(s=>relevant(s)&&s.Effect==='Deny'&&(s.Principal==='*'||s.Principal&&s.Principal.Service==='cloudfront.amazonaws.com')&&!s.Condition))return {status:403,reason:'Explicit policy Deny'};
+  if(!statements.some(s=>relevant(s)&&s.Effect==='Allow'&&s.Principal&&s.Principal.Service==='cloudfront.amazonaws.com'&&s.Condition&&s.Condition.StringEquals&&(s.Condition.StringEquals['AWS:SourceArn']||s.Condition.StringEquals['aws:SourceArn'])===arn))return {status:403,reason:'Scoped service/SourceArn allow missing in fixture'};
+  const object=(bucket.objects||[]).find(o=>o.key===path.replace(/^\//,''));
+  return object?{status:200,version:object.version,source:'origin fixture'}:{status:404,reason:'Object missing'};
+};
+
 AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   // deep-clone the account so replays start fresh
   const sim = {
@@ -534,8 +557,18 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront'].includes(service)) {
       const specs = {
+        cloudfront: {
+          'list-distributions': [], 'get-distribution': ['id'], 'get-distribution-config': ['id'],
+          'update-distribution': ['id','if-match','distribution-config'], 'delete-distribution': ['id','if-match'],
+          'create-origin-access-control': ['origin-access-control-config'], 'list-origin-access-controls': [],
+          'update-origin-access-control': ['id','if-match','origin-access-control-config'],
+          'get-origin-access-control': ['id'], 'delete-origin-access-control': ['id','if-match'],
+          'create-invalidation': ['distribution-id','paths*','invalidation-batch'], 'get-invalidation': ['distribution-id','id'],
+          'list-invalidations': ['distribution-id'], 'list-cache-policies': ['type'], 'get-cache-policy': ['id'],
+          'wait': ['id','distribution-id'],
+        },
         route53: {
           'list-hosted-zones': [], 'get-hosted-zone': ['id'], 'create-hosted-zone': ['name','caller-reference','hosted-zone-config','vpc'], 'delete-hosted-zone': ['id'],
           'list-resource-record-sets': ['hosted-zone-id'], 'change-resource-record-sets': ['hosted-zone-id','change-batch'],
@@ -2291,41 +2324,84 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         return;
 
       /* ===================== CLOUDFRONT ===================== */
-      case 'cloudfront':
-        if (op === 'list-distributions') {
-          const cfs = list('cloudfront');
-          if (!cfs.length) return print('ok', '{\n    "DistributionList": { "Items": [] }\n}');
-          print('ok', '{\n    "DistributionList": {\n        "Items": [\n' +
-            cfs.map(c => `            { "Id": "${c.id}", "DomainName": "${c.domain}", "Status": "${c.status}", "Enabled": ${c.enabled ? 'true' : 'false'} }`).join(',\n') +
-            '\n        ]\n    }\n}');
-        } else if (op === 'get-distribution') {
-          const id = flag('id');
-          const c = list('cloudfront').find(x => x.id === id);
-          if (!c) return print('err', `NoSuchDistribution: ${id}`);
-          print('ok', `{ "Distribution": { "Id": "${c.id}", "DomainName": "${c.domain}", "Status": "${c.status}", "Enabled": ${c.enabled} } }`);
-        } else if (op === 'get-distribution-config') {
-          const id = flag('id');
-          const c = list('cloudfront').find(x => x.id === id);
-          if (!c) return print('err', `NoSuchDistribution: ${id}`);
-          print('ok', `{ "DistributionConfig": { "Id": "${c.id}", "Enabled": ${c.enabled}, "Origins": { "Items": [${(c.origins||[]).map(o => `{ "DomainName": "${o}" }`).join(', ')}] }, "DefaultCacheBehavior": { "ViewerProtocolPolicy": "redirect-to-https" } } }`);
-        } else if (op === 'create-invalidation') {
-          const id = flag('distribution-id');
-          const paths = flag('paths') || '/*';
-          const c = list('cloudfront').find(x => x.id === id);
-          if (!c) return print('err', `NoSuchDistribution: ${id}`);
-          print('ok', `{ "Invalidation": { "Id": "I${Date.now()}", "Status": "InProgress", "InvalidationBatch": { "Paths": { "Items": ["${paths}"] } } } }`);
-        } else if (op === 'disable-distribution' || op === 'delete-distribution') {
-          const id = flag('id');
-          const cfs = list('cloudfront');
-          const c = cfs.find(x => x.id === id);
-          if (!c) return print('err', `NoSuchDistribution: ${id}`);
-          if (op === 'delete-distribution' && c.enabled) return print('err', `DistributionNotDisabled: Disable karo pehle (aws cloudfront disable-distribution --id ${id})`);
-          if (op === 'disable-distribution') { c.enabled = false; print('ok', `Distribution ${id} disabled.`); }
-          else { cfs.splice(cfs.indexOf(c), 1); print('ok', `Distribution ${id} deleted.`); }
-        } else {
-          print('err', `unknown CloudFront op: ${op}`);
-        }
-        return;
+      case 'cloudfront': {
+        const clone=x=>JSON.parse(JSON.stringify(x)),object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+        const required=n=>{const v=flag(n);if(!v)throw Error(`aws: error: the following arguments are required: --${n}`);return v;};
+        const doc=n=>{let raw=required(n);if(raw.startsWith('file://')){const f=Object.prototype.hasOwnProperty.call(sim.files,raw.slice(7))&&sim.files[raw.slice(7)];if(!f||typeof f.content!=='string')throw Error(`Error parsing parameter --${n}: Unable to load paramfile; use ls/cat`);raw=f.content;}try{const v=JSON.parse(raw);if(!object(v))throw Error('object required');return v;}catch(e){throw Error(`Error parsing parameter --${n}: Invalid JSON object (${e.message})`);}};
+        const policies=[{Id:'658327ea-f89d-4fab-a63d-7e88639e58f6',Name:'Managed-CachingOptimized',MinTTL:1,DefaultTTL:86400,MaxTTL:31536000},{Id:'4135ea2d-6df8-44a3-9df3-4b5a84be39ad',Name:'Managed-CachingDisabled',MinTTL:0,DefaultTTL:0,MaxTTL:0}];
+        const controls=()=>list('originAccessControls'),distributions=()=>list('cloudfront');
+        const getDist=(name='id')=>{const id=required(name),c=distributions().find(c=>c.id===id);if(!c)throw Error(`NoSuchDistribution: ${id}`);return c;};
+        const getOac=()=>{const id=required('id'),c=controls().find(c=>c.id===id);if(!c)throw Error(`NoSuchOriginAccessControl: ${id}`);return c;};
+        const config=c=>c.config||{CallerReference:'legacy-'+c.id,Comment:'Legacy read fixture',Enabled:!!c.enabled,Origins:{Quantity:(c.origins||[]).length,Items:(c.origins||[]).map((o,i)=>({Id:'origin-'+i,DomainName:o}))},DefaultCacheBehavior:{TargetOriginId:'origin-0',ViewerProtocolPolicy:'redirect-to-https'}};
+        const etag=c=>c.etag||'E1',arn=c=>'arn:aws:cloudfront::123456789012:distribution/'+c.id;
+        const distJson=c=>({Id:c.id,ARN:arn(c),DomainName:c.domain,Status:c.status||'Deployed',LastModifiedTime:'2026-01-01T00:00:00Z',DistributionConfig:clone(config(c))});
+        const controlJson=c=>({Id:c.id,OriginAccessControlConfig:clone(c.config)});
+        const validateControl=cfg=>{if(typeof cfg.Name!=='string'||!cfg.Name||cfg.Name.length>64||(cfg.Description!==undefined&&typeof cfg.Description!=='string')||!['always','never','no-override'].includes(cfg.SigningBehavior)||cfg.SigningProtocol!=='sigv4'||cfg.OriginAccessControlOriginType!=='s3')throw Error('InvalidArgument: This mission supports S3 OAC, Name, optional Description, SigningProtocol sigv4 and SigningBehavior always/never/no-override');};
+        const policyJson=p=>{const {Id,...cfg}=p;return {Id,CachePolicyConfig:{...cfg,ParametersInCacheKeyAndForwardedToOrigin:{EnableAcceptEncodingGzip:Id===policies[0].Id,EnableAcceptEncodingBrotli:Id===policies[0].Id,HeadersConfig:{HeaderBehavior:'none'},CookiesConfig:{CookieBehavior:'none'},QueryStringsConfig:{QueryStringBehavior:'none'}}}};};
+        const qty=(v,name,minimum=0)=>{if(!object(v)||!Number.isInteger(v.Quantity)||v.Quantity<minimum||v.Quantity!==(v.Items||[]).length||v.Items!==undefined&&!Array.isArray(v.Items))throw Error(`InconsistentQuantities: ${name} Quantity must match Items`);return v.Items||[];};
+        const validateConfig=(cfg,c)=>{
+          if(cfg.CallerReference!==config(c).CallerReference)throw Error('IllegalUpdate: CallerReference cannot be changed');
+          if(typeof cfg.Enabled!=='boolean'||typeof cfg.Comment!=='string')throw Error('InvalidArgument: Enabled boolean and Comment string required');
+          const origins=qty(cfg.Origins,'Origins',1),ids=origins.map(o=>o&&o.Id);
+          if(ids.some(id=>typeof id!=='string'||!id)||new Set(ids).size!==ids.length)throw Error('InvalidArgument: Origin IDs must be unique nonempty strings');
+          for(const o of origins){
+            if(typeof o.DomainName!=='string'||!o.DomainName||/\s|:\/\//.test(o.DomainName))throw Error('InvalidArgument: Origin DomainName must be a hostname');
+            if(o.OriginAccessControlId){const a=controls().find(a=>a.id===o.OriginAccessControlId);if(!a)throw Error('InvalidOriginAccessControl: Referenced OAC does not exist');if(!o.S3OriginConfig||o.DomainName.includes('s3-website')||o.S3OriginConfig.OriginAccessIdentity)throw Error('InvalidArgument: S3 OAC needs REST S3 origin; cannot combine OAI and OAC');}
+          }
+          const behaviors=[cfg.DefaultCacheBehavior,...(cfg.CacheBehaviors?qty(cfg.CacheBehaviors,'CacheBehaviors'):[])];
+          for(const b of behaviors){if(!object(b)||!ids.includes(b.TargetOriginId))throw Error('NoSuchOrigin: Cache behavior TargetOriginId must reference an origin');if(!['redirect-to-https','https-only','allow-all'].includes(b.ViewerProtocolPolicy))throw Error('InvalidArgument: Invalid ViewerProtocolPolicy');if(!policies.some(p=>p.Id===b.CachePolicyId))throw Error('NoSuchCachePolicy: This simulator supports the two documented managed policies; use list-cache-policies');if(b.AllowedMethods)qty(b.AllowedMethods,'AllowedMethods',1);if(b.TrustedKeyGroups)qty(b.TrustedKeyGroups,'TrustedKeyGroups');}
+          const patterns=behaviors.slice(1).map(b=>b.PathPattern);if(patterns.some(p=>typeof p!=='string'||!p)||new Set(patterns).size!==patterns.length)throw Error('InvalidArgument: Ordered cache behaviors need unique PathPattern');
+          if(cfg.Aliases){const aliases=qty(cfg.Aliases,'Aliases');if(aliases.length){const cert=cfg.ViewerCertificate||{};if(typeof cert.ACMCertificateArn!=='string'||!cert.ACMCertificateArn.startsWith('arn:aws:acm:us-east-1:'))throw Error('InvalidViewerCertificate: Custom viewer ACM certificate must be in us-east-1');}}
+          if(cfg.PriceClass&&!['PriceClass_All','PriceClass_100','PriceClass_200'].includes(cfg.PriceClass))throw Error('InvalidArgument: Unsupported PriceClass');
+        };
+        const getInvalid=c=>{const id=required('id'),i=(c.invalidations||[]).find(i=>i.Id===id);if(!i)throw Error(`NoSuchInvalidation: ${id}`);return i;};
+        try {
+          if(op==='list-distributions')return resultJson({DistributionList:{Quantity:distributions().length,IsTruncated:false,Items:distributions().map(c=>({...distJson(c),Enabled:config(c).Enabled}))}});
+          if(op==='get-distribution') {const c=getDist();return resultJson({ETag:etag(c),Distribution:distJson(c)});}
+          if(op==='get-distribution-config'){const c=getDist();return resultJson({ETag:etag(c),DistributionConfig:clone(config(c))});}
+          if(op==='update-distribution'){
+            const c=getDist(),match=required('if-match');if(match!==etag(c))throw Error('PreconditionFailed: The precondition in the If-Match header failed. Read get-distribution-config and merge with current ETag.');
+            const cfg=doc('distribution-config');validateConfig(cfg,c);
+            if(!c.deployedConfig)c.deployedConfig=clone(config(c));c.config=clone(cfg);c.enabled=cfg.Enabled;c.status='InProgress';c.version=(c.version||1)+1;c.etag='E'+c.version;
+            return resultJson({ETag:c.etag,Distribution:distJson(c)});
+          }
+          if(op==='disable-distribution')throw Error('aws: error: disable-distribution is not an AWS operation. Get config, set Enabled=false in JSON, update-distribution with current --if-match, then wait deployed.');
+          if(op==='delete-distribution'){
+            const c=getDist();if(required('if-match')!==etag(c))throw Error('PreconditionFailed: Current ETag required');if(config(c).Enabled)throw Error('DistributionNotDisabled: Update config Enabled=false first');if(c.status!=='Deployed')throw Error('DistributionNotDisabled: Wait for the disabled configuration to deploy before deletion');distributions().splice(distributions().indexOf(c),1);return print('ok','');
+          }
+          if(op==='create-origin-access-control'){
+            const cfg=doc('origin-access-control-config');validateControl(cfg);
+            if(controls().some(c=>c.config.Name===cfg.Name))throw Error('OriginAccessControlAlreadyExists: Name already exists');
+            const seq=(sim.account.cdnOacCounter||0)+1,c={id:'OAC'+String(seq).padStart(6,'0'),etag:'O1',config:clone(cfg)};sim.account.cdnOacCounter=seq;controls().push(c);return resultJson({ETag:c.etag,OriginAccessControl:controlJson(c)});
+          }
+          if(op==='list-origin-access-controls')return resultJson({OriginAccessControlList:{Quantity:controls().length,Items:controls().map(controlJson),IsTruncated:false}});
+          if(op==='get-origin-access-control'){const c=getOac();return resultJson({ETag:c.etag,OriginAccessControl:controlJson(c)});}
+          if(op==='update-origin-access-control'){
+            const c=getOac();if(required('if-match')!==c.etag)throw Error('PreconditionFailed: Read current OAC ETag before update');const cfg=doc('origin-access-control-config');validateControl(cfg);
+            if(controls().some(other=>other!==c&&other.config.Name===cfg.Name))throw Error('OriginAccessControlAlreadyExists: Name already exists');c.config=clone(cfg);c.version=(c.version||1)+1;c.etag='O'+c.version;return resultJson({ETag:c.etag,OriginAccessControl:controlJson(c)});
+          }
+          if(op==='delete-origin-access-control'){
+            const c=getOac();if(required('if-match')!==c.etag)throw Error('PreconditionFailed: Current OAC ETag required');if(distributions().some(d=>[config(d),d.deployedConfig].filter(Boolean).some(cfg=>(cfg.Origins.Items||[]).some(o=>o.OriginAccessControlId===c.id))))throw Error('OriginAccessControlInUse: Detach OAC and wait for deployment before deletion');controls().splice(controls().indexOf(c),1);return print('ok','');
+          }
+          if(op==='list-cache-policies'){if(flag('type')&&flag('type')!=='managed')throw Error('Simulator scope: managed cache policies only');return resultJson({CachePolicyList:{Quantity:policies.length,Items:policies.map(p=>({Type:'managed',CachePolicy:policyJson(p)}))}});}
+          if(op==='get-cache-policy'){const id=required('id'),p=policies.find(p=>p.Id===id);if(!p)throw Error(`NoSuchCachePolicy: ${id}`);return resultJson({ETag:'managed',CachePolicy:policyJson(p)});}
+          if(op==='create-invalidation'){
+            const c=getDist('distribution-id');if(flag('paths')&&flag('invalidation-batch'))throw Error('aws: error: choose --paths or --invalidation-batch, not both');
+            let batch;if(flag('invalidation-batch'))batch=doc('invalidation-batch');else{const paths=flags('paths');if(!paths.length)throw Error('aws: error: --paths or --invalidation-batch required');batch={CallerReference:'sim-cli-'+((sim.account.cdnInvalidationCounter||0)+1),Paths:{Quantity:paths.length,Items:paths}};}
+            const paths=qty(batch.Paths,'Paths',1);if(typeof batch.CallerReference!=='string'||!batch.CallerReference||paths.some(p=>typeof p!=='string'||!p.startsWith('/')||p.includes('*')&&!p.endsWith('*')||p.indexOf('*')!==p.lastIndexOf('*')))throw Error('InvalidArgument: Invalidation paths start with /; optional single wildcard must be last; CallerReference required');
+            const old=(c.invalidations||[]).find(i=>i.InvalidationBatch.CallerReference===batch.CallerReference);if(old){if(JSON.stringify(old.InvalidationBatch.Paths)!==JSON.stringify(batch.Paths))throw Error('InvalidationBatchAlreadyExists: CallerReference reused with different paths');return resultJson({Invalidation:clone(old)});}
+            const seq=(sim.account.cdnInvalidationCounter||0)+1,i={Id:'I'+String(seq).padStart(6,'0'),Status:'InProgress',CreateTime:'2026-01-01T00:00:00Z',InvalidationBatch:clone(batch)};sim.account.cdnInvalidationCounter=seq;(c.invalidations||(c.invalidations=[])).push(i);return resultJson({Invalidation:clone(i)});
+          }
+          if(op==='get-invalidation'){const c=getDist('distribution-id');return resultJson({Invalidation:clone(getInvalid(c))});}
+          if(op==='list-invalidations'){const c=getDist('distribution-id');return resultJson({InvalidationList:{Quantity:(c.invalidations||[]).length,Items:clone(c.invalidations||[])}});}
+          if(op==='wait'){
+            if(toks[3]==='distribution-deployed'){const c=getDist();c.status='Deployed';c.deployedConfig=clone(config(c));return print('ok','');}
+            if(toks[3]==='invalidation-completed'){const c=getDist('distribution-id'),i=getInvalid(c);i.Status='Completed';const paths=i.InvalidationBatch.Paths.Items;c.edgeCache=(c.edgeCache||[]).filter(e=>!paths.some(p=>p===e.path||p.endsWith('*')&&e.path.startsWith(p.slice(0,-1))));return print('ok','');}
+            throw Error('aws: error: supported waiters: distribution-deployed, invalidation-completed');
+          }
+          throw Error(`aws: error: unknown CloudFront operation '${op}'`);
+        } catch(e){return print('err',e.message);}
+      }
 
       /* ===================== ELBV2 ===================== */
       case 'elbv2': {
