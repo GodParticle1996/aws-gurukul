@@ -1,0 +1,50 @@
+{
+  "Rules": [
+    {
+      "ID": "archive-large-logs",
+      "Status": "Enabled",
+      "Filter": {
+        "And": {
+          "Prefix": "logs/aggregated/",
+          "ObjectSizeGreaterThan": 131071
+        }
+      },
+      "Transitions": [
+        {
+          "Days": 30,
+          "StorageClass": "STANDARD_IA"
+        },
+        {
+          "Days": 180,
+          "StorageClass": "GLACIER"
+        }
+      ]
+    },
+    {
+      "ID": "noncurrent-cleanup",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "logs/"
+      },
+      "NoncurrentVersionTransitions": [
+        {
+          "NoncurrentDays": 30,
+          "StorageClass": "STANDARD_IA"
+        }
+      ],
+      "NoncurrentVersionExpiration": {
+        "NoncurrentDays": 365
+      }
+    },
+    {
+      "ID": "abort-incomplete",
+      "Status": "Enabled",
+      "Filter": {
+        "Prefix": "logs/"
+      },
+      "AbortIncompleteMultipartUpload": {
+        "DaysAfterInitiation": 7
+      }
+    }
+  ]
+}

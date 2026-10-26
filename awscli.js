@@ -334,10 +334,17 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
      versions na ho toh purana bucket.objects list chalta hai. */
   let s3seq = 0;
   const vid = () => 'v' + String(++s3seq).padStart(3, '0') + '-' + Math.random().toString(36).slice(2, 8);
+  const s3Now = () => new Date(sim.account.now || '2026-10-26T00:00:00Z');
+  const s3Encryption = b => ({ serverSideEncryption: b.encryption === 'kms' ? 'aws:kms' : 'AES256', ...(b.encryption === 'kms' ? { kmsKey: b.kmsKey || 'alias/aws/s3', bucketKey: !!b.bucketKey } : {}) });
+  function s3VersionLocked(v, bypass) {
+    if(v.legalHold==='ON')return true;
+    const r=v.retention;
+    return !!r&&new Date(r.RetainUntilDate)>s3Now()&&(r.Mode==='COMPLIANCE'||!(bypass&&sim.account.canBypassGovernance));
+  }
   function ensureVersions(b) {
-    if (b.versions) return b.versions;
-    b.versions = {};
-    (b.objects || []).forEach(o => { b.versions[o.key] = [{ versionId: 'null', deleteMarker: false, size: o.size || 1024, lastModified: o.lastModified || '2026-10-01 10:00:00' }]; });
+    if (b.versions) return b.versions=Object.assign(Object.create(null),b.versions);
+    b.versions = Object.create(null);
+    (b.objects || []).forEach(o => { b.versions[o.key] = [{ ...o, versionId: 'null', deleteMarker: false, size: o.size || 1024, lastModified: o.lastModified || '2026-10-01 10:00:00' }]; });
     return b.versions;
   }
   function objectsOf(b) {
@@ -350,11 +357,14 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     const now = '2026-10-23 ' + new Date().toTimeString().slice(0, 8);
     if (b.versioning === true || b.versions) {
       const vs = ensureVersions(b);
-      (vs[key] = vs[key] || []).unshift({ versionId: b.versioning === true ? vid() : 'null', deleteMarker: false, size, lastModified: now });
+      const fresh={ versionId: b.versioning === true ? vid() : 'null', deleteMarker: false, size, lastModified: now, ...s3Encryption(b) };
+      const retention=b.objectLock&&b.objectLock.Rule&&b.objectLock.Rule.DefaultRetention;
+      if(retention){const until=s3Now();if(retention.Years)until.setUTCFullYear(until.getUTCFullYear()+retention.Years);else until.setUTCDate(until.getUTCDate()+retention.Days);fresh.retention={Mode:retention.Mode,RetainUntilDate:until.toISOString()};}
+      (vs[key] = Array.isArray(vs[key])?vs[key]:[]).unshift(fresh);
       if (b.versioning !== true) vs[key] = vs[key].slice(0, 1);
     } else {
       b.objects = (b.objects || []).filter(o => o.key !== key);
-      b.objects.push({ key, size, lastModified: now });
+      b.objects.push({ key, size, lastModified: now, ...s3Encryption(b) });
     }
   }
   function isPublicPolicy(doc) {
@@ -593,7 +603,18 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           'authorize-security-group-ingress': ['group-id', 'group-name', 'protocol', 'port', 'cidr', 'source-group', 'ip-permissions', 'dry-run!', 'no-dry-run!'],
           'revoke-security-group-ingress': ['group-id', 'group-name', 'protocol', 'port', 'cidr', 'source-group', 'ip-permissions', 'dry-run!', 'no-dry-run!'],
         },
-        s3api: { 'put-public-access-block': ['bucket', 'public-access-block-configuration', 'expected-bucket-owner'], 'get-public-access-block': ['bucket', 'expected-bucket-owner'] },
+        s3api: {
+          'put-public-access-block': ['bucket', 'public-access-block-configuration', 'expected-bucket-owner'], 'get-public-access-block': ['bucket', 'expected-bucket-owner'],
+          'put-bucket-lifecycle-configuration': ['bucket','lifecycle-configuration','transition-default-minimum-object-size'], 'get-bucket-lifecycle-configuration': ['bucket'], 'delete-bucket-lifecycle': ['bucket'],
+          'put-bucket-replication': ['bucket','replication-configuration'], 'get-bucket-replication': ['bucket'], 'delete-bucket-replication': ['bucket'],
+          'put-object-lock-configuration': ['bucket','object-lock-configuration'], 'get-object-lock-configuration': ['bucket'],
+          'put-object-retention': ['bucket','key','version-id','retention','bypass-governance-retention!'], 'get-object-retention': ['bucket','key','version-id'],
+          'put-object-legal-hold': ['bucket','key','version-id','legal-hold'], 'get-object-legal-hold': ['bucket','key','version-id'],
+          'put-bucket-intelligent-tiering-configuration': ['bucket','id','intelligent-tiering-configuration'], 'get-bucket-intelligent-tiering-configuration': ['bucket','id'],
+          'get-bucket-versioning': ['bucket'], 'put-bucket-versioning': ['bucket','versioning-configuration'],
+          'head-object': ['bucket','key','version-id'], 'get-object': ['bucket','key','version-id'],
+          'restore-object': ['bucket','key','version-id','restore-request'], 'delete-object': ['bucket','key','version-id','bypass-governance-retention!'],
+        },
         rds: {
           'modify-db-instance': ['db-instance-identifier', 'multi-az!', 'no-multi-az!', 'publicly-accessible!', 'no-publicly-accessible!', 'deletion-protection!', 'no-deletion-protection!', 'apply-immediately!', 'no-apply-immediately!', 'backup-retention-period', 'allocated-storage', 'max-allocated-storage', 'db-instance-class'],
         },
@@ -616,7 +637,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       const serviceSpec = specs[service];
       if (Object.prototype.hasOwnProperty.call(serviceSpec, op)) {
         const allowed = serviceSpec[op].concat(['query', 'output', 'region', 'profile', 'endpoint-url', 'no-cli-pager!', 'no-paginate!']);
+        let positionalSeen=false;
         for (let i = op === 'wait' ? 4 : 3; i < toks.length;) {
+          if(service==='s3api'&&op==='get-object'&&!toks[i].startsWith('--')&&!positionalSeen){positionalSeen=true;i++;continue;}
           const name = toks[i].startsWith('--') ? toks[i].slice(2) : '';
           const spec = allowed.find(a => a.replace(/[*!]$/, '') === name);
           if (!spec) return print('err', `Unknown options: ${toks[i]}. This simulator models the documented flags listed by help.`);
@@ -664,6 +687,90 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         return print('ok', Array.isArray(result) && result.some(x => x && typeof x === 'object') ? result.map(row).join('\n') : row(result));
       }
       print('err', 'Simulator output support: --output json or text. Table/YAML formatting is not implemented.');
+    }
+
+    if(service==='s3api'&&['put-bucket-lifecycle-configuration','get-bucket-lifecycle-configuration','delete-bucket-lifecycle','put-bucket-replication','get-bucket-replication','delete-bucket-replication','put-object-lock-configuration','get-object-lock-configuration','put-object-retention','get-object-retention','put-object-legal-hold','get-object-legal-hold','put-bucket-intelligent-tiering-configuration','get-bucket-intelligent-tiering-configuration','get-bucket-versioning','put-bucket-versioning','head-object','get-object','restore-object'].includes(op)){
+      const clone=x=>JSON.parse(JSON.stringify(x)),object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
+      const required=n=>{const v=flag(n);if(!v)throw Error(`aws: error: the following arguments are required: --${n}`);return v;};
+      const doc=n=>{let raw=required(n);if(raw.startsWith('file://')){const f=Object.prototype.hasOwnProperty.call(sim.files,raw.slice(7))&&sim.files[raw.slice(7)];if(!f||typeof f.content!=='string')throw Error(`Error parsing parameter --${n}: Unable to load paramfile; use ls/cat`);raw=f.content;}try{const v=JSON.parse(raw);if(!object(v))throw Error('object required');return v;}catch(e){throw Error(`Error parsing parameter --${n}: simulator supports a JSON object/file (${e.message})`);}};
+      const bucket=()=>{const name=required('bucket'),b=list('buckets').find(b=>b.name===name);if(!b)throw Error(`NoSuchBucket: ${name}`);return b;};
+      const int=(n,min=1)=>Number.isInteger(n)&&n>=min;
+      const version=b=>{const key=required('key'),id=flag('version-id'),all=(b.versions||{})[key],vs=Array.isArray(all)?all:[],v=id?vs.find(v=>v.versionId===id):vs[0]||(b.objects||[]).find(v=>v.key===key);if(!v)throw Error(id?`NoSuchVersion: ${id}`:`NoSuchKey: ${key}`);if(v.deleteMarker)throw Error(id?'MethodNotAllowed: Requested version is a delete marker':'NoSuchKey: Current version is a delete marker; list-object-versions to find retained data');return v;};
+      const lockEnabled=b=>b.objectLock&&b.objectLock.ObjectLockEnabled==='Enabled';
+      const lockCheck=b=>{if(!lockEnabled(b))throw Error('InvalidRequest: Bucket Object Lock must be enabled first');};
+      const prefix=f=>f.Prefix!==undefined?f.Prefix:f.And&&f.And.Prefix;
+      const validateFilter=f=>{if(!object(f))throw Error('MalformedXML: Filter must be an object');if(f.Prefix!==undefined&&typeof f.Prefix!=='string')throw Error('InvalidArgument: Prefix must be string');if(f.And!==undefined){if(!object(f.And)||typeof f.And.Prefix!=='string')throw Error('Simulator scope: And filter needs Prefix plus object-size condition');for(const k of ['ObjectSizeGreaterThan','ObjectSizeLessThan'])if(f.And[k]!==undefined&&!int(f.And[k],0))throw Error('InvalidArgument: Object size must be a nonnegative integer');if(f.And.ObjectSizeGreaterThan===undefined&&f.And.ObjectSizeLessThan===undefined)throw Error('InvalidArgument: And needs more than one predicate');}if(f.ObjectSizeGreaterThan!==undefined&&!int(f.ObjectSizeGreaterThan,0))throw Error('InvalidArgument: Object size must be a nonnegative integer');if(f.Tag||f.Tags||f.And&&(f.And.Tag||f.And.Tags))throw Error('Simulator scope: Prefix/object-size filters only; tag-based rules are not evaluated here');};
+      const classes=['STANDARD_IA','ONEZONE_IA','INTELLIGENT_TIERING','GLACIER_IR','GLACIER','DEEP_ARCHIVE'];
+      const minimum={STANDARD_IA:30,ONEZONE_IA:30,GLACIER_IR:90,GLACIER:90,DEEP_ARCHIVE:180,INTELLIGENT_TIERING:0};
+      function transitions(rows,daysField){if(!Array.isArray(rows)||!rows.length)throw Error('MalformedXML: Transitions must be a nonempty array');let last=-1,previous;for(const t of rows){if(!object(t)||!classes.includes(t.StorageClass)||!int(t[daysField],0))throw Error('InvalidArgument: Transition needs a supported StorageClass and integer days; date-based transitions outside this simulator subset');if(t[daysField]<=last)throw Error('InvalidArgument: Transition days must increase');if(daysField==='Days'&&['STANDARD_IA','ONEZONE_IA'].includes(t.StorageClass)&&t.Days<30)throw Error('InvalidArgument: Standard-IA/One Zone-IA transition requires object age at least30days');if(previous&&t[daysField]-last<(minimum[previous]||0))throw Error('InvalidArgument: One-rule transition chain must respect source storage-class minimum duration');last=t[daysField];previous=t.StorageClass;}}
+      try{
+        const b=bucket();
+        if(op==='get-bucket-versioning')return resultJson(b.versioning===undefined?{}:{Status:b.versioning?'Enabled':'Suspended'});
+        if(op==='put-bucket-versioning'){
+          const raw=required('versioning-configuration'),m=raw.match(/^Status=(Enabled|Suspended)$/),status=m?m[1]:doc('versioning-configuration').Status;
+          if(!['Enabled','Suspended'].includes(status))throw Error('InvalidArgument: Status must be Enabled or Suspended');if(status==='Suspended'&&lockEnabled(b))throw Error('InvalidBucketState: Cannot suspend versioning on Object Lock enabled bucket');if(status==='Enabled')ensureVersions(b);b.versioning=status==='Enabled';return print('ok','');
+        }
+        if(op==='put-bucket-lifecycle-configuration'){
+          const cfg=doc('lifecycle-configuration');if(!Array.isArray(cfg.Rules)||!cfg.Rules.length||cfg.Rules.length>1000)throw Error('MalformedXML: Rules must contain1..1000 rules');const ids=new Set();
+          for(const r of cfg.Rules){if(!object(r)||!['Enabled','Disabled'].includes(r.Status))throw Error('MalformedXML: Each rule needs Enabled/Disabled Status');if(r.ID!==undefined){if(typeof r.ID!=='string'||!r.ID||ids.has(r.ID))throw Error('InvalidArgument: Rule IDs must be unique nonempty strings');ids.add(r.ID);}if(r.Filter!==undefined)validateFilter(r.Filter);else if(typeof r.Prefix!=='string')throw Error('MalformedXML: Rule needs Filter or legacy Prefix');if(r.Filter!==undefined&&r.Prefix!==undefined)throw Error('InvalidArgument: Use Filter or Prefix, not both');
+            if(r.Transitions)transitions(r.Transitions,'Days');if(r.NoncurrentVersionTransitions)transitions(r.NoncurrentVersionTransitions,'NoncurrentDays');
+            if(r.NoncurrentVersionExpiration&&(!object(r.NoncurrentVersionExpiration)||!int(r.NoncurrentVersionExpiration.NoncurrentDays)))throw Error('InvalidArgument: NoncurrentDays must be positive');
+            if(r.AbortIncompleteMultipartUpload&&(!object(r.AbortIncompleteMultipartUpload)||!int(r.AbortIncompleteMultipartUpload.DaysAfterInitiation)))throw Error('InvalidArgument: DaysAfterInitiation must be positive');
+            if(r.Expiration){if(!object(r.Expiration)||(!int(r.Expiration.Days)&&r.Expiration.ExpiredObjectDeleteMarker!==true))throw Error('InvalidArgument: Expiration requires positive Days or ExpiredObjectDeleteMarker');if(r.Transitions&&r.Expiration.Days<=r.Transitions.at(-1).Days)throw Error('InvalidArgument: Expiration must follow last transition');}
+            if(!['Transitions','NoncurrentVersionTransitions','NoncurrentVersionExpiration','AbortIncompleteMultipartUpload','Expiration'].some(k=>r[k]))throw Error('MalformedXML: Lifecycle rule needs an action');
+          }
+          const size=flag('transition-default-minimum-object-size')||'all_storage_classes_128K';if(!['all_storage_classes_128K','varies_by_storage_class'].includes(size))throw Error('InvalidArgument: Unknown transition-default-minimum-object-size');b.lifecycle=clone(cfg);b.lifecycleMinimum=size;return print('ok','');
+        }
+        if(op==='get-bucket-lifecycle-configuration'){if(!b.lifecycle)throw Error('NoSuchLifecycleConfiguration: No lifecycle configuration found');return resultJson({...clone(b.lifecycle),TransitionDefaultMinimumObjectSize:b.lifecycleMinimum||'all_storage_classes_128K'});}
+        if(op==='delete-bucket-lifecycle'){delete b.lifecycle;return print('ok','');}
+        if(op==='put-object-lock-configuration'){
+          const cfg=doc('object-lock-configuration');if(cfg.ObjectLockEnabled!=='Enabled')throw Error('InvalidRequest: Object Lock cannot be disabled once enabled');if(!b.versioning)throw Error('InvalidBucketState: Versioning must be Enabled before Object Lock');
+          if(cfg.Rule!==undefined){const r=cfg.Rule&&cfg.Rule.DefaultRetention;if(!object(r)||!['GOVERNANCE','COMPLIANCE'].includes(r.Mode)||(r.Days===undefined)===(r.Years===undefined)||!int(r.Days===undefined?r.Years:r.Days))throw Error('InvalidArgument: DefaultRetention needs Mode and exactly one positive Days/Years value');}
+          b.objectLock=clone(cfg);return print('ok','');
+        }
+        if(op==='get-object-lock-configuration'){if(!lockEnabled(b))throw Error('ObjectLockConfigurationNotFoundError: Object Lock is not enabled');return resultJson({ObjectLockConfiguration:clone(b.objectLock)});}
+        if(op==='put-object-retention'){
+          lockCheck(b);const v=version(b),r=doc('retention'),date=new Date(r.RetainUntilDate);
+          if(!['COMPLIANCE','GOVERNANCE'].includes(r.Mode)||!Number.isFinite(date.getTime())||date<=s3Now())throw Error('InvalidArgument: Retention needs Mode and future RetainUntilDate');
+          const old=v.retention;if(old&&new Date(old.RetainUntilDate)>s3Now()&&(r.Mode!==old.Mode||date<new Date(old.RetainUntilDate))){if(old.Mode==='COMPLIANCE'||!(toks.includes('--bypass-governance-retention')&&sim.account.canBypassGovernance))throw Error('AccessDenied: Cannot shorten/change active retention without allowed governance bypass; compliance cannot be bypassed');}
+          v.retention={Mode:r.Mode,RetainUntilDate:date.toISOString()};return print('ok','');
+        }
+        if(op==='get-object-retention'){lockCheck(b);const v=version(b);return resultJson({Retention:v.retention?clone(v.retention):{}});}
+        if(op==='put-object-legal-hold'){
+          lockCheck(b);const v=version(b),raw=required('legal-hold'),m=raw.match(/^Status=(ON|OFF)$/),status=m?m[1]:doc('legal-hold').Status;if(!['ON','OFF'].includes(status))throw Error('InvalidArgument: LegalHold Status must be ON/OFF');v.legalHold=status;return print('ok','');
+        }
+        if(op==='get-object-legal-hold'){lockCheck(b);return resultJson({LegalHold:{Status:version(b).legalHold||'OFF'}});}
+        if(op==='put-bucket-replication'){
+          if(!b.versioning)throw Error("InvalidRequest: Versioning must be 'Enabled' on source bucket to apply replication configuration");
+          const cfg=doc('replication-configuration'),match=typeof cfg.Role==='string'&&cfg.Role.match(/^arn:aws:iam::123456789012:role\/(.+)$/),role=match&&(sim.account.roles||[]).find(r=>r.name===match[1]);
+          if(!role||!role.replication||role.replication.trust!=='s3.amazonaws.com')throw Error('InvalidRequest: Existing S3-trusted replication role required; inspect mission role-policy.json');
+          if(!Array.isArray(cfg.Rules)||!cfg.Rules.length)throw Error('MalformedXML: Replication Rules required');const ids=new Set();
+          for(const r of cfg.Rules){if(!object(r)||typeof r.ID!=='string'||ids.has(r.ID)||!['Enabled','Disabled'].includes(r.Status)||!int(r.Priority,0)||!object(r.Destination)||typeof r.Destination.Bucket!=='string')throw Error('InvalidRequest: Replication rule ID/Priority/Status/Destination required');ids.add(r.ID);if(r.Filter)validateFilter(r.Filter);const pre=r.Filter?prefix(r.Filter):r.Prefix;if(typeof pre!=='string')throw Error('Simulator scope: replication rule needs Prefix filter');const name=r.Destination.Bucket.replace(/^arn:aws:s3:::/,''),d=list('buckets').find(x=>x.name===name);if(!d||d===b)throw Error('InvalidArgument: Destination bucket must exist and differ from source');if(!d.versioning)throw Error('InvalidRequest: Destination bucket versioning must be Enabled');if(lockEnabled(b)&&!lockEnabled(d))throw Error('InvalidRequest: Object Lock source requires Object Lock destination');if(role.replication.source!==b.name||role.replication.destination!==d.name||!role.replication.readRetention||!role.replication.readLegalHold)throw Error('AccessDenied: Replication role fixture lacks scoped source/destination/retention permissions');if(!r.DeleteMarkerReplication||!['Enabled','Disabled'].includes(r.DeleteMarkerReplication.Status))throw Error('InvalidRequest: Filtered replication rule needs DeleteMarkerReplication Enabled/Disabled');}
+          b.replication=clone(cfg);return print('ok','');
+        }
+        if(op==='get-bucket-replication'){if(!b.replication)throw Error('ReplicationConfigurationNotFoundError: No replication configuration');return resultJson({ReplicationConfiguration:clone(b.replication)});}
+        if(op==='delete-bucket-replication'){delete b.replication;return print('ok','');}
+        if(op==='put-bucket-intelligent-tiering-configuration'){
+          const id=required('id'),cfg=doc('intelligent-tiering-configuration');if(!/^[A-Za-z0-9_-]{1,64}$/.test(id)||['__proto__','constructor','prototype'].includes(id)||cfg.Id!==id||!['Enabled','Disabled'].includes(cfg.Status))throw Error('InvalidArgument: Matching valid Id and Enabled/Disabled Status required');if(cfg.Filter)validateFilter(cfg.Filter);if(!Array.isArray(cfg.Tierings)||!cfg.Tierings.length)throw Error('InvalidArgument: Optional archive Tierings array required');const seen=new Set();for(const t of cfg.Tierings){if(!object(t)||!['ARCHIVE_ACCESS','DEEP_ARCHIVE_ACCESS'].includes(t.AccessTier)||!int(t.Days,t.AccessTier==='ARCHIVE_ACCESS'?90:180)||t.Days>730||seen.has(t.AccessTier))throw Error('InvalidArgument: Unique ARCHIVE_ACCESS90..730 / DEEP_ARCHIVE_ACCESS180..730 day tiers required');seen.add(t.AccessTier);}const tiers=b.intelligentTiering||{};tiers[id]=clone(cfg);b.intelligentTiering=tiers;return print('ok','');
+        }
+        if(op==='get-bucket-intelligent-tiering-configuration'){const id=required('id'),cfg=b.intelligentTiering&&Object.prototype.hasOwnProperty.call(b.intelligentTiering,id)&&b.intelligentTiering[id];if(!cfg)throw Error('NoSuchConfiguration: Intelligent-Tiering configuration not found');return resultJson({IntelligentTieringConfiguration:clone(cfg)});}
+        if(op==='restore-object'){
+          const v=version(b);if(!['GLACIER','DEEP_ARCHIVE'].includes(v.storageClass))throw Error('InvalidObjectState: Restore applies to archived GLACIER/DEEP_ARCHIVE in this simulator');const raw=required('restore-request'),m=raw.match(/^Days=(\d+),GlacierJobParameters=\{Tier=(Standard|Bulk|Expedited)\}$/),r=m?{Days:Number(m[1]),GlacierJobParameters:{Tier:m[2]}}:doc('restore-request');
+          const tier=r.GlacierJobParameters&&r.GlacierJobParameters.Tier;if(!int(r.Days)||!['Standard','Bulk','Expedited'].includes(tier)||v.storageClass==='DEEP_ARCHIVE'&&tier==='Expedited')throw Error('InvalidArgument: Restore needs positive Days and valid retrieval tier; no Expedited for Deep Archive');if(v.restore&&v.restore.pollsRemaining>0)throw Error('RestoreAlreadyInProgress: Poll head-object; repeated submission does not speed restoration');v.restore={pollsRemaining:2,expires:new Date(s3Now().getTime()+r.Days*86400000).toISOString(),tier};return print('ok','');
+        }
+        if(op==='head-object'||op==='get-object'){
+          const v=version(b);if(op==='head-object'&&v.restore&&v.restore.pollsRemaining>0)v.restore.pollsRemaining--;
+          const restored=v.restore&&v.restore.pollsRemaining===0&&new Date(v.restore.expires)>s3Now();
+          const encryption=v.serverSideEncryption ? v : s3Encryption(b);
+          const result={ContentLength:v.size||0,VersionId:v.versionId||'null',StorageClass:v.storageClass||'STANDARD',ETag:v.etag||'"fixture"',ServerSideEncryption:encryption.serverSideEncryption,...(encryption.serverSideEncryption==='aws:kms'?{SSEKMSKeyId:encryption.kmsKey,BucketKeyEnabled:!!encryption.bucketKey}:{}),...(v.retention?{ObjectLockMode:v.retention.Mode,ObjectLockRetainUntilDate:v.retention.RetainUntilDate}:{}),...(v.legalHold?{ObjectLockLegalHoldStatus:v.legalHold}:{}),...(v.restore?{Restore:'ongoing-request="'+(v.restore.pollsRemaining>0?'true':'false')+'", expiry-date="'+v.restore.expires+'"'}:{})};
+          if(op==='get-object'){
+            if(['GLACIER','DEEP_ARCHIVE'].includes(v.storageClass)&&!restored)throw Error('InvalidObjectState: Archived version not restored; poll Restore metadata until ongoing-request=false');
+            let outfile;for(let i=3;i<toks.length;i++){if(toks[i].startsWith('--')){if(!['--no-cli-pager','--no-paginate'].includes(toks[i]))i++;}else outfile=toks[i];}if(!outfile)throw Error('aws: error: outfile is required for get-object');if(['__proto__','constructor','prototype'].includes(outfile))throw Error('Simulator: choose an ordinary output filename');
+            (sim.downloads||(sim.downloads={}))[outfile]={versionId:v.versionId||'null',body:v.body||'',etag:v.etag||'"fixture"'};
+          }
+          return resultJson(result);
+        }
+      }catch(e){return print('err',e.message);}
     }
 
     // Deterministic configuration model, not real EC2 boot/HTTP/time simulation.
@@ -1190,9 +1297,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if (!b || !key) return print('err', 'error: --bucket and --key required');
           const v = flag('version-id');
           if (v) {
-            const list = (b.versions || {})[key] || [];
+            const all = (b.versions || {})[key];
+            const list = Array.isArray(all) ? all : [];
             const idx = list.findIndex(x => x.versionId === v);
             if (idx < 0) return print('err', `An error occurred (InvalidArgument) when calling the DeleteObject operation: Invalid version id specified`);
+            if(s3VersionLocked(list[idx],toks.includes('--bypass-governance-retention')))return print('err','An error occurred (AccessDenied) when calling the DeleteObject operation: Protected object version cannot be deleted; compliance/legal hold cannot be bypassed.');
             const wasMarker = list[idx].deleteMarker;
             list.splice(idx, 1);
             print('ok', prettyJson(wasMarker ? { DeleteMarker: true, VersionId: v } : { VersionId: v }));
@@ -1267,12 +1376,18 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const buckets = list('buckets');
           const idx = buckets.findIndex(b => b.name === bname);
           if (idx < 0) return print('err', `NoSuchBucket: ${bname}`);
+          const b=buckets[idx];
+          const nonempty=b.versions?Object.values(b.versions).some(v=>Array.isArray(v)&&v.length):(b.objects||[]).length>0;
+          if(nonempty)return print('err','An error occurred (BucketNotEmpty) when calling the DeleteBucket operation: Delete all objects, versions and delete markers first; active retention still protects locked versions.');
           buckets.splice(idx, 1);
           print('ok', '');
         } else if (op === 'put-bucket-encryption') {
           const b = find('buckets', flag('bucket'));
           if (!b) return print('err', `NoSuchBucket: ${flag('bucket')}`);
           const c = flag('server-side-encryption-configuration') || '';
+          if (!/aws:kms|AES256/.test(c)) return print('err', 'error: --server-side-encryption-configuration JSON mein SSEAlgorithm AES256 ya aws:kms do');
+          // Defaults affect future writes. Preserve encryption on every existing version.
+          [...(b.objects || []), ...Object.values(b.versions || {}).flat()].forEach(v => { if (!v.deleteMarker && !v.serverSideEncryption) Object.assign(v, s3Encryption(b)); });
           if (/aws:kms/.test(c)) { b.encryption = 'kms'; b.kmsKey = (c.match(/KMSMasterKeyID"?\s*:\s*"([^"]+)/) || [])[1] || 'alias/aws/s3'; b.bucketKey = /BucketKeyEnabled"?\s*:\s*true/.test(c); }
           else if (/AES256/.test(c)) b.encryption = true;
           else return print('err', 'error: --server-side-encryption-configuration JSON mein SSEAlgorithm AES256 ya aws:kms do');

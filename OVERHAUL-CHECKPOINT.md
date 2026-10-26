@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through Intermediate 3 `cloudfront` complete.** User approved continuing at the Beginner
-track checkpoint. Next: **Intermediate 4 `s3adv`** (master plan §5.B4), then continue levels without per-level approval.
+**Phase A complete; Phase B through Intermediate 4 `s3adv` complete.** User approved continuing at the Beginner
+track checkpoint. Next: **Intermediate 5 `efs`** (master plan §5.B5), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -35,8 +35,74 @@ Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
 Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3 completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 193 stages, 51/51 terminal missions,
-44 interactive labs, 11 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 38 levels, 198 stages, 53/53 terminal missions,
+48 interactive labs, 12 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced checks.
+
+## Intermediate 4 `s3adv` loop completed (2026-10-26 UTC)
+
+1. Read old level/VISUALS. Removed invented fintech savings, flat80% claim and compliance-as-storage-class muddle.
+   Same ID kept. New IIFE `data-int-4-s3adv.js`: eight question/analogy cards, four myths, comparison/decision
+   playbook, nine exam cues; dryrun → flowlab → bins → order → triage → terminal → lab12 → eight bonus MCQs;
+   four interview MCQs + restore terminal, eight flashcards, optional billable AWS homework/cleanup.
+2. Verified seven general-purpose classes, current prices/minimums, IT online30/90 days vs optional slow archive,
+   small-object defaults/fees, lifecycle current/noncurrent/abort, replication vs historical backfill/RTC scope,
+   existing-bucket Object Lock and default-vs-existing-version retention. Governance bypass cannot defeat compliance
+   or legal hold; simple DELETE may add a marker. Restore readiness is separate from class conversion.
+3. US East public price catalog published2026-10-15 plus separate Deep Archive offer2026-09-11 captured locally.
+   Planner models one365-day log cohort: storage, two transitions,40KiB archive metadata, requested reads/restores
+   and early-duration charges. Requires≥100GiB preserved payload and≥10% reads/month; shrinking demand cannot win.
+   Documented10MiB×100,000 example:976.6GiB, approx$121.71/year vs$269.53 Standard;54.8% model saving, not bill.
+4. Ran Moto5.2.4 probes before lab authoring. Replication rejects unversioned destination, stores config but does
+   not copy objects. Lifecycle stores rules but drops nested ObjectSizeGreaterThan on readback. IT PUT unsupported;
+   GET empty; get-object-retention500 unsupported. HeadObject retention, governance/hold deletion guards and markers
+   work; GLACIER read fails before restore, local restore completes immediately and downloaded bytes compare equal.
+5. Added lab12 setup/config/exercises/cleanup and captured repository replay. Three owned buckets + actual S3-trusted
+   IAM role/inline policy, cross-region destination metadata, cleanup-safe GOVERNANCE1day only. Legal hold ON blocks
+   bypass; OFF allows controlled cleanup. All exact versions/markers, buckets and role cleaned; no shared reset.
+   Fixed setup dependent-variable expansion and cleaned only the saved partial bucket, then replayed successfully.
+   No NFS/Docker/real AWS or real-time lifecycle/replication proof claimed.
+6. Simulator supports real JSON lifecycle/replication/lock/retention/legal-hold/IT configuration, prerequisite errors,
+   versioned-object head/get/restore and preservation guards. Main seven state actions: destination versioning,
+   safe logs lifecycle, future default compliance, old exact-version retention, destination lock, filtered role-based
+   replication and optional media tiering. Every action needed; equivalent lifecycle IDs/order accepted.
+7. Interview requires restore→two documented fixture polls→GET of original version/body/ETag. No fake restore waiter,
+   class rename or fabricated replication bytes. Retention/holds guard exact-version deletes; nonempty bucket deletion
+   now returns BucketNotEmpty (CDN regression updated). Null-prototype version maps block prototype lookup crashes.
+   Object encryption is captured per write/version; changing bucket KMS defaults does not relabel old objects.
+8. `validate-s3adv.js` wired in-process: **19,355 checks**, all **7,200 planner settings**, intended final-step wins,
+   every omitted action, bad JSON/flags/resources, broad/wrong/disabled config, governance/compliance/hold/markers,
+   restored bytes, parser garbage/prototype keys, default encryption changes and clean replays. **15 MCQs:0 length
+   flags; answer positions4/4/4/3.** Full validator green:38 levels,198 stages,53/53 missions,48 interactive labs,12 labs.
+9. Linked storage/s3class Dojo decisions corrected for GIR vs Flexible, IT caveats, pricing/minimums and special
+   Express append support. Current maximum S3 object size50TB also corrected in Beginner4;5GB single PUT remains.
+   Looked at desktop1280/phone360 intro, dryrun, planner start/solved and terminal start/solved screenshots.
+   All eight lesson cards checked per width: **38 browser samples; zero errors/document overflow**. Narrative text
+   wraps long API names and myth-grid content; tables retain explicit sideways swipe. Pronoun/bash/diff checks clean.
+
+Evidence: `/tmp/aws-gurukul-s3adv/{01-…33-*.txt,REPO-SETUP.txt,REPO-EXERCISES.txt,REPO-CLEANUP.txt,
+FINAL-VALIDATE.txt,BROWSER-REPORT.json,screenshots/,price-rows.json}`; additional named probe captures in same folder.
+No push/deployment. Next Intermediate5 `efs`, master §5.B5; continue automatically after this local commit/summary.
+
+S3 primary sources verified this session:
+- [Pricing/minimums/metadata](https://aws.amazon.com/s3/pricing/),
+  [current US East offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3/current/us-east-1/index.json),
+  [Deep Archive offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonS3GlacierDeepArchive/current/us-east-1/index.json).
+- [Glacier classes/restore times](https://docs.aws.amazon.com/AmazonS3/latest/userguide/glacier-storage-classes.html),
+  [Intelligent-Tiering](https://docs.aws.amazon.com/AmazonS3/latest/userguide/intelligent-tiering-overview.html),
+  [optional archive thresholds](https://docs.aws.amazon.com/AmazonS3/latest/API/API_Tiering.html),
+  [lifecycle constraints/small-object default](https://docs.aws.amazon.com/AmazonS3/latest/userguide/lifecycle-transition-general-considerations.html).
+- [Object Lock](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock.html),
+  [existing-bucket setup](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-configure.html),
+  [retention/holds/replication](https://docs.aws.amazon.com/AmazonS3/latest/userguide/object-lock-managing.html),
+  [replication prerequisites](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-requirements.html),
+  [RTC](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-time-control.html).
+- [Restore](https://docs.aws.amazon.com/AmazonS3/latest/userguide/restoring-objects.html),
+  [prefix performance](https://docs.aws.amazon.com/AmazonS3/latest/userguide/optimizing-performance.html),
+  [December2025 maximum50TB](https://aws.amazon.com/about-aws/whats-new/2025/12/amazon-s3-maximum-object-size-50-tb/),
+  [notifications](https://docs.aws.amazon.com/AmazonS3/latest/userguide/notification-how-to-event-types-and-destinations.html),
+  [default encryption affects future objects](https://docs.aws.amazon.com/AmazonS3/latest/userguide/default-bucket-encryption.html),
+  [KMS rotation](https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html),
+  [Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-key.html).
 
 ## Intermediate 3 `cloudfront` loop completed (2026-10-26 UTC)
 

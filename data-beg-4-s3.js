@@ -53,7 +53,7 @@
           '<tr><td><b>Key</b></td><td>Object ka poora naam (path jaisa dikhta hai)</td><td><code>images/kurta/red-001.jpg</code></td></tr>' +
           '<tr><td><b>Object</b></td><td>Data + metadata (content-type, size, tags)</td><td>51 KB JPEG</td></tr>' +
           '<tr><td><b>Prefix</b></td><td>Key ka shuru wala hissa — "folder" ka bhram</td><td><code>images/kurta/</code></td></tr></table></div>' +
-          'Ek object max <b>5 TB</b>. Ek PUT max 5 GB — badi file ke liye <b>multipart upload</b> (100 MB se upar recommended). 2020 se S3 <b>strong read-after-write</b> consistent hai: likhte hi padho, naya data milega.',
+          'Ek object ka current documented maximum <b>50 TB</b> hai (December 2025 update). Ek PUT max 5 GB — badi file ke liye <b>multipart upload</b> (around 100 MB se consider karo). 2020 se S3 <b>strong read-after-write</b> consistent hai: successful write ke baad read naya data deta hai.',
         asli: 'S3 = HTTP API wala object store. File ke beech mein ek byte edit nahi hota — poora object dobara likhna padta hai. Database ya OS disk ke liye nahi.',
       },
       {

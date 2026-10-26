@@ -265,17 +265,14 @@ const VISUALS = {
   },
 
   s3adv: {
-    t: 'S3 Storage Classes — cost vs access frequency',
-    html: `
-      <div class="dg-ladder">
-        <div class="dg-rung"><span class="lv">$</span><span class="cmd">S3 Standard</span><span class="q">frequent access · 99.99% avail</span></div>
-        <div class="dg-rung"><span class="lv">$$</span><span class="cmd">S3 Standard-IA</span><span class="q">infrequent · cheaper storage, pricier retrieve</span></div>
-        <div class="dg-rung"><span class="lv">$$$</span><span class="cmd">S3 One Zone-IA</span><span class="q">1 AZ only · 99.5% · cheapest IA</span></div>
-        <div class="dg-rung g"><span class="lv">¢¢</span><span class="cmd">S3 Glacier</span><span class="q">archive · 1-5 min to 12 hrs retrieve</span></div>
-        <div class="dg-rung g"><span class="lv">¢</span><span class="cmd">S3 Glacier Deep Archive</span><span class="q">cheapest · 12 hrs retrieve (compliance)</span></div>
-        <div class="dg-rung a"><span class="lv">→</span><span class="cmd">Lifecycle rule</span><span class="q">30 din → IA · 90 din → Glacier · auto!</span></div>
-      </div>
-      <div class="dg-cap"><b>Lifecycle rules</b> = automatically move objects Standard → IA → Glacier based on age. <b>Replication</b> (CRR/SSR) = cross-region/cross-account backup. <b>Encryption</b>: SSE-S3 (default), SSE-KMS (keys), SSE-C (your keys).</div>`,
+    t:'S3 — access class, tiny-object cost and version retention',
+    html:`<div class="dg-ladder">
+      <div class="dg-rung"><span class="lv">Hot</span><span class="cmd">Standard / Intelligent-Tiering</span><span class="q">Known frequent / changing access; optional archive tiers separate</span></div>
+      <div class="dg-rung"><span class="lv">ms</span><span class="cmd">Standard-IA / One Zone-IA</span><span class="q">30day/128KB minimum; one-zone only with accepted recoverability</span></div>
+      <div class="dg-rung g"><span class="lv">ms</span><span class="cmd">Glacier Instant Retrieval</span><span class="q">Quarterly online archive;90day/128KB minimum + retrieval fee</span></div>
+      <div class="dg-rung g"><span class="lv">h</span><span class="cmd">Flexible / Deep Archive</span><span class="q">Restore first;90/180day minimum +40KB metadata/object</span></div>
+      <div class="dg-rung a"><span class="lv">WORM</span><span class="cmd">Object Lock on exact versions</span><span class="q">Class is not retention; default future vs explicit existing protection</span></div>
+      </div><div class="dg-cap">Lifecycle default skips tiny transitions&lt;128KB unless overridden. Compare per-object fees, reads and minimum duration. <b>CRR/SRR</b> configuration is not verified copy; restore submission is not readable recovery. Compliance, legal hold, encryption-key access and latest-key visibility are separate boundaries.</div>`,
   },
 
   efs: {

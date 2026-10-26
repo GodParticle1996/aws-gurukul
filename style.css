@@ -835,6 +835,7 @@ pre {
 .st-visual { margin: 10px 0; }
 .st-example { background: #34d3990c; border-left: 3px solid var(--good); padding: 8px 12px; border-radius: 8px; margin: 8px 0; }
 .st-asli { background: #ff990010; border: 1px solid #ff990044; padding: 8px 12px; border-radius: 8px; margin: 10px 0 2px; }
+.st-points, .st-asli, .st-analogy { overflow-wrap: anywhere; }
 .st-card table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: .9rem; }
 .st-card th, .st-card td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
 .st-card th { background: #0d1526; color: var(--accent); }
@@ -847,6 +848,7 @@ pre {
 .myth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 8px 0; border-top: 1px dashed var(--border); line-height: 1.55; }
 .myth-m { color: #ffc9c9; }
 .myth-s { color: #c9f5e3; }
+.myth-m, .myth-s { min-width: 0; overflow-wrap: anywhere; }
 
 /* ---- lesson: decision playbook ---- */
 .playbook { margin: 16px 0; padding: 14px 16px; border-radius: var(--radius); background: linear-gradient(135deg, #2a1d0a, #111a2e); border: 1px solid #ff990055; text-align: left; }

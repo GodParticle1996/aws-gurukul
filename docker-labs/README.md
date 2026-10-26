@@ -56,6 +56,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `09-nat-endpoint-peering` | 🌐 VPC Deep Dive | zonal NAT/EIP, managed S3 prefix routes, interface ENIs, active peer + two routes, Flow Log metadata and cleanup |
 | `10-route53-routing` | 📡 Route53 | actual CLI Alias/weighted/failover JSON, primary health association repair, honest DNS/probe limits and scoped cleanup |
 | `11-cloudfront-oac` | 🌍 CloudFront | real OAC/config/ETag/policy requests, invalidation metadata; explicit Moto attachment/ETag/status limits; scoped cleanup |
+| `12-s3-lifecycle-lock-replication` | 🪣 S3 Advanced | lifecycle/CRR metadata, governance retention + legal hold + marker, restored-byte check; explicit tiering/filter/replication gaps and scoped cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 
