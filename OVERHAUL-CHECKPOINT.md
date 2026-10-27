@@ -1,8 +1,8 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-27
 
-**Phase A and B complete; Advanced1 `wellarch`/lab21 and Advanced2 `orgs`/lab22 complete.**
+**Phase A and B complete; Advanced1 `wellarch`/lab21, Advanced2 `orgs`/lab22 and Advanced3 `dr`/lab23 complete.**
 Intermediate track checkpoint answered **Continue — Advanced1 wellarch** (2026-10-27).
-Next **Advanced3 `dr` (§5.C3),lab23**; continue per-level loop/local commits, ask before push.
+Next **Advanced4 `advnet` (§5.C4), lab24**; continue per-level loop/local commits, ask before push.
 
 ## User decisions
 
@@ -39,8 +39,76 @@ Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 240 stages, 61/61 terminal missions,
-88 interactive labs, 22 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 245 stages, 62/62 terminal missions,
+23 real-lab projects (DR adds `validate-dr.js`: 1,148 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+
+## Advanced 3 `dr` loop completed (2026-10-27; master §5.C3)
+
+Taken over from the incomplete handover snapshot (draft `dr-cli.js`, lab23 draft, Moto probe). Predecessor orgs **738689e**.
+
+1. **Content:** new IIFE `data-adv-3-dr.js`, same `dr` ID; old block removed from `data-advanced.js`; `VISUALS.dr` rewritten
+   (old "RPO 0 / instant" ladder removed). Eight cards in Roman Hinglish (RTO/RPO with ₹ stakes; four strategies with
+   REL13-BP02 ranges; replica is not backup; service-wise data DR table; compute/AMI/IaC/DRS; control vs data plane +
+   ARC Region switch; Vault Lock modes + cross-account copy; drill/failback/fictional cost table), four myths, playbook,
+   nine exam cues, kab-kya table. Stages: dryrun (7 steps, 3 asks) → 288-state planner → bins → runbook order → triage
+   (Region-specific AMI ID) → 8-action terminal → lab23 → 8 MCQs. Interview: 4 MCQs + 3-action promotion terminal.
+   Eight flashcards, optional approved homework. Fiction labelled; pronoun and Devanagari lint clean. `dr`/`dbha` trees link.
+2. **Engine `dr-cli.js` completed:** hook moved before the shared flag guard (the guard rejected `ec2 wait --image-ids`
+   and `--vpc-security-group-ids` before the DR engine ran). Fixture Regions ap-south-1/ap-south-2 only. KMS lookup by
+   key ARN/ID/alias/alias ARN with destination-Region + enabled checks. `--source-region` optional (official encrypted
+   cross-Region example omits it; mismatch rejected). Class defaults to source; omitted SG → VPC default SG; omitted
+   subnet group → explicit no-default-VPC fault. copy-image: encrypted without key → default EBS key (legal, misses the
+   reviewed-key contract), `--kms-key-id` needs `--encrypted`, AMI name rules/duplicates, real "[Copied …]" description.
+   Promotion: default retention 1 day (CLI reference), status `modifying`, source link removed, irreversible note.
+   modify needs `--apply-immediately` (pending window scoped out explicitly), SG modify, retention 0 blocked on replica
+   sources. Real deletion-protection message; final-snapshot requirement. Backup plan validation incl.
+   EnableContinuousBackup (1–35 days), 6-field cron, existing copy destination, rule names; selection role/resources/
+   duplicates; plan with selections cannot vanish. KMS describe-key/list-aliases, describe-security-groups/db-subnet-groups.
+3. **Missions:** main = DR vault with DR CMK → continuous-PITR plan + daily Hyderabad copy → orders selection →
+   encrypted AMI copy → image waiter → private encrypted cross-Region replica → DB waiter → current full read (final).
+   Interview = promote with 7-day retention → waiter → read. Primary DB, golden AMI, prod vault, keys and network are
+   preserved; extra vault/AMI/replica, default-key copy, default SG, query-projected/wrong-Region/stale reads, recreated
+   replica and destructive follow-ups cannot win.
+4. **`validate-dr.js`** (in-process): **1,148 checks**, all **288 planner states** (exactly 2 valid pilot-light designs),
+   **15 MCQs, 0 length flags, positions 4/4/4/3**; omissions, 12 destructive follow-ups, 27 state mutations, stale reads,
+   alternatives (key ARN/ID/alias ARN, optional source Region, default class, Region-wide read, equals/tabs, SG repair,
+   plan-before-vault, default-key copy replacement), atomic errors, promotion semantics and 209 garbage commands.
+5. **Planner** uses declared course assumptions (fictional ₹ quotes, planning minutes), not AWS guarantees: RTO = detect +
+   data step + servers + traffic (scripted runbook runs data/servers in parallel). Only pilot light with replica + daily
+   backups, data-plane switch, quarterly drill and cross-account lock fits ₹80k; hot standby breaks budget, backups-only
+   breaks RPO, replica-only breaks the corruption contract.
+6. **Lab23:** draft restored to `docker-labs/23-backup-restore-failover/`; Moto probe confirmed ap-south-2 support, so the
+   Region pair is now Mumbai→Hyderabad; quieter output; README rewritten in Hinglish with this run's real output.
+   Exact launcher replay: **10 behavior checks + cleanup 11**, owned listener closed. Moto gaps: CreateBackupSelection
+   500, StartBackupJob 404, promotion keeps source link, CRR does not replicate objects, TestDNSAnswer 404, instant
+   INSYNC. Host SQLite restore: TEST-23-3 missing, synthetic recovery-point age 120 s. Lab table row added.
+7. **Browser:** 46 samples at 1280/360 px, 0 console/page errors, 0 overflow; dry run, planner (start/solved), terminal
+   (solved), lesson cards and phone views inspected. Fixed: short-arrow "traffic" labels lifted onto the app node
+   (removed); vault copy line crossed the group label (shorter group labels, nodes moved); phone tables broke words
+   letter by letter because `.st-body` sets `overflow-wrap:anywhere` → new opt-in `.swipe-table` (words whole, `.tbl-wrap`
+   swipes on phones, phone-only hint). Other levels untouched; several older levels have unwrapped tables (Phase F note).
+8. Full `node validate.js`: **ALL CHECKS PASSED — 39 levels, 245 stages, 62/62 missions, 23 linked labs**; all focused suites green.
+
+Evidence (gitignored): `.overhaul-evidence/DR-{MOTO-PROBE,LAB23-REPLAY,LAB23-HYD-REPLAY,FOCUSED-TESTS,FULL-VALIDATE,BROWSER-LOG}.txt`,
+`DR-BROWSER-REPORT.json`, `dr-browser.cjs`, `dr-screenshots/`. Original draft kept under `dr-draft/`.
+
+Extra sources checked this session (2026-10-27): [REL13-BP02 strategies](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_planning_for_recovery_disaster_recovery.html),
+[promote-read-replica CLI](https://docs.aws.amazon.com/cli/latest/reference/rds/promote-read-replica.html),
+[continuous backup copies](https://docs.aws.amazon.com/aws-backup/latest/devguide/point-in-time-recovery-copying.html),
+[Region switch reliability](https://docs.aws.amazon.com/r53recovery/latest/dg/data-and-control-planes-rs.html), plus the list below.
+
+DR primary-source context: [strategy objectives](https://docs.aws.amazon.com/wellarchitected/latest/framework/rel_planning_for_recovery_disaster_recovery.html),
+[Backup resource assignment](https://docs.aws.amazon.com/aws-backup/latest/devguide/assigning-resources.html),
+[copy semantics](https://docs.aws.amazon.com/aws-backup/latest/devguide/point-in-time-recovery-copying.html),
+[restore testing](https://docs.aws.amazon.com/aws-backup/latest/devguide/restore-testing.html),
+[Vault Lock](https://docs.aws.amazon.com/aws-backup/latest/devguide/vault-lock.html),
+[RDS replica](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.XRgn.html),
+[promotion](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.Promote.html),
+[AMI copy](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/CopyingAMIs.html),
+[current S3 RTC page](https://docs.aws.amazon.com/AmazonS3/latest/userguide/replication-time-control.html),
+[Aurora recovery](https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/aurora-global-database-disaster-recovery.html),
+[current global tables](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_HowItWorks.html),
+[ARC Region switch](https://docs.aws.amazon.com/r53recovery/latest/dg/data-and-control-planes-rs.html).
 
 ## Advanced 2 `orgs` loop completed (2026-10-27; master §5.C2)
 

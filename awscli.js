@@ -639,6 +639,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     for (const arg of ['query', 'output']) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
+    // Scoped DR fixture owns its documented flags (copy-image, image waiter, cross-Region replica) before the shared guard.
+    if (sim.account.drMode && AG.drCLI && AG.drCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Fail before mutation on misspelled flags or stray positional values.
     if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {
       const specs = {

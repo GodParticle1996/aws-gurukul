@@ -1129,3 +1129,9 @@ pre {
   .lesson-card .security-table, .lesson-card .review-table { table-layout: fixed; }
   .lesson-card .security-table th, .lesson-card .security-table td, .lesson-card .review-table th, .lesson-card .review-table td { padding: 6px 4px; overflow-wrap: anywhere; }
 }
+
+/* Opt-in wide tables: words stay whole; on phones the .tbl-wrap scrolls sideways instead of breaking letters. */
+.swipe-table th, .swipe-table td { overflow-wrap: normal; word-break: normal; }
+.lesson-card .review-table.swipe-table { table-layout: auto; }
+.lesson-card .review-table.swipe-table th, .lesson-card .review-table.swipe-table td { overflow-wrap: normal; }
+@media (max-width: 640px) { .tbl-wrap .swipe-table { min-width: 34rem; } }

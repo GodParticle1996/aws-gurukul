@@ -360,19 +360,15 @@ const VISUALS = {
   },
 
   dr: {
-    t: 'Disaster Recovery — 4 strategies by RTO/RPO',
-    html: `
-      <div class="dg-ladder">
-        <div class="dg-rung g"><span class="lv">1</span><span class="cmd">Backup & Restore</span><span class="q">RPO: hrs · RTO: hrs · cheapest</span></div>
-        <div class="dg-rung a"><span class="lv">2</span><span class="cmd">Pilot Light</span><span class="q">RPO: mins · core running, scale on DR</span></div>
-        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Warm Standby</span><span class="q">RPO: secs · scaled-down replica running</span></div>
-        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Multi-Site Active-Active</span><span class="q">RPO: 0 · full dual, instant failover · $$$</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="rto">RTO = Recovery Time Objective (kitni der down)</span>
-        <span class="dg-pill gold" data-hs="rpo">RPO = Recovery Point Objective (kitna data loss)</span>
-      </div>
-      <div class="dg-cap"><b>RTO</b> = how fast you recover. <b>RPO</b> = how much data you lose. Backup&Restore cheapest/slowest. Multi-Site priciest/instant. Choice = cost vs downtime tradeoff.</div>`,
+    t: 'Disaster Recovery — objective se drill tak',
+    html: `<div class="dg-grid">
+      <div class="dg-rung a"><span class="lv">1</span><span class="cmd">RTO / RPO per workload</span><span class="q">business decide karta hai; orders 4 h / 15 min</span></div>
+      <div class="dg-rung g"><span class="lv">2</span><span class="cmd">Data: replica + locked backups</span><span class="q">replica RPO ke liye, alag-account locked copy galti/ransomware ke liye</span></div>
+      <div class="dg-rung a"><span class="lv">3</span><span class="cmd">Compute: AMI copy + IaC</span><span class="q">AMI ID Region-specific; capacity aur quota pehle se</span></div>
+      <div class="dg-rung g"><span class="lv">4</span><span class="cmd">Traffic: pre-built data-plane switch</span><span class="q">health-check failover / ARC; DR ke din control-plane edit nahi</span></div>
+      <div class="dg-rung a"><span class="lv">5</span><span class="cmd">Drill: measure + reconcile</span><span class="q">asli RTO/RPO naapo, missing orders wapas milao</span></div>
+      <div class="dg-rung g"><span class="lv">6</span><span class="cmd">Failback: reverse sync</span><span class="q">naye primary se replica, verify, planned cutover</span></div>
+    </div><div class="dg-cap">AWS framework ranges: backup &amp; restore — RPO hours, RTO 24 h tak; pilot light — minutes / tens of minutes; warm standby — seconds / minutes; multi-site — near zero / potentially zero. Ranges targets hain, guarantees nahi; drill hi proof hai.</div>`,
   },
 
   advnet: {
