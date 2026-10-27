@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through `events` complete (Intermediate 1–10, including selected caching).** User approved continuing at the Beginner
-track checkpoint. Next: **`security`** (master plan §5.B10; UI ordinal11), then continue levels without per-level approval.
+**Phase A complete; Phase B through `security` complete (Intermediate 1–11, including selected caching).** User approved continuing at the Beginner
+track checkpoint. Next: **`boss2`** (master plan §5.B11; UI ordinal12), then ask the required Intermediate track checkpoint question.
 
 ## User decisions
 
@@ -35,8 +35,116 @@ Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
 Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6: **1b5495f**. Intermediate7: **0d190ca**. Caching local commit: **0335f77**. Messaging completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 223 stages, 56/56 terminal missions,
-72 interactive labs, 18 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events checks.
+Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 227 stages, 58/58 terminal missions,
+76 interactive labs, 19 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security checks.
+
+## Intermediate 11 `security` loop completed (2026-10-26; master §5.B10)
+
+1. Read the entire old security level, visual, KMS/S3 handlers and four related decision trees before design.
+   Removed unsupported Capital One/GuardDuty counterfactual, universal yearly customer rotation, universal free/
+   non-exportable ACM certificates, agentless-all-GuardDuty claim and encryption-as-authorization shortcuts.
+   Same security ID retained in IIFE `data-int-11-security.js`; old block removed, index/DATA registered after events.
+2. Eight question/analogy/mechanism cards, four myths, explicit comparison/decision map, playbook, nine exam cues,
+   dryrun→KMS cost planner→prevention/detection/recovery bins→key-policy triage→12-action terminal→lab19→eight MCQs.
+   Interview has four MCQs and three-action original-key/context recovery; eight flashcards and optional approved
+   billable homework with scoped cleanup. One game follows the allowed1–2 range; no extra game required. Progressive
+   hints and intended command arrays are data. Pronoun lint clean. Sourced Capital One case links DOJ and company
+   statements, separate from fictional ShopKaro hook; no claim a missing detector would certainly prevent the event.
+3. Current facts verified: eligible customer symmetric AWS_KMS automatic rotation opt-in90–2560days (default365),
+   annual AWS-managed rotation, eligible imported-material on-demand rotation distinct from automatic. Old material/
+   key identity retained; no automatic data/password rewrite. Direct symmetric Encrypt≤4096bytes; exact case-sensitive
+   non-secret EncryptionContext; key policy/IAM/grants paths versus explicit Deny. KMS deletion7–30days; cancellation
+   leaves Disabled. Default S3 encryption affects future writes. Bucket Key savings up to99% depend on requesters/
+   workload; cached use can skip KMS calls/key-policy recheck and does not provide per-object KMS audit.
+4. Secrets Manager rotation coordinates backend set/test plus version promotion; configuration is not successful
+   rotation. RotateImmediately=false still runs testSecret for Lambda rotation. Supported managed/external integrations
+   differ; no fixed30-day universal behavior. Parameter Store has no built-in rotation, Standard4KiB/Advanced8KiB.
+   ACM non-exportable integrated public certificates have no certificate charge; exportable/ACME/Private CA modes
+   differ. CloudFront viewer ACM us-east-1 versus ALB Region. WAF approximate60/120/300/600s windows/minimum10,
+   Count versus enforcement, distributed/shared-IP and origin bypass caveats. GuardDuty optional Runtime Monitoring
+   uses an agent; coverage/findings/response differ. Cognito user/identity pools versus workforce/code roles covered.
+5. Approx US East pricing checked: customer KMS$1/key/month; first two retained material rotations add$1/month each;
+   eligible symmetric calls$0.03/10000. Secrets$0.40/secret/month+$0.05/10000API calls. WAF base meters$5/ACL,
+   $1/rule/month,$0.60/millionrequests with premium/WCU/body/logging extras. Shield Advanced approx$3000/month,
+   one-year minimum plus protected-resource DTO/other fees and eligibility conditions. Planner declares a hypothetical
+   measured reuse percentage;20million eligible calls gives gross$61, assumed90%reduction gives2millioncalls/$7.
+   No guaranteed99% saving or instant key revocation; allowances/other stack costs excluded. All600settings checked.
+6. Moto5.2.4 behavior probed BEFORE README/engine/content. Lab19 exact script replay passes14behavior+cleanup15:
+   actual host AES-GCM7000-byte envelope roundtrip/tamper rejection using Moto KMS GenerateDataKey/Decrypt; wrong
+   context rejected; S3 old/new default distinction; pending/current/previous secret labels with a host TEST backend
+   dict; SecureString ciphertext/decryption; Regional two-AZ ALB/WAF association; stale LockToken rejection; detector
+   enabled metadata. Not PostgreSQL/Lambda rotation, real WAF HTTP inspection or live threat detection.
+7. Captured gaps: disabled KMS decrypt is ACCEPTED by Moto; rotation response omits requested period; no-Lambda
+   RotateSecret can falsely report enabled/promoted state; default GetSecretValue can remain old after stage promotion
+   while explicit AWSCURRENT is correct. GuardDuty CreateSampleFindings/ListFindings return404. Failed preparation
+   assertions/capture/API probes still cleaned fixtures and closed listeners; final README uses successful exact repo
+   replay. Python del is not guaranteed secure memory erasure; host envelope is a teaching reference, not a production SDK.
+8. `docker-labs/19-kms-secrets-waf/{lab.py,README.md}` and table row added. Script owns ephemeral loopback Moto,
+   explicit endpoints/dummy keys/lab-local config, profiles/session token/metadata disabled. Deletes own detector,
+   ACL/association, ALB/subnets/VPC, parameters/secrets and bucket objects/bucket; own KMS key scheduled7days and
+   checked PendingDeletion, then disposable server/listener closed. Historical ignored .lab ledger is not a live AWS
+   resource. No shared reset, ~/.aws writes, real AWS, Docker/install or unrelated process changes; Docker still absent.
+9. New IIFE `security-cli.js` registered in engine/index; awscli dispatches through AG namespace. Replaces old KMS
+   and regex-only bucket-encryption handlers with guarded documented flags/JSON/files, exact IDs/aliases, rotation/
+   deletion states, bounded key policy/direct-or-IAM-delegation/Deny/context checks, opaque TEST cipher handles,
+   secret stages/default reads and configuration-only rotation, SSM tiers, WAF rule schema/scope/association/LockToken
+   and seeded GuardDuty findings. It is explicitly not cryptography, full management IAM/grants, WAF traffic or a
+   rotation/runtime engine. CLI v2 raw SearchString flag and equivalent default-base64 input supported. Reviewed
+   policies compare semantically across object/statement order/singleton lists; WAF Priority determines rule order.
+10. State predicates preserve original archive key, invoices, ALB and reviewed function; require usable narrow new
+    key/alias/rotation, future-write defaults, retrievable current TEST credentials, actual associated enforcing WAF
+    metadata and fresh full readback. Interview decrypts the original handle with original key/current policy revision
+    and exact context. Broad policy, Count-only/default-block shortcuts, bad context, wrong key, deleted work and stale
+    observations lose. Crypto-use denial correctly differs from Moto gap; configuration-only win wording never claims
+    backend rotation or bot prevention. Main12/interview3 win only after the final step; every omission loses.
+11. `validate-security.js` wired in-process: **1,438checks**,600planner states, garbage/missing/reordered flags,
+    malformed JSON, typed rate/windows/deletion/rotation bounds, raw/base64 alternatives, duplicate token/secret
+    handling, explicit key/identity Deny, pending/current defaults, WAF optimistic concurrency and current readbacks.
+    Fifteen MCQs0length flags, positions4/4/3/4; three inline questions balanced. Every explanation addresses tempting
+    alternatives. Existing suites remain green; dead legacy handlers removed and CLI help corrected.
+12. Main browser36samples plus all four linked decision trees/certificate/reload42samples: **78samples,
+    0console/page errors,0document overflow** at1280px/360px. Inspected intro/dryrun/planner start+solved/terminal,
+    mobile solved summary and selected lesson/Dojo screenshots. Fixed actual table containment/phone columns,
+    exam/technical-body wrapping and clipped SVG node; labels and nodes checked for overlap/bounds. Keyboard mission
+    completes only on final command; documented sliders give$7; same security/caching progress IDs and36/36certificate
+    survive reload. Host emoji font remains box glyphs; no broken data/assets.
+13. Final `node validate.js`: **ALL CHECKS PASSED** —39levels/227stages/58of58missions/76interactive/19labs;
+    27trees144recommendations148scenarios. Legacy remaining missions still await planned rewrite; auto-solves do
+    not prove every old exercise is hardened. No push/deployment. Two-part saved UX remains Phase E.
+
+Evidence: `.overhaul-evidence/SECURITY-{PROBE,PROBE-2,PROBE-3,PROBE-4,PROBE-5,LAB19-REPLAY,FOCUSED,VALIDATE,
+BROWSER,DOJO-BROWSER}.txt`, `SECURITY-*-REPORT.json`, and `security-screenshots/`. Focused completion1438 is also in
+the final full-validator capture; standalone FOCUSED capture can predate the last added equivalence/Deny checks.
+**Next: Intermediate12 `boss2`, master §5.B11, lab20. Local commit then continue automatically. Ask the required
+Intermediate track question only AFTER boss2 is fully finished; ask before every push.**
+
+Security primary references checked during this level:
+- [KMS rotation types](https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html)
+- [Automatic rotation period/current API](https://docs.aws.amazon.com/kms/latest/APIReference/API_EnableKeyRotation.html)
+- [Key policy paths](https://docs.aws.amazon.com/kms/latest/developerguide/key-policies.html)
+- [Decrypt/context/disabled-key errors](https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html)
+- [Data-key API](https://docs.aws.amazon.com/kms/latest/APIReference/API_GenerateDataKey.html)
+- [KMS price/material retention](https://aws.amazon.com/kms/pricing/)
+- [Bucket Keys caching/audit/default-write scope](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-key.html)
+- [RotateSecret/no-immediate tests](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_RotateSecret.html)
+- [Current CLI/managed external metadata](https://docs.aws.amazon.com/cli/latest/reference/secretsmanager/rotate-secret.html)
+- [Rotation functions/stages](https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_lambda-functions.html)
+- [Secrets pricing](https://aws.amazon.com/secrets-manager/pricing/?c=sc&p=ft&z=3)
+- [Parameter Store tiers/rotation limits](https://docs.aws.amazon.com/en_en/systems-manager/latest/userguide/systems-manager-parameter-store.html)
+- [SecureString encryption/access](https://docs.aws.amazon.com/systems-manager/latest/userguide/secure-string-parameter-kms-encryption.html)
+- [ACM price/modes](https://aws.amazon.com/certificate-manager/pricing/)
+- [Exportable certificate deployment](https://docs.aws.amazon.com/acm/latest/userguide/acm-exportable-certificates.html)
+- [WAF rate settings](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based-high-level-settings.html)
+- [WAF approximation caveats](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based-caveats.html)
+- [WAF blob CLI representation](https://docs.aws.amazon.com/cli/latest/reference/wafv2/get-web-acl.html)
+- [WAF base pricing](https://aws.amazon.com/waf/pricing/?c=sc&p=ft&z=3)
+- [Current Shield/WAF costs and commitments](https://aws.amazon.com/blogs/aws-cloud-financial-management/how-to-estimate-your-aws-waf-and-aws-shield-advanced-costs/)
+- [GuardDuty coverage/plans](https://docs.aws.amazon.com/guardduty/latest/ug/what-is-guardduty.html)
+- [Runtime agent](https://docs.aws.amazon.com/guardduty/latest/ug/runtime-monitoring.html)
+- [Credential exfiltration findings](https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_finding-types-iam.html)
+- [DOJ Capital One case](https://www.justice.gov/usao-wdwa/united-states-v-paige-thompson)
+- [Capital One reported impact](https://www.capitalone.com/digital/facts2019/)
 
 ## Intermediate 10 `events` loop completed (2026-10-26; master §5.B9)
 

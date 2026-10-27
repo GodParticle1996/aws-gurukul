@@ -551,8 +551,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         '  aws organizations describe-organization / list-accounts / list-organizational-units-for-parent',
         '  aws organizations list-policies / describe-policy --policy-id <p> / attach-policy --policy-id <p> --target-id <ou>',
         '  aws events list-rules / describe-rule --name <n> / list-targets-by-rule --rule <n>',
-        '  aws events put-rule --name <n> --event-pattern <json>  |  aws events put-targets --rule <n> --targets <arn>',
-        '  aws stepfunctions list-state-machines / start-execution --name <sm> / get-execution-history',
+        '  aws events put-rule --name <n> --event-pattern <json>  |  aws events put-targets --rule <n> --targets file://targets.json',
+        '  aws stepfunctions start-execution --state-machine-arn <arn> --name <execution-name> / get-execution-history --execution-arn <arn>',
         '  aws logs put-subscription-filter --log-group-name <g> --filter-name <n> --filter-pattern "" --destination-arn <arn>',
         '  aws logs describe-subscription-filters --log-group-name <g>  |  aws logs put-metric-filter ...',
         '  aws kinesis list-streams / describe-stream --stream-name <s> / create-stream --stream-name <s> --shard-count <n>',
@@ -839,6 +839,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       }
       print('err', 'Simulator output support: --output json or text. Table/YAML formatting is not implemented.'); return false;
     }
+
+    if (AG.securityCLI && AG.securityCLI({service,op,toks,flag,flags,sim,list,print,resultJson,s3Encryption})) return;
 
     if(service==='s3api'&&['put-bucket-lifecycle-configuration','get-bucket-lifecycle-configuration','delete-bucket-lifecycle','put-bucket-replication','get-bucket-replication','delete-bucket-replication','put-object-lock-configuration','get-object-lock-configuration','put-object-retention','get-object-retention','put-object-legal-hold','get-object-legal-hold','put-bucket-intelligent-tiering-configuration','get-bucket-intelligent-tiering-configuration','get-bucket-versioning','put-bucket-versioning','head-object','get-object','restore-object'].includes(op)){
       const clone=x=>JSON.parse(JSON.stringify(x)),object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -1531,17 +1533,6 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const nonempty=b.versions?Object.values(b.versions).some(v=>Array.isArray(v)&&v.length):(b.objects||[]).length>0;
           if(nonempty)return print('err','An error occurred (BucketNotEmpty) when calling the DeleteBucket operation: Delete all objects, versions and delete markers first; active retention still protects locked versions.');
           buckets.splice(idx, 1);
-          print('ok', '');
-        } else if (op === 'put-bucket-encryption') {
-          const b = find('buckets', flag('bucket'));
-          if (!b) return print('err', `NoSuchBucket: ${flag('bucket')}`);
-          const c = flag('server-side-encryption-configuration') || '';
-          if (!/aws:kms|AES256/.test(c)) return print('err', 'error: --server-side-encryption-configuration JSON mein SSEAlgorithm AES256 ya aws:kms do');
-          // Defaults affect future writes. Preserve encryption on every existing version.
-          [...(b.objects || []), ...Object.values(b.versions || {}).flat()].forEach(v => { if (!v.deleteMarker && !v.serverSideEncryption) Object.assign(v, s3Encryption(b)); });
-          if (/aws:kms/.test(c)) { b.encryption = 'kms'; b.kmsKey = (c.match(/KMSMasterKeyID"?\s*:\s*"([^"]+)/) || [])[1] || 'alias/aws/s3'; b.bucketKey = /BucketKeyEnabled"?\s*:\s*true/.test(c); }
-          else if (/AES256/.test(c)) b.encryption = true;
-          else return print('err', 'error: --server-side-encryption-configuration JSON mein SSEAlgorithm AES256 ya aws:kms do');
           print('ok', '');
         } else {
           print('err', `unknown S3API op: ${op}`);
@@ -2590,68 +2581,6 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           print('ok', '{\n    "Datapoints": []\n}');
         } else {
           print('err', `unknown CloudWatch op: ${op}`);
-        }
-        return;
-
-      /* ===================== KMS ===================== */
-      case 'kms':
-        if (op === 'list-keys') {
-          const keys = list('kmsKeys');
-          if (!keys.length) return print('ok', '{\n    "Keys": []\n}');
-          print('ok', '{\n    "Keys": [\n' +
-            keys.map(k => `        { "KeyId": "${k.id}", "KeyArn": "arn:aws:kms:${sim.account.region || 'us-east-1'}:123456789012:key/${k.id}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-key') {
-          const id = flag('key-id');
-          if (!id) return print('err', 'error: --key-id required');
-          const k = list('kmsKeys').find(x => x.id === id);
-          if (!k) return print('err', `NotFoundException: Key '${id}' does not exist`);
-          print('ok', `{ "KeyMetadata": { "KeyId": "${k.id}", "KeyState": "${k.state || 'Enabled'}", "Description": "${k.alias}" } }`);
-        } else if (op === 'list-aliases') {
-          const keys = list('kmsKeys');
-          print('ok', '{\n    "Aliases": [\n' +
-            keys.map(k => `        { "AliasName": "alias/${k.alias}", "TargetKeyId": "${k.id}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'create-key') {
-          const keys = list('kmsKeys');
-          const id = 'key-' + Date.now().toString(36);
-          const desc = flag('description') || 'aws-managed';
-          keys.push({ id, alias: desc, state: 'Enabled' });
-          print('ok', `{ "KeyMetadata": { "KeyId": "${id}", "KeyState": "Enabled", "Description": "${desc}" } }`);
-        } else if (op === 'enable-key') {
-          const id = flag('key-id');
-          const k = list('kmsKeys').find(x => x.id === id);
-          if (!k) return print('err', `NotFoundException: Key '${id}' does not exist`);
-          k.state = 'Enabled';
-          print('ok', '');
-        } else if (op === 'disable-key') {
-          const id = flag('key-id');
-          const k = list('kmsKeys').find(x => x.id === id);
-          if (!k) return print('err', `NotFoundException: Key '${id}' does not exist`);
-          k.state = 'Disabled';
-          print('ok', '');
-        } else if (op === 'schedule-key-deletion') {
-          const id = flag('key-id');
-          const k = list('kmsKeys').find(x => x.id === id);
-          if (!k) return print('err', `NotFoundException: Key '${id}' does not exist`);
-          // asli default 30 din (minimum 7, maximum 30) — is beech key wapas cancel-key-deletion se bach sakti hai
-          const days = Math.min(30, Math.max(7, Number(flag('pending-window-in-days') || 30)));
-          k.state = 'PendingDeletion';
-          print('ok', `{ "KeyId": "${id}", "KeyState": "PendingDeletion", "PendingWindowInDays": ${days}, "DeletionDate": "${new Date(Date.now() + days * 86400000).toISOString()}" }`);
-        } else if (op === 'cancel-key-deletion') {
-          const id = flag('key-id');
-          const k = list('kmsKeys').find(x => x.id === id);
-          if (!k) return print('err', `NotFoundException: Key '${id}' does not exist`);
-          k.state = 'Disabled';
-          print('ok', `{ "KeyId": "${id}" }   ← key bach gayi, par state Disabled hai — enable-key se wapas on karo`);
-        } else if (op === 'get-key-policy') {
-          const id = flag('key-id');
-          const k = list('kmsKeys').find(x => x.id === id);
-          if (!k) return print('err', `NotFoundException: Key '${id}' does not exist`);
-          // AWS ka default key policy: account root ko poora control, phir IAM policies decide karti hain
-          print('ok', prettyJson({ Version: '2012-10-17', Id: 'key-default-1', Statement: [{ Sid: 'Enable IAM User Permissions', Effect: 'Allow', Principal: { AWS: `arn:aws:iam::${sim.account.callerIdentity?.Account || '123456789012'}:root` }, Action: 'kms:*', Resource: '*' }] }));
-        } else {
-          print('err', `unknown KMS op: ${op}`);
         }
         return;
 

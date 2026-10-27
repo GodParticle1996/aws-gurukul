@@ -63,6 +63,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `16-cache-aside` | ⚡ Caching | Actual host cache/origin counts, TTL/invalidation/race/coalescing; isolated Moto cache/DAX metadata limits; Docker follow-up unverified |
 | `17-sqs-sns-fanout-dlq` | 📨 SQS/SNS | Owned ephemeral Moto fan-out/body filters, consumer-scoped durable intents, real poison DLQ and FIFO group blocking; policy/dedup gaps captured |
 | `18-eventbridge-stepfunctions` | 🔔 Events | Actual Classic→SQS pattern routing, Scheduler/Lambda policy metadata, synthetic SFN history boundary; host DynamoDB TEST saga/crash recovery |
+| `19-kms-secrets-waf` | 🛡️ Security | Actual host AES-GCM envelope/tamper checks, secret stages, KMS/SSM/WAF/GuardDuty metadata and explicit runtime gaps |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

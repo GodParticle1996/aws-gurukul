@@ -66,14 +66,14 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'Secret automatically rotate hona chahiye?',
-        why: 'Secrets Manager RDS/Aurora/Redshift ke passwords managed rotation se badal deta hai (aur custom Lambda se kuch bhi). Parameter Store mein built-in rotation nahi.',
+        why: 'Supported managed integrations or reviewed Lambda rotation coordinate backend and secret versions. Configure permissions/connectivity and validate success; Parameter Store has no built-in credential rotation.',
         options: [
-          { t: 'Haan — DB password har 30 din badle, app ko pata bhi na chale', next: 'sm' },
+          { t: 'Haan — reviewed backend rotation schedule plus app credential refresh/recovery', next: 'sm' },
           { t: 'Nahi — config values, feature flags, kabhi-kabhi API key', next: 'ps' },
           { t: 'Doosre region mein bhi same secret chahiye (DR)', next: 'sm' },
         ],
       },
-      sm: { leaf: true, icon: '🔐', pick: 'AWS Secrets Manager', one: 'Encrypted secrets + automatic rotation + cross-region replication + fine IAM.', when: ['RDS/Aurora credentials (managed rotation)', 'Third-party API keys jinhe rotate karna hai', 'Multi-region apps'], avoid: ['Hazaaron non-secret config values (Parameter Store free)'], gotchas: ['App har baar secret cache kare (caching client) — warna API calls ka bill + latency', 'Rotation ke baad purane connections — app ko re-fetch karna aana chahiye'], cost: '$0.40 per secret/mahina + $0.05 per 10,000 API calls.', exam: '"automatically rotate database credentials" → Secrets Manager.', iac: `resource "aws_db_instance" "main" {
+      sm: { leaf: true, icon: '🔐', pick: 'AWS Secrets Manager', one: 'Encrypted secrets + automatic rotation + cross-region replication + fine IAM.', when: ['RDS/Aurora credentials (managed rotation)', 'Third-party API keys jinhe rotate karna hai', 'Multi-region apps'], avoid: ['Hazaaron non-secret config values (Parameter Store free)'], gotchas: ['Cache secrets with bounded refresh/recovery; stale credentials after rotation can break authentication', 'Rotation ke baad purane connections — app ko re-fetch karna aana chahiye'], cost: '$0.40 per secret/mahina + $0.05 per 10,000 API calls.', exam: '"automatically rotate database credentials" → Secrets Manager.', iac: `resource "aws_db_instance" "main" {
   # ...
   manage_master_user_password = true   # Secrets Manager mein password + rotation
 }`, level: 'security' },
@@ -92,7 +92,7 @@ AG.registerDecisions([
     icon: '🔑',
     title: 'Data encrypt kaise karun? — SSE-S3, SSE-KMS (AWS managed / customer managed), CloudHSM, client-side',
     short: 'Encryption / KMS',
-    tldr: 'Basic at-rest → SSE-S3 (default, free). Key ka har use CloudTrail mein audit + key policy control → SSE-KMS customer managed key. Key ka hardware bhi apna (FIPS 140-3 L3, single tenant) → CloudHSM. AWS ko plaintext dikhna hi nahi chahiye → client-side encryption.',
+    tldr: 'Basic at-rest → SSE-S3 (default, free). Key-use audit with request/cache scope + key policy control → SSE-KMS customer managed key. Dedicated single-tenant HSM/control requirement → CloudHSM. Payload upload se pehle encrypt karna ho → client-side encryption; app/key environment ka trust alag review karo.',
     levels: ['security', 's3adv'],
     start: 'q1',
     nodes: {
@@ -100,7 +100,7 @@ AG.registerDecisions([
         q: 'Key par kitna control chahiye?',
         options: [
           { t: 'Bas "data encrypted at rest" checkbox — kuch manage nahi karna', next: 'sses3' },
-          { t: 'Key policy khud likhni hai, CloudTrail mein har key use ka audit, rotation control, key disable karke data "band" karna', next: 'q2' },
+          { t: 'Key policy khud likhni hai, CloudTrail mein appropriate key-use audit scope, rotation control, key lifecycle/revocation control with service cache behavior reviewed', next: 'q2' },
           { t: 'Regulator kehta hai keys dedicated HSM mein, AWS ke paas bhi access nahi', next: 'hsm' },
           { t: 'Data AWS par pahunchne se pehle hi encrypted ho (AWS ko plaintext kabhi na mile)', next: 'cse' },
         ],
@@ -113,15 +113,15 @@ AG.registerDecisions([
           { t: 'Nahi — bas ek account, audit chahiye, policy control nahi', next: 'awsmanaged' },
         ],
       },
-      sses3: { leaf: true, icon: '🔒', pick: 'SSE-S3 (S3 managed keys)', one: 'S3 khud AES-256 se encrypt karta hai — 2023 se har naye object par default ON.', when: ['General data jahan key control ki requirement nahi'], avoid: ['Key usage audit / key policy / cross-account control chahiye'], gotchas: ['CloudTrail mein per-object key usage nahi dikhta'], cost: 'Free.', exam: '"encrypt at rest with minimal effort" → SSE-S3.', level: 's3adv' },
-      awsmanaged: { leaf: true, icon: '🗝️', pick: 'SSE-KMS with AWS managed key (aws/s3)', one: 'KMS key AWS banata aur rotate karta hai; CloudTrail mein usage dikhta hai.', when: ['Audit chahiye par key management nahi'], avoid: ['Cross-account access, custom key policy, rotation schedule control'], gotchas: ['Policy edit nahi hoti'], cost: 'Key free; KMS requests ~$0.03 per 10,000 (S3 Bucket Keys se 99% tak kam).', exam: '"audit trail of key usage" + "AWS manages key" → SSE-KMS (AWS managed).', level: 'security' },
-      cmk: { leaf: true, icon: '🔑', pick: 'SSE-KMS with customer managed key', one: 'Tumhari KMS key — key policy, grants, rotation, disable/delete, cross-account, multi-Region.', when: ['Compliance: key policy control + audit + separation of duties', 'Encrypted snapshots/AMIs doosre account ko share', 'Multi-Region keys for DR'], avoid: ['Bas checkbox chahiye (SSE-S3 free)'], gotchas: ['Key policy mein lockout mat karo (root/admin access rakho)', 'Delete = 7–30 din waiting period — us beech cancel ho sakta hai; delete ke baad data hamesha ke liye unreadable', 'S3 Bucket Key ON karo — KMS bill kam'], cost: '$1 per key/mahina + ~$0.03 per 10,000 requests.', exam: '"control over encryption keys", "rotate keys", "share encrypted snapshot cross-account" → customer managed KMS key.', iac: `resource "aws_kms_key" "data" {
+      sses3: { leaf: true, icon: '🔒', pick: 'SSE-S3 (S3 managed keys)', one: 'S3 khud AES-256 se encrypt karta hai — 2023 se har naye object par default ON.', when: ['General data jahan key control ki requirement nahi'], avoid: ['Key usage audit / key policy / cross-account control chahiye'], gotchas: ['Use appropriately enabled S3 data events for object access; encryption metadata is a separate proof'], cost: 'Free.', exam: '"encrypt at rest with minimal effort" → SSE-S3.', level: 's3adv' },
+      awsmanaged: { leaf: true, icon: '🗝️', pick: 'SSE-KMS with AWS managed key (aws/s3)', one: 'KMS key AWS banata aur rotate karta hai; CloudTrail mein usage dikhta hai.', when: ['Audit chahiye par key management nahi'], avoid: ['Cross-account access, custom key policy, rotation schedule control'], gotchas: ['Policy edit nahi hoti'], cost: 'Key free; Approx eligible symmetric KMS requests $0.03/10000; Bucket Key savings up to99% depend on requester/cache/workload.', exam: '"audit trail of key usage" + "AWS manages key" → SSE-KMS (AWS managed).', level: 'security' },
+      cmk: { leaf: true, icon: '🔑', pick: 'SSE-KMS with customer managed key', one: 'Tumhari KMS key — key policy, grants, rotation, disable/delete, cross-account, multi-Region.', when: ['Compliance: key policy control + audit + separation of duties', 'Encrypted snapshots/AMIs doosre account ko share', 'Multi-Region keys for DR'], avoid: ['Bas checkbox chahiye (SSE-S3 free)'], gotchas: ['Key policy mein lockout mat karo (root/admin access rakho)', 'Delete = 7–30 din waiting period — us beech cancel ho sakta hai; delete ke baad data hamesha ke liye unreadable', 'S3 Bucket Key ON karo — KMS bill kam'], cost: 'Approx $1/key/month; first two material rotations add $1/month each, plus eligible symmetric API $0.03/10000. Other meters/allowances differ.', exam: '"control over encryption keys", "rotate keys", "share encrypted snapshot cross-account" → customer managed KMS key.', iac: `resource "aws_kms_key" "data" {
   description             = "orders data key"
   enable_key_rotation     = true
   deletion_window_in_days = 30
 }`, level: 'security' },
-      hsm: { leaf: true, icon: '🏦', pick: 'AWS CloudHSM', one: 'Single-tenant dedicated HSM — keys sirf tumhare control mein (FIPS 140-3 Level 3).', when: ['Regulator: dedicated HSM, AWS ka koi access nahi', 'Oracle TDE, custom PKCS#11 apps'], avoid: ['Normal compliance (KMS khud FIPS-validated HSMs use karta hai)'], gotchas: ['HA ke liye 2+ HSMs alag AZs mein — cluster tumhe manage karna', 'Keys kho gayi = data gaya (AWS recover nahi kar sakta)'], cost: '~$1.45+/ghanta per HSM.', exam: '"dedicated HSM", "single-tenant", "customer-only control of keys" → CloudHSM.', level: 'security' },
-      cse: { leaf: true, icon: '🧳', pick: 'Client-side encryption', one: 'App upload se pehle khud encrypt karti hai (e.g. AWS Encryption SDK + KMS).', when: ['AWS par sirf ciphertext chahiye'], avoid: ['Server-side features chahiye (S3 Select, Athena seedha padhna)'], gotchas: ['Key management app ki zimmedari'], cost: 'SDK free, KMS calls ka bill.', exam: '"encrypt before sending to AWS" → client-side encryption.', level: 'security' },
+      hsm: { leaf: true, icon: '🏦', pick: 'AWS CloudHSM', one: 'Dedicated single-tenant HSM; review selected HSM generation/compliance, client integration and HA operations.', when: ['Regulator: dedicated HSM, AWS ka koi access nahi', 'Oracle TDE, custom PKCS#11 apps'], avoid: ['Normal compliance (KMS khud FIPS-validated HSMs use karta hai)'], gotchas: ['HA ke liye 2+ HSMs alag AZs mein — cluster tumhe manage karna', 'Keys kho gayi = data gaya (AWS recover nahi kar sakta)'], cost: 'Hourly per HSM; verify current Region/model pricing and HA cluster size.', exam: '"dedicated HSM", "single-tenant", "customer-only control of keys" → CloudHSM.', level: 'security' },
+      cse: { leaf: true, icon: '🧳', pick: 'Client-side encryption', one: 'App upload se pehle khud encrypt karti hai (e.g. AWS Encryption SDK + KMS).', when: ['AWS par sirf ciphertext chahiye'], avoid: ['Server-side readers such as Athena need compatible plaintext/decryption integration'], gotchas: ['Key management app ki zimmedari'], cost: 'SDK free, KMS calls ka bill.', exam: '"encrypt before sending to AWS" → client-side encryption.', level: 'security' },
     },
     scenarios: [
       { s: 'Startup ko bas "S3 data encrypted at rest" chahiye, koi audit requirement nahi.', answer: 'sses3', explain: 'Default SSE-S3, free.' },

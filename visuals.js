@@ -317,29 +317,8 @@ const VISUALS = {
   },
 
   security: {
-    t: 'Security Deep Dive — encryption + protection layers',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node"><span class="ni">🌍</span><span class="nl">Internet</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-bad" data-hs="waf"><span class="ni">🛡️</span><span class="nl">WAF + Shield</span><span class="ns">L7 attacks, DDoS</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-accent"><span class="ni">⚖️</span><span class="nl">CloudFront</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-box is-good"><span class="bx-label">VPC</span>
-          <div class="dg-flow">
-            <div class="dg-node is-good" data-hs="sg"><span class="ni">🛡️</span><span class="nl">SG + NACL</span></div>
-            <div class="dg-node is-gold" data-hs="kms"><span class="ni">🔑</span><span class="nl">KMS</span><span class="ns">encryption keys</span></div>
-            <div class="dg-node" data-hs="secrets"><span class="ni">🤫</span><span class="nl">Secrets Mgr</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="guardduty">GuardDuty = threat detection (ML)</span>
-        <span class="dg-pill good" data-hs="macie">Macie = PII in S3 scan</span>
-        <span class="dg-pill gold" data-hs="cloudtrail">CloudTrail = API audit log</span>
-      </div>
-      <div class="dg-cap"><b>KMS</b> = encryption key management. <b>WAF</b> = web app firewall (SQLi, XSS). <b>Shield</b> = DDoS. <b>GuardDuty</b> = ML-based threats. <b>Secrets Manager</b> = credentials rotation. Defense in depth = layers par layers.</div>`,
+    t: 'Security — entry path, data authorization and response evidence',
+    html: `<div class="dg-flow"><div class="dg-node"><span class="nl">HTTP client</span></div><div class="dg-arrow flow"></div><div class="dg-node is-accent"><span class="nl">WAF on entry resource</span><span class="ns">Count / enforce; actual association</span></div><div class="dg-arrow flow"></div><div class="dg-node is-good"><span class="nl">App role</span><span class="ns">Narrow IAM / network paths</span></div></div><div class="dg-flow" style="margin-top:12px"><span class="dg-pill gold">KMS: usable key + policy/context</span><span class="dg-pill acc">Secrets: versions + backend test</span><span class="dg-pill good">GuardDuty: covered signal + response owner</span></div><div class="dg-cap">Protection configuration, permitted plaintext access and measured runtime outcomes have separate evidence. KMS/Secrets Manager are regional services, not appliances inside the app subnet. Local WAF/rotation/detector metadata does not prove runtime enforcement.</div>`,
   },
 
   boss2: {

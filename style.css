@@ -187,6 +187,7 @@ pre {
   line-height: 1.6;
 }
 .lesson-card h3 { margin-top: 4px; color: var(--accent); }
+.lesson-card .tbl-wrap { overflow-x: auto; }
 .lesson-card table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: .9rem; }
 .lesson-card th, .lesson-card td { border: 1px solid var(--border); padding: 7px 10px; text-align: left; }
 .lesson-card th { background: #0d1526; color: var(--accent); }
@@ -835,7 +836,7 @@ pre {
 .st-visual { margin: 10px 0; }
 .st-example { background: #34d3990c; border-left: 3px solid var(--good); padding: 8px 12px; border-radius: 8px; margin: 8px 0; }
 .st-asli { background: #ff990010; border: 1px solid #ff990044; padding: 8px 12px; border-radius: 8px; margin: 10px 0 2px; }
-.st-points, .st-asli, .st-analogy { overflow-wrap: anywhere; }
+.st-points, .st-asli, .st-analogy, .st-body { overflow-wrap: anywhere; }
 .st-card table { border-collapse: collapse; width: 100%; margin: 8px 0; font-size: .9rem; }
 .st-card th, .st-card td { border: 1px solid var(--border); padding: 6px 9px; text-align: left; vertical-align: top; }
 .st-card th { background: #0d1526; color: var(--accent); }
@@ -868,6 +869,7 @@ pre {
 .exam-row { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; padding: 8px 0; border-top: 1px dashed var(--border); line-height: 1.5; }
 .exam-cue { color: #cfe0ff; }
 .exam-pick { color: var(--good); font-weight: 600; }
+.exam-cue, .exam-pick { min-width: 0; overflow-wrap: anywhere; }
 .exam-why { grid-column: 1 / -1; color: var(--muted); font-size: .86rem; }
 
 /* ---- labs: common ---- */
@@ -1116,4 +1118,9 @@ pre {
   .dk-cmdrow { flex-direction: column; }
   .dk-cmd { width: 100%; }
   .feat-card { align-items: flex-start; }
+}
+
+@media (max-width: 640px) {
+  .lesson-card .security-table { table-layout: fixed; }
+  .lesson-card .security-table th, .lesson-card .security-table td { padding: 6px 4px; overflow-wrap: anywhere; }
 }
