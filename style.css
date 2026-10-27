@@ -1107,6 +1107,8 @@ pre {
 }
 @media (max-width: 640px) {
   .myth-row, .exam-row { grid-template-columns: 1fr; }
+  .td-krow { flex-direction: column; align-items: stretch; gap: 4px; }
+  .td-kval { text-align: left; }
   .td-readouts { grid-template-columns: 1fr; }
   .dd-q-text { font-size: 1.05rem; }
   .dd-yaml { font-size: .78rem; }

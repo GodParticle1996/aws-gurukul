@@ -102,11 +102,11 @@ resource "aws_sqs_queue" "orders" {
         level: 'sqssns',
       },
       eb: {
-        leaf: true, icon: '🔔', pick: 'Amazon EventBridge',
-        one: 'Event bus — event ke content par rules, AWS + SaaS + custom events, archive/replay, Scheduler, Pipes.',
+        leaf: true, icon: '🔔', pick: 'EventBridge — default/Classic rules',
+        one: 'Default/Classic bus routes with rules/targets. Current Custom Event Bus retained-event subscribers are a separate API/product; compare exact order/replay/price contract.',
         when: ['"order.amount > 10000" jaise content-based routing', 'AWS service events (EC2 state change, S3 object created, GuardDuty finding) par action', 'SaaS events (Shopify, Zendesk, Datadog)', 'Cron/one-time schedules (EventBridge Scheduler)', 'Event-driven microservices (choreography) with schema registry'],
         avoid: ['Bahut high-throughput simple fan-out jahan ms latency chahiye (SNS)', 'Ordered stream + replay by offset (Kinesis)'],
-        gotchas: ['Rule ka target na ho toh event match hoke bhi kahin nahi jaata', 'Target failure par retry policy + DLQ lagao', 'Ek rule par max 5 targets'],
+        gotchas: ['Rule ka target na ho toh event match hoke bhi kahin nahi jaata', 'Target failure par retry policy + DLQ lagao', 'Classic rule max5targets; current Custom Event Bus subscriber limits differ'],
         cost: '~$1 per 10 lakh custom events; AWS service events default bus par free.',
         exam: '"route events based on content", "SaaS integration", "react to AWS service events", "schedule" → EventBridge.',
         iac: `resource "aws_cloudwatch_event_rule" "big_orders" {
@@ -141,7 +141,7 @@ resource "aws_sqs_queue" "orders" {
       },
     },
     compare: {
-      cols: ['', 'SQS', 'SNS', 'EventBridge', 'Kinesis', 'Amazon MQ'],
+      cols: ['', 'SQS', 'SNS', 'EventBridge Classic', 'Kinesis', 'Amazon MQ'],
       rows: [
         ['Model', 'queue (pull)', 'pub/sub (push)', 'event bus (rules)', 'stream (pull)', 'broker'],
         ['Consumer contract', 'competing workers; retries', 'matching subscriptions', 'matching rule targets', 'independent offsets', 'engine queue/topic'],
@@ -217,36 +217,45 @@ resource "aws_sqs_queue" "orders" {
       q2: {
         q: 'Ek execution kitni lambi aur kitni baar?',
         options: [
-          { t: 'Minutes se din/hafte, human approval, exactly-once steps (payment)', next: 'sfnstd' },
-          { t: '5 minute se kam, bahut zyada volume (1000s/second) — IoT, streaming transforms', next: 'sfnexp' },
+          { t: 'Long/callback/auditable flow; reviewed idempotent workers and recovery contract', next: 'sfnstd' },
+          { t: 'Short idempotent asynchronous event transforms, no immediate caller result', next: 'sfnexp' },
+          { t: 'Single API call needs the completed result within 5 minutes', next: 'sfnsync' },
         ],
       },
       sfnstd: {
         leaf: true, icon: '🪜', pick: 'Step Functions — Standard workflow',
-        one: 'Durable state machine — up to 1 saal, exactly-once step execution, visual history.',
+        one: 'Standard execution model, up to1year, API history; explicit Retry and external effects still need idempotency/reconciliation.',
         when: ['Order saga: reserve inventory → charge payment → ship; fail par compensation', 'Human approval (callback task token)', 'ML pipeline, ETL with retries'],
-        avoid: ['Har second hazaaron chhote executions (state transition bill badhta hai) — Express'],
-        gotchas: ['Retry + Catch har task par likho — bina Catch error poori execution fail karta hai', 'Payload limit 256 KB — badi cheez S3 mein, path pass karo'],
-        cost: '~$0.025 per 1,000 state transitions.',
+        avoid: ['Eligible short idempotent event flows may fit Express; compare actual duration/memory/log/target cost, not volume alone'],
+        gotchas: ['Retry only reviewed transient errors; Catch routes compensation/escalation. Unresolved failure must remain visible; Standard does not atomically include external payment', 'Payload limit 256 KB — badi cheez S3 mein, path pass karo'],
+        cost: 'Approx us-east-1$0.025/1000billable transitions including retries, before allowances/other service costs.',
         exam: '"orchestrate multiple Lambda functions", "long-running", "human approval", "visual workflow" → Step Functions Standard.',
-        iac: `"ChargePayment": {
+        iac: `"ReserveStock": {
   "Type": "Task",
   "Resource": "arn:aws:states:::lambda:invoke",
-  "Retry": [{ "ErrorEquals": ["States.Timeout"], "MaxAttempts": 3, "BackoffRate": 2 }],
-  "Catch": [{ "ErrorEquals": ["States.ALL"], "Next": "ReleaseInventory" }],
-  "Next": "ShipOrder"
+  "Parameters": {"FunctionName":"reserve-test", "Payload.$":"$"},
+  "ResultPath":"$.reserve",
+  "Catch":[{"ErrorEquals":["OutOfStock"],"ResultPath":"$.stockFailure","Next":"RefundTestPayment"}],
+  "Next":"Ready"
 }`,
         level: 'events',
       },
       sfnexp: {
         leaf: true, icon: '⚡', pick: 'Step Functions — Express workflow',
-        one: 'High-volume, short (≤5 min), at-least-once — per request + duration bill.',
+        one: 'Async Express: up to 5 minutes, at-least-once execution; request/duration/memory billing and configured logs.',
         when: ['IoT data transform per event', 'API backend orchestration jo seconds mein khatam'],
-        avoid: ['Lambe workflows / exactly-once payment steps'],
+        avoid: ['Callback/job-run patterns, >5minute workflow or unreviewed non-idempotent external work'],
         gotchas: ['History CloudWatch Logs mein (console mein Standard jaisa nahi)'],
-        cost: 'Per request + GB-second — Standard se bahut sasta high volume par.',
+        cost: 'Approx us-east-1$1/million starts + tieredGB-s;100ms/64MB billing increments, logs/targets separate. Eligibility and actual duration matter.',
         exam: '"high-volume, short-duration event processing workflows" → Express.',
         level: 'events',
+      },
+      sfnsync: {
+        leaf:true,icon:'⚡',pick:'Step Functions — Sync Express',
+        one:'StartSyncExecution waits for an Express result, up to 5 minutes. At-most-once workflow execution does not manage caller/business idempotency.',
+        when:['One API call needs a completed short workflow result'],avoid:['Human callback or job-run integration; long execution'],
+        gotchas:['Inspect status/error/output even on HTTP success','Repeated caller starts and external outcomes still need stable business identity/idempotency','Use configured CloudWatch Logs; Standard GetExecutionHistory is not Express history'],
+        cost:'Request + rounded duration/memory; include logs and target costs.',exam:'Single-call short orchestration result → Sync Express candidate.',level:'events'
       },
       chor: {
         leaf: true, icon: '💃', pick: 'Choreography (EventBridge events)',
@@ -254,15 +263,16 @@ resource "aws_sqs_queue" "orders" {
         when: ['Teams independent, naye consumers bina producer badle judne chahiye', 'Simple reactions (order placed → loyalty points)'],
         avoid: ['Lambi multi-step transaction jahan rollback chahiye — flow "kahan atka" pata karna mushkil'],
         gotchas: ['Correlation id har event mein rakho, warna debugging nightmare', 'Event schema registry se contract'],
-        cost: 'EventBridge ~$1 per 10 lakh events.',
+        cost: 'Classic custom event gross approx us-east-1$1/million64KiB units; newer subscriber bus uses different byte/retention meters.',
         exam: '"loosely coupled", "event-driven", "add consumers without changing producer" → EventBridge choreography.',
         level: 'eventbridge',
       },
     },
     scenarios: [
       { s: 'Loan approval: documents check → credit score → manager ki manual approval (2 din tak) → disbursal.', answer: 'sfnstd', explain: 'Lamba + human approval → Standard workflow (task token).' },
-      { s: 'Har IoT reading (5,000/second) par 3 chhote transform steps, har baar 200 ms.', answer: 'sfnexp', explain: 'High volume + short → Express workflow.' },
+      { s: 'Har IoT reading (5,000/second) par 3 chhote transform steps, har baar 200 ms.', answer: 'sfnexp', explain: 'Short idempotent async event flow → Async Express candidate, with at-least-once semantics and measured full cost.' },
       { s: 'Order placed hone par loyalty, analytics aur recommendations teams apne-apne kaam karein; agle quarter 2 aur teams judengi.', answer: 'chor', explain: 'Independent consumers, easy to add → EventBridge choreography.' },
+      { s: 'An API caller must wait for a2second idempotent workflow result in one StartSyncExecution call.', answer:'sfnsync', explain:'Sync Express returns workflow result; inspect response status and retain business idempotency.' },
       { s: 'Travel booking: flight + hotel + car; koi ek fail ho toh baaki bookings cancel (saga).', answer: 'sfnstd', explain: 'Compensation/saga with Catch → Step Functions Standard.' },
     ],
   },

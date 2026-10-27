@@ -1016,7 +1016,7 @@ aws pipes create-pipe --name orders-to-fulfillment \\
           q: '🎛️ Interviewer: "Event routing debug karke dikhao — event kahin pahunch nahi raha."',
           terminal: {
             title: 'Interview hands-on — EventBridge debug',
-            goal: '🎛️ <b>Hands-on:</b> <code>high-value-uploads</code> rule ki fraud-check Lambda kabhi nahi chalti. <b>(1)</b> <code>aws events list-rules</code> — rule hai? <b>(2)</b> <code>aws events list-targets-by-rule --rule high-value-uploads</code> — target laga hai? <b>(3)</b> Fix: <code>aws events put-targets --rule high-value-uploads --targets arn:aws:lambda:us-east-1:123456789012:function:fraud-check</code>. <b>(4)</b> Pipe bhi dekho: <code>aws pipes list-pipes</code> aur <code>aws pipes describe-pipe --name orders-to-fulfillment</code>.',
+            goal: '🎛️ <b>Hands-on:</b> <code>high-value-uploads</code> rule ki fraud-check Lambda kabhi nahi chalti. <b>(1)</b> <code>aws events list-rules</code> — rule hai? <b>(2)</b> <code>aws events list-targets-by-rule --rule high-value-uploads</code> — target laga hai? <b>(3)</b> Fix: <code>aws events put-targets --rule high-value-uploads --targets Id=fraud,Arn=arn:aws:lambda:us-east-1:123456789012:function:fraud-check</code>. <b>(4)</b> Pipe bhi dekho: <code>aws pipes list-pipes</code> aur <code>aws pipes describe-pipe --name orders-to-fulfillment</code>.',
             tasks: [
               { text: 'aws events list-rules', check: s => s.history.some(h => /aws events list-rules/.test(h)) },
               { text: 'list-targets-by-rule — khaali hai?', check: s => s.history.some(h => /aws events list-targets-by-rule.*high-value-uploads/.test(h)) },
@@ -1046,7 +1046,7 @@ aws pipes create-pipe --name orders-to-fulfillment \\
             hints: [
               'aws events list-rules',
               'aws events list-targets-by-rule --rule high-value-uploads   ← khaali = event kahin nahi ja raha',
-              'aws events put-targets --rule high-value-uploads --targets arn:aws:lambda:us-east-1:123456789012:function:fraud-check',
+              'aws events put-targets --rule high-value-uploads --targets Id=fraud,Arn=arn:aws:lambda:us-east-1:123456789012:function:fraud-check',
               'aws pipes list-pipes   phir   aws pipes describe-pipe --name orders-to-fulfillment',
             ],
           },

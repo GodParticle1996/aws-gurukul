@@ -1,7 +1,7 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-26
 
-**Phase A complete; Phase B through `sqssns` complete (Intermediate 1–9, including selected caching).** User approved continuing at the Beginner
-track checkpoint. Next: **`events`** (master plan §5.B9; UI ordinal10), then continue levels without per-level approval.
+**Phase A complete; Phase B through `events` complete (Intermediate 1–10, including selected caching).** User approved continuing at the Beginner
+track checkpoint. Next: **`security`** (master plan §5.B10; UI ordinal11), then continue levels without per-level approval.
 
 ## User decisions
 
@@ -35,8 +35,96 @@ Level 7 local commit: **c04494a**. Level 8 local commit: **d728ff2**.
 Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**. Intermediate3: **c0f162e**. Intermediate4: **9f0bf1c**. Intermediate5: **3bf2d50**. Intermediate6: **1b5495f**. Intermediate7: **0d190ca**. Caching local commit: **0335f77**. Messaging completion/validation recorded below; latest local commit identifies delivery.
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 220 stages, 55/55 terminal missions,
-68 interactive labs, 17 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 223 stages, 56/56 terminal missions,
+72 interactive labs, 18 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events checks.
+
+## Intermediate 10 `events` loop completed (2026-10-26; master §5.B9)
+
+1. Read old full level, visual, workflow/messaging trees and shared parser before design. Same events ID retained
+   in IIFE `data-int-10-events.js`; old block removed and manifest/index updated. Removed invented incident,
+   history-only wins, fake failAt outcomes, wrong-ARN latest-execution fallback and universal Express delivery claims.
+   Architect bare target ARN syntax corrected for shared parser compatibility; full Architect rewrite remains Phase D.
+2. Eight question/analogy/mechanism cards, four myths, comparison/playbook links and nine exam cues; dryrun →
+   contract/cost planner → service bins → typed-pattern fill → missing Lambda permission triage → 12-action terminal →
+   lab18 → eight MCQs. Four interview MCQs plus four-action refund-outage recovery, eight flashcards and optional
+   approved billable homework with cleanup. Progressive hints, prepared inspectable JSON and solution arrays;
+   Roman Hinglish pronoun lint clean. Two-part saved UX remains Phase E under the selected levels-first order.
+3. Current AWS distinction taught explicitly: default/Custom Event Bus–Classic rules/targets versus newer retained
+   Custom Event Bus/eventsV2 subscribers, ordering/dedup and separate API/quota/pricing. Classic PutEvents max10
+   entries and total <1MiB; missing bus can accept HTTP200 without FailedEntryCount then drop. Inspect per-entry
+   errors and downstream delivery. SNS also supports content filters; EventBridge is not exclusive filtering.
+4. Classic retries default24h/up to185 with backoff/jitter; permanent missing permission/resource can go directly
+   to a permitted Standard SQS delivery DLQ. Current Lambda/SNS/SQS targets support execution RoleArn OR resource
+   policy; the mission chooses narrow exact-rule SourceArn policies. Async Lambda acceptance is not handler success.
+5. Scheduler timezone/six-field cron/OFF window taught with60-second precision, schedule-GROUP trust scope,
+   target permissions and separate PassRole. DST missing wall time skips and repeated time runs once; rate day=24h.
+   Scheduler create/read proves configuration only, with no local autonomous timer claim.
+6. Standard exactly-once execution model excludes explicit Retry and does not make external effects atomic.
+   Async Express at-least-once versus Sync Express at-most-once execution; caller retries still need stable business
+   identity. Express≤5minutes, no callback/.sync/Distributed Map; Standard≤1year, normal completed history90days
+   (30day retention request possible), state256KiB, definition1MiB. HTTP-success Sync Express can contain FAILED.
+7. US East public price catalogs captured (Events publication2026-09-24, States2026-09-11). Approx Standard
+   $0.000025/transition; Express $1/million starts + tiered GB-s,100ms duration rounding,64MB billing increments.
+   1million×10transitions=$250;1s/64MB Express≈$2.04. Classic custom/partner $1/million64KiB units;
+   Scheduler $1/million paid invocations after14million monthly allowance. Planner is gross declared workload,
+   excludes allowances/logging/targets/KMS/transfer/tax and makes no performance/external exactly-once promise.
+8. Moto5.2.4 probed BEFORE README/engine/content. Exact repository metadata replay:8behavior checks+cleanup9.
+   Seven typed pattern variants yield only one actual SQS body. TestEventPattern returns{} without Result;
+   no-policy target still delivers (Moto gap). Narrow policy, retry/DLQ, Lambda SourceArn and Scheduler role/timezone
+   metadata read back. Requested ASL does not run: DescribeExecution RUNNING conflicts with synthetic2020
+   history containing “A State”/ExecutionSucceeded. Optional parser import lacks localstack; nothing installed/enabled.
+9. Exact host saga replay:32behavior checks+cleanup33, using actual Moto DynamoDB conditional writes and
+   TransactWriteItems. Stable order identity, TEST capture once, atomic stock+READY, shortage rollback/refund once,
+   crash after capture/reserve, repeat execution, refund outage/recovery and conflicting payloads verified.
+   External payments0. Host reference is not Python/Lambda/Step Functions runtime or a concurrency benchmark.
+10. `docker-labs/18-eventbridge-stepfunctions/{metadata.py,saga.py,test_saga.py,README.md}` records captured outputs
+    and gaps. Scripts each own an ephemeral127.0.0.1 server, explicit endpoint/dummy keys/lab-local config;
+    profiles/session token/metadata disabled. Own resources deleted, default schedule group preserved, listeners
+    closed. No shared reset, realAWS/~/.aws writes, Docker/install or unrelated process changes. Docker absent.
+11. Shared simulator has namespaced typed pattern validation/matching; strict bus/rule/queue/function/machine/
+    execution identities, permission evaluation with explicit Deny, actual event provenance/delivery/DLQ bodies,
+    Scheduler CRUD metadata and current readback. Guarded ASL subset interprets Task/Pass/Choice/Succeed/Fail,
+    Retry/Catch and dotted JSONPaths; unsupported integrations fail visibly. Deterministic instant subset limits are
+    stated, rather than presented as AWS runtime/quotas. Lambda direct invokes reuse the same TEST worker helper.
+12. Main mission preserves original IDs/stock/order payload/workers, requires narrow policies and exact typed
+    routing, current schedule metadata, actual same-event audit receipt/fraud acceptance and OutOfStock→refund
+    trace with durable capture1/refund1/stock0. Exact current execution history is the final step. Closed-name
+    failure can recover with a fresh execution name and the same business orderId. Interview repairs actual pending
+    Lambda config before retry; no second charge. Pass-only success, broad policy, deletion/reset, fake status,
+    manual side effects, wrong input/history and brute-force OutOfStock retries cannot qualify.
+13. `validate-events.js` wired in-process: **28,588checks**, including every omission/final-step-only replay,
+    realistic malformed flags/files/JSON, typed filter edge cases, Deny across role policies, stale receipts/readbacks,
+    handler/timeouts/concurrency, Express failed response, repeat/fresh-name recovery and10,800planner states.
+    Fifteen MCQs:0length flags, positions4/4/4/3; three inline questions balanced. Existing suites remain green.
+14. Browser main38samples plus workflow/messaging routes, persistence and certificate24samples:
+    **62samples,0console/page errors,0document overflow** at1280px/360px. Inspected intro/dryrun/planner start+solved,
+    terminal and selected lesson/Dojo images. Phone slider labels now stack above values for readable wrapping;
+    keyboard terminal wins only on final command; documented planner switch gives$2.04. Certificate36/36 and same
+    progress IDs survive reload. Host emoji font box glyphs remain; no broken data/assets.
+15. Final `node validate.js`: **ALL CHECKS PASSED**,39levels/223stages/56of56missions/72interactive/18labs;
+    27trees/144recommendations/148scenarios. Legacy unrewritten missions still await later phases; auto-solve totals
+    do not claim every old win condition is hardened. No push/deployment.
+
+Evidence: `.overhaul-evidence/EVENTS-{PROBE,PROBE-2,PROBE-3,LAB18-METADATA-REPLAY,LAB18-SAGA-REPLAY,FOCUSED,
+VALIDATE,BROWSER,DOJO-BROWSER}.txt`, `EVENTS-*-REPORT.json`, public price JSONs and `events-screenshots/`.
+**Next: Intermediate11 `security`, master §5.B10, lab19. Continue automatically; local commits, ask before push.**
+
+Events primary sources verified in this level's session:
+- [Event bus types](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus.html)
+- [Current custom bus](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus.html)
+- [Classic quotas](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-quota.html)
+- [PutEvents API](https://docs.aws.amazon.com/eventbridge/latest/APIReference/API_PutEvents.html)
+- [PutEvents acceptance/missing-bus caveat](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-putevents.html)
+- [Target retries](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-retry-policy.html)
+- [Delivery DLQ](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html)
+- [Target roles/resource policies](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html)
+- [Scheduler precision/timezones/DST](https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html)
+- [Schedule-group trust](https://docs.aws.amazon.com/scheduler/latest/UserGuide/cross-service-confused-deputy-prevention.html)
+- [Workflow execution types](https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html)
+- [Step Functions quotas](https://docs.aws.amazon.com/step-functions/latest/dg/service-quotas.html)
+- [Step Functions pricing](https://aws.amazon.com/step-functions/pricing/)
+- [Events public US East offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AWSEvents/current/us-east-1/index.json)
+- [States public US East offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonStates/current/us-east-1/index.json)
 
 ## Intermediate 9 `sqssns` loop completed (2026-10-26 UTC; master§5.B8)
 

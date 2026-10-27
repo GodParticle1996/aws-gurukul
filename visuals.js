@@ -287,38 +287,8 @@ const VISUALS = {
   },
 
   events: {
-    t: 'Event-driven — EventBridge routes, Step Functions orchestrate',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node"><span class="ni">🛒</span><span class="nl">Order service</span><span class="ns">event publish</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-box is-accent"><span class="bx-label">🔔 EventBridge (event bus)</span>
-          <div class="dg-col">
-            <div class="dg-node is-accent pulse" data-hs="bus"><span class="ni">🚌</span><span class="nl">default / custom bus</span><span class="ns">sab events yahan aate hain</span></div>
-            <div class="dg-flow">
-              <div class="dg-node is-good" data-hs="rule"><span class="ni">🧭</span><span class="nl">Rule</span><span class="ns">event pattern match</span></div>
-              <div class="dg-node is-gold" data-hs="schedule"><span class="ni">⏰</span><span class="nl">Schedule rule</span><span class="ns">cron(0 3 * * ? *)</span></div>
-            </div>
-          </div>
-        </div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-col">
-          <div class="dg-node is-good" data-hs="target"><span class="ni">⚡</span><span class="nl">Target: Lambda</span></div>
-          <div class="dg-node is-good" data-hs="target"><span class="ni">📨</span><span class="nl">Target: SQS</span></div>
-        </div>
-      </div>
-      <div class="dg-box is-gold" style="margin-top:14px"><span class="bx-label">🪜 Step Functions — state machine (workflow)</span>
-        <div class="dg-flow">
-          <div class="dg-node is-good" data-hs="sfn"><span class="ni">1️⃣</span><span class="nl">ValidateOrder</span></div>
-          <div class="dg-arrow flow"></div>
-          <div class="dg-node is-good" data-hs="sfn"><span class="ni">2️⃣</span><span class="nl">ChargePayment</span><span class="ns">Retry 3x + Catch</span></div>
-          <div class="dg-arrow flow"></div>
-          <div class="dg-node is-good" data-hs="sfn"><span class="ni">3️⃣</span><span class="nl">ShipOrder</span></div>
-          <div class="dg-arrow bad"></div>
-          <div class="dg-node is-bad" data-hs="compensate"><span class="ni">↩️</span><span class="nl">RefundPayment</span><span class="ns">Catch → compensate (Saga)</span></div>
-        </div>
-      </div>
-      <div class="dg-cap"><b>EventBridge</b> = router (kaun sunega). <b>Step Functions</b> = orchestrator (kya kis order mein, retry/catch ke saath). Rule bina <b>target</b> ke = event match hota hai par jaata kahin nahi — sabse common bug.</div>`,
+    t: 'Events — routing, workflow aur business outcome',
+    html: `<div class="dg-flow"><div class="dg-node is-accent"><span class="ni">🔔</span><span class="nl">Classic rule</span><span class="ns">typed pattern + target permission</span></div><span class="dg-arrow">→</span><div class="dg-node is-gold"><span class="ni">🪜</span><span class="nl">Workflow</span><span class="ns">Task, Retry, Catch</span></div><span class="dg-arrow">→</span><div class="dg-node is-good"><span class="ni">📊</span><span class="nl">Durable outcome</span><span class="ns">ready / refunded / unresolved</span></div></div><div class="dg-flow"><span class="dg-pill gold">Accepted ≠ completed</span><span class="dg-pill acc">Scheduler: timezone + scoped role</span><span class="dg-pill good">External effects need idempotency</span></div><div class="dg-cap">Conceptual routing can start a workflow with the required role; the mission separately verifies audit/fraud target acceptance and starts the TEST saga explicitly. Classic rules differ from current retained-event subscribers. Stored configuration and synthetic emulator history are not runtime proof.</div>`,
   },
 
   lambda: {

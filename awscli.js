@@ -128,6 +128,65 @@ AG.lambdaTiming = function (fn) {
     initMs: Math.round((workload.initMs || 300) * Math.sqrt(1024 / memory)) };
 };
 
+// Typed EventBridge Classic pattern subset; all helpers stay on AG or inside this IIFE.
+(function(){
+  const object=v=>!!v&&typeof v==='object'&&!Array.isArray(v),own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+  const fail=m=>{throw Error('InvalidEventPatternException: '+m);};
+  const scalar=v=>v===null||['string','boolean'].includes(typeof v)||typeof v==='number'&&Number.isFinite(v);
+  AG.validateEventPattern=function(pattern){
+    function walk(p,depth){if(!object(p)||!Object.keys(p).length||depth>16)fail('Nonempty JSON object required; simulator nesting limit16');for(const [key,value]of Object.entries(p)){
+      if(['__proto__','constructor','prototype'].includes(key)||key.includes('.'))fail('Simulator subset: ordinary nested keys only; dotted/prototype keys unsupported');
+      if(object(value)){walk(value,depth+1);continue;}
+      if(!Array.isArray(value)||!value.length)fail('Each leaf must have a nonempty alternatives array');
+      for(const term of value){if(scalar(term))continue;if(!object(term)||Object.keys(term).length!==1)fail('Use one supported operator per alternative');const [op,v]=Object.entries(term)[0];
+        if(op==='exists'){if(typeof v!=='boolean')fail('exists requires true/false');}
+        else if(op==='prefix'){if(typeof v!=='string')fail('prefix requires a string');}
+        else if(op==='anything-but'){const values=Array.isArray(v)?v:[v];if(!values.length||values.some(x=>!['string','number'].includes(typeof x)||typeof x==='number'&&!Number.isFinite(x)))fail('anything-but supports strings/numbers or lists');}
+        else if(op==='numeric'){if(!Array.isArray(v)||!v.length||v.length%2)fail('numeric requires operator/value pairs');for(let i=0;i<v.length;i+=2)if(!['>','>=','<','<=','='].includes(v[i])||typeof v[i+1]!=='number'||!Number.isFinite(v[i+1]))fail('numeric needs supported comparison and finite number');}
+        else fail('Unsupported operator '+op+'; this model supports scalar/numeric/prefix/anything-but/exists');
+      }
+    }}walk(pattern,0);return pattern;
+  };
+  AG.eventPatternMatch=function(pattern,event){
+    AG.validateEventPattern(pattern);
+    const term=(rule,value,present)=>{if(!object(rule))return present&&rule===value;const [op,target]=Object.entries(rule)[0];if(op==='exists')return present===target;if(!present)return false;if(op==='prefix')return typeof value==='string'&&value.startsWith(target);if(op==='anything-but')return ['string','number'].includes(typeof value)&&!(Array.isArray(target)?target:[target]).some(v=>v===value);if(typeof value!=='number'||!Number.isFinite(value))return false;for(let i=0;i<target.length;i+=2){const n=target[i+1],s=target[i];if(!(s==='>'?value>n:s==='>='?value>=n:s==='<'?value<n:s==='<='?value<=n:value===n))return false;}return true;};
+    function matches(p,e){if(!object(e))return false;return Object.entries(p).every(([key,rules])=>{const present=own(e,key),value=present?e[key]:undefined;if(object(rules))return present&&(Array.isArray(value)?value:[value]).some(v=>matches(rules,v));return rules.some(rule=>object(rule)&&own(rule,'exists')?term(rule,value,present):(Array.isArray(value)?value:[value]).some(v=>term(rule,v,present)));});}
+    return matches(pattern,event);
+  };
+  // TEST worker domain model, corresponding to lab18's durable-phase host reference.
+  // No Python, external gateway, Lambda runtime, IAM enforcement or timing benchmark.
+  AG.sagaWorker=function(account,fn,input){
+    const fail=(type,message)=>{const error=Error(type+': '+message);error.type=type;throw error;};
+    const f=account.sagaFixture,op=fn?.sagaOperation;if(!f||!Array.isArray(f.orders)||!Array.isArray(f.stock)||!['capture','reserve','refund'].includes(op)||f.workerIds?.[op]!==fn.fixtureId)fail('ResourceNotFoundException','Known original TEST worker fixture required');
+    if(fn.pendingConfig||fn.lastUpdateStatus==='InProgress')fail('ResourceConflictException','Worker configuration update is pending; wait function-updated-v2');
+    if(fn.state&&fn.state!=='Active')fail('ResourceNotReadyException','Worker must be Active');
+    if(fn.handler!=='app.handler')fail('Runtime.HandlerNotFound','TEST worker entry point is app.handler');
+    if(fn.reservedConcurrency===0)fail('Lambda.TooManyRequestsException','TEST worker reserved concurrency is zero');
+    const timing=AG.lambdaTiming(fn);if(timing.warmMs+timing.initMs>(fn.timeout||3)*1000)fail('Sandbox.Timedout','TEST worker bounded timing exceeds configured timeout; no business effect committed');
+    if(!object(input)||typeof input.orderId!=='string')fail('InvalidOrder','orderId string required');
+    const row=f.orders.find(r=>r.orderId===input.orderId);if(!row)fail('InvalidOrder','Original order does not exist');
+    for(const key of ['amount','quantity','sku'])if(own(input,key)&&input[key]!==row[key])fail('IntentConflict','Conflicting '+key+' for existing orderId; preserve intent');
+    const stock=f.stock.find(s=>s.sku===row.sku);if(!stock)fail('InventoryUnavailable','Original stock row missing');
+    if(!Number.isInteger(stock.available)||stock.available<0||!Number.isInteger(row.quantity)||row.quantity<1||!Number.isInteger(row.amount)||row.amount<1||['captureCount','reserveCount','refundCount'].some(k=>!Number.isInteger(row[k])||row[k]<0))fail('InvalidOrderState','Corrupt original stock, quantity, amount or counters; preserve ledger and investigate');
+    const result=()=>({orderId:row.orderId,phase:row.phase,captureCount:row.captureCount,reserveCount:row.reserveCount,refundCount:row.refundCount,available:stock.available,testLedger:true});
+    if(op==='capture'){
+      if(row.phase==='NEW'){row.phase='CAPTURED';row.captureCount++;}
+      else if(!['CAPTURED','READY','REFUNDED'].includes(row.phase))fail('InvalidOrderState','Unknown durable phase');
+    }else if(op==='reserve'){
+      if(['READY','REFUNDED'].includes(row.phase))return result();
+      if(row.phase!=='CAPTURED')fail('InvalidOrderState','Reservation requires durable TEST capture');
+      if(stock.available<row.quantity){row.stockFailures=(row.stockFailures||0)+1;fail('OutOfStock','Stock condition rejected; stock and READY phase remain unchanged');}
+      stock.available-=row.quantity;row.phase='READY';row.reserveCount++; // one atomic fixture transition
+    }else{
+      if(row.phase==='REFUNDED')return result();
+      if(row.phase!=='CAPTURED')fail('InvalidOrderState','Refund requires unresolved CAPTURED intent');
+      if(fn.environment?.Variables?.PROVIDER_AVAILABLE!=='true')fail('RefundUnavailable','TEST refund unavailable; keep pending intent for monitored recovery');
+      row.phase='REFUNDED';row.refundCount++;
+    }
+    return result();
+  };
+})();
+
 AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   // deep-clone the account so replays start fresh
   const sim = {
@@ -581,8 +640,27 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
     }
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {
       const specs = {
+        events: {
+          'list-rules':['event-bus-name','name-prefix'], 'describe-rule':['name','event-bus-name'],
+          'put-rule':['name','event-bus-name','event-pattern','schedule-expression','state','description'], 'delete-rule':['name','event-bus-name','force!'],
+          'put-targets':['rule','event-bus-name','targets*'], 'list-targets-by-rule':['rule','event-bus-name'], 'remove-targets':['rule','event-bus-name','ids*','force!'],
+          'enable-rule':['name','event-bus-name'], 'disable-rule':['name','event-bus-name'], 'put-events':['entries'], 'test-event-pattern':['event-pattern','event'],
+          'list-event-buses':[], 'create-event-bus':['name'], 'describe-event-bus':['name'], 'delete-event-bus':['name'],
+        },
+        scheduler: {
+          'create-schedule':['name','group-name','schedule-expression','schedule-expression-timezone','flexible-time-window','target','state','client-token','description'],
+          'update-schedule':['name','group-name','schedule-expression','schedule-expression-timezone','flexible-time-window','target','state','client-token','description'],
+          'get-schedule':['name','group-name'], 'delete-schedule':['name','group-name','client-token'], 'list-schedules':['group-name','name-prefix','state'],
+          'create-schedule-group':['name','client-token'], 'get-schedule-group':['name'], 'delete-schedule-group':['name','client-token'], 'list-schedule-groups':['name-prefix'],
+        },
+        stepfunctions: {
+          'create-state-machine':['name','definition','role-arn','type'], 'update-state-machine':['state-machine-arn','definition','role-arn'],
+          'list-state-machines':[], 'describe-state-machine':['state-machine-arn'], 'delete-state-machine':['state-machine-arn'],
+          'start-execution':['state-machine-arn','name','input'], 'start-sync-execution':['state-machine-arn','name','input'], 'list-executions':['state-machine-arn','status-filter'],
+          'describe-execution':['execution-arn'], 'get-execution-history':['execution-arn','reverse-order!'], 'stop-execution':['execution-arn','error','cause'],
+        },
         sqs: {
           'create-queue':['queue-name','attributes'], 'list-queues':['queue-name-prefix'], 'get-queue-url':['queue-name','queue-owner-aws-account-id'],
           'get-queue-attributes':['queue-url','attribute-names*'], 'set-queue-attributes':['queue-url','attributes'],
@@ -623,7 +701,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         },
         lambda: {
           'list-functions': [], 'get-function': ['function-name','qualifier'], 'get-function-configuration': ['function-name','qualifier'],
-          'update-function-configuration': ['function-name','memory-size','timeout','handler','architectures*'], 'wait': ['function-name','qualifier'],
+          'update-function-configuration': ['function-name','memory-size','timeout','handler','architectures*','environment'], 'wait': ['function-name','qualifier'],
           'put-function-concurrency': ['function-name','reserved-concurrent-executions'], 'get-function-concurrency': ['function-name'], 'delete-function-concurrency': ['function-name'],
           'put-function-event-invoke-config': ['function-name','qualifier','maximum-retry-attempts','maximum-event-age-in-seconds','destination-config'], 'get-function-event-invoke-config': ['function-name','qualifier'],
           'create-event-source-mapping': ['function-name','event-source-arn','batch-size','function-response-types*','enabled!','no-enabled!'],
@@ -714,7 +792,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const name = toks[i].startsWith('--') ? toks[i].slice(2) : '';
           const spec = allowed.find(a => a.replace(/[*!]$/, '') === name);
           if (!spec) return print('err', `Unknown options: ${toks[i]}. This simulator models the documented flags listed by help.`);
-          if(['elasticache','dax','sqs','sns'].includes(service)&&seenOptions.has(name))return print('err','Duplicate options are not modeled: --'+name+'; supply one explicit value.');
+          if(['elasticache','dax','sqs','sns','events','scheduler','stepfunctions'].includes(service)&&seenOptions.has(name))return print('err','Duplicate options are not modeled: --'+name+'; supply one explicit value.');
           seenOptions.add(name);
           if (spec.endsWith('!')) { i++; continue; }
           if (!toks[i + 1] || toks[i + 1].startsWith('--')) return print('err', `aws: error: argument --${name}: expected one argument`);
@@ -1940,7 +2018,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         const numeric=(name,min,max)=>{const raw=required(name),v=Number(raw);if(!/^\d+$/.test(raw)||!Number.isSafeInteger(v)||v<min||v>max)throw Error(`InvalidParameterValueException: --${name} must be integer ${min}..${max}`);return v;};
         const revision=f=>f.revisionId||'r0';
         function completeUpdate(f) {if(f.pendingConfig){Object.assign(f,f.pendingConfig);delete f.pendingConfig;f.lastUpdateStatus='Successful';f.revisionId='r'+((f.revisionCounter||0)+1);f.revisionCounter=(f.revisionCounter||0)+1;}}
-        function config(f,version) {return {FunctionName:f.name,Runtime:f.runtime,Handler:f.handler,MemorySize:f.memory||128,Timeout:f.timeout||3,State:f.state||'Active',LastUpdateStatus:f.pendingConfig?'InProgress':f.lastUpdateStatus||'Successful',RevisionId:revision(f),Version:f._version||version||'$LATEST',Architectures:f.architectures||['x86_64']};}
+        function config(f,version) {return {FunctionName:f.name,Runtime:f.runtime,Handler:f.handler,MemorySize:f.memory||128,Timeout:f.timeout||3,State:f.state||'Active',LastUpdateStatus:f.pendingConfig?'InProgress':f.lastUpdateStatus||'Successful',RevisionId:revision(f),Version:f._version||version||'$LATEST',Architectures:f.architectures||['x86_64'],Environment:clone(f.environment||{Variables:{}})};}
         const mapView=m=>({UUID:m.uuid,FunctionArn:`arn:aws:lambda:${sim.account.region}:123456789012:function:${m.functionName}`,EventSourceArn:m.eventSourceArn,BatchSize:m.batchSize,FunctionResponseTypes:clone(m.responseTypes),State:m.state});
         const advanceMap=m=>{if(m.pendingState){m.state=m.pendingState;delete m.pendingState;}};
         function selected(f,q) {if(!q||q==='$LATEST')return f;const v=f.aliases&&f.aliases[q]||q;const saved=f.versions&&Object.prototype.hasOwnProperty.call(f.versions,v)&&f.versions[v];if(!saved)throw Error('ResourceNotFoundException: Published version/alias not found');return {...saved,name:f.name,roleName:f.roleName,workload:f.workload,_version:v};}
@@ -1966,6 +2044,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             if(flag('memory-size')!==null)pending.memory=numeric('memory-size',128,10240);
             if(flag('timeout')!==null)pending.timeout=numeric('timeout',1,900);
             if(flag('handler')!==null)pending.handler=required('handler');
+            if(flag('environment')!==null){const env=read('environment');if(!object(env)||Object.keys(env).some(k=>k!=='Variables')||!object(env.Variables)||Object.entries(env.Variables).some(([k,v])=>!/^[A-Za-z][A-Za-z0-9_]+$/.test(k)||typeof v!=='string'||k.startsWith('AWS_')))throw Error('InvalidParameterValueException: Environment needs Variables string map; reserved AWS_ keys unsupported');pending.environment=clone(env);}
             if(flag('architectures')!==null){const values=flags('architectures');if(values.length!==1||!['x86_64','arm64'].includes(values[0]))throw Error('InvalidParameterValueException: Choose one x86_64 or arm64 architecture');pending.architectures=values;}
             if(!Object.keys(pending).length)throw Error('InvalidParameterValueException: Supply supported configuration changes');
             fn.pendingConfig=pending;fn.lastUpdateStatus='InProgress';return resultJson(config(fn));
@@ -2108,7 +2187,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             };
             try {
               if(duration>(target.timeout||3)*1000)throw Error('Sandbox.Timedout: '+requestId+' Task timed out after '+Number(target.timeout||3).toFixed(2)+' seconds');
-              if(!target.workload){try{body=JSON.parse(target.invokeResult||'{"status":"ok"}');}catch(e){body=target.invokeResult;}}
+              if(target.sagaOperation)body=AG.sagaWorker(sim.account,target,payload);
+              else if(!target.workload){try{body=JSON.parse(target.invokeResult||'{"status":"ok"}');}catch(e){body=target.invokeResult;}}
               else {
                 if(!object(payload)||!Array.isArray(payload.Records)||!payload.Records.length)throw Error('ValueError: Invoke payload must contain nonempty Records');
                 const records=payload.Records;
@@ -3302,113 +3382,154 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         }
         return;
 
-      /* ===================== EVENTBRIDGE ===================== */
+      /* EventBridge Classic / Scheduler / bounded Step Functions ASL model.
+         Configuration, delivery acceptance and TEST business state are distinct proofs. */
       case 'events':
-        if (op === 'list-rules') {
-          const rules = list('eventRules');
-          if (!rules.length) return print('ok', '{\n    "Rules": []\n}');
-          print('ok', '{\n    "Rules": [\n' +
-            rules.map(r => `        { "Name": "${r.name}", "EventBusName": "${r.bus || 'default'}", "State": "${r.state || 'ENABLED'}", ${r.schedule ? `"ScheduleExpression": "${r.schedule}"` : `"EventPattern": ${JSON.stringify(JSON.stringify(r.pattern || {}))}`} }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-rule') {
-          const name = flag('name');
-          if (!name) return print('err', 'error: --name required');
-          const r = find('eventRules', name);
-          if (!r) return print('err', `ResourceNotFoundException: Rule '${name}' does not exist`);
-          print('ok', prettyJson({ Name: r.name, EventBusName: r.bus || 'default', State: r.state || 'ENABLED', EventPattern: r.pattern, ScheduleExpression: r.schedule }));
-        } else if (op === 'list-targets-by-rule') {
-          const name = flag('rule');
-          if (!name) return print('err', 'error: --rule required');
-          const r = find('eventRules', name);
-          if (!r) return print('err', `ResourceNotFoundException: Rule '${name}' does not exist`);
-          const targets = r.targets || [];
-          if (!targets.length) return print('ok', '{\n    "Targets": []\n}   ← rule match toh hoga, par jaayega kahin nahi!');
-          print('ok', '{\n    "Targets": [\n' +
-            targets.map((t, i) => `        { "Id": "target-${i + 1}", "Arn": "${t}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'put-rule') {
-          const name = flag('name');
-          if (!name) return print('err', 'error: --name required');
-          const rules = list('eventRules');
-          let r = rules.find(x => x.name === name);
-          if (!r) { r = { name, bus: flag('event-bus-name') || 'default', state: 'ENABLED', targets: [] }; rules.push(r); }
-          const sched = flag('schedule-expression');
-          const pat = flag('event-pattern');
-          if (sched) r.schedule = sched;
-          if (pat) { try { r.pattern = JSON.parse(pat); } catch (e) { r.pattern = pat; } }
-          print('ok', `{ "RuleArn": "arn:aws:events:${sim.account.region || 'us-east-1'}:123456789012:rule/${name}" }`);
-        } else if (op === 'put-targets') {
-          const name = flag('rule');
-          let arn = flag('targets') || flag('target-arn');
-          if (!name || !arn) return print('err', 'error: --rule and --targets required   (asli syntax: --targets Id=1,Arn=<target-arn>)');
-          // asli CLI: --targets Id=1,Arn=arn:aws:... ya JSON [{"Id":"1","Arn":"..."}]
-          const am = arn.match(/Arn=([^,\s]+)/i);
-          if (am) arn = am[1];
-          else if (/^\s*\[/.test(arn)) { try { arn = JSON.parse(arn)[0].Arn || arn; } catch (e) { /* raw rakho */ } }
-          const r = find('eventRules', name);
-          if (!r) return print('err', `ResourceNotFoundException: Rule '${name}' does not exist`);
-          r.targets = r.targets || [];
-          if (!r.targets.includes(arn)) r.targets.push(arn);
-          print('ok', '{ "FailedEntryCount": 0, "FailedEntries": [] }');
-        } else if (op === 'disable-rule' || op === 'enable-rule') {
-          const name = flag('name');
-          const r = find('eventRules', name);
-          if (!r) return print('err', `ResourceNotFoundException: Rule '${name}' does not exist`);
-          r.state = op === 'enable-rule' ? 'ENABLED' : 'DISABLED';
-          print('ok', '');
-        } else {
-          print('err', `unknown EventBridge op: ${op}`);
+      case 'scheduler':
+      case 'stepfunctions': {
+        const clone=v=>JSON.parse(JSON.stringify(v)),object=v=>!!v&&typeof v==='object'&&!Array.isArray(v),own=(o,k)=>Object.prototype.hasOwnProperty.call(o,k);
+        const bad=m=>{throw Error('ValidationException: '+m);},required=n=>{const v=flag(n);if(v===null)throw Error('aws: error: the following arguments are required: --'+n);return v;};
+        const text=n=>{let v=required(n);if(v.startsWith('file://')){const f=own(sim.files,v.slice(7))&&sim.files[v.slice(7)];if(!f||typeof f.content!=='string')throw Error('Error parsing parameter --'+n+': Unable to load paramfile; use ls/cat');v=f.content;}return v;};
+        const json=(s,label)=>{try{return JSON.parse(s);}catch(e){throw Error('Error parsing parameter '+label+': Invalid JSON');}},doc=n=>json(text(n),'--'+n);
+        const integer=(v,min,max,label)=>{if(!Number.isInteger(v)||v<min||v>max)bad(label+' must be integer'+min+'..'+max);return v;};
+        const bytes=s=>{let n=0;for(const c of s){const p=c.codePointAt(0);if(p>=0xd800&&p<=0xdfff)bad('Invalid Unicode surrogate');n+=p<128?1:p<2048?2:p<65536?3:4;}return n;};
+        const account=sim.account.callerIdentity?.Account||'123456789012',region=sim.account.region||'us-east-1',clock=()=>new Date(Date.parse(sim.account.now||'2026-10-26T00:00:00Z')+(sim.account.messagingClock||0)*1000).toISOString();
+        const next=prefix=>prefix+'-'+String(sim.account.workflowSeq=(sim.account.workflowSeq||0)+1).padStart(6,'0');
+        const glob=(p,v)=>typeof p==='string'&&new RegExp('^'+p.replace(/[.+^${}()|[\]\\]/g,'\\$&').replace(/\*/g,'.*').replace(/\?/g,'.')+'$').test(v);
+        function policyAllows(policy,principal,action,resource,source){let allow=false,deny=false;let d=policy;if(typeof d==='string'){try{d=JSON.parse(d);}catch(e){return false;}}if(!object(d)||!Array.isArray(d.Statement))return false;
+          for(const s of d.Statement){if(!object(s)||!['Allow','Deny'].includes(s.Effect))continue;const p=principal===null||s.Principal==='*'||arr(s.Principal?.Service).includes(principal)||arr(s.Principal?.AWS).includes('*');if(!p||!arr(s.Action).some(v=>wild(v,action))||!arr(s.Resource||'*').some(v=>glob(v,resource)))continue;let match=true;for(const [op,entries] of Object.entries(s.Condition||{})){if(!['ArnEquals','ArnLike','StringEquals','StringLike'].includes(op)||!object(entries)){match=false;continue;}for(const [key,values] of Object.entries(entries)){const value=key.toLowerCase()==='aws:sourcearn'?source:key.toLowerCase()==='aws:sourceaccount'?account:null;match=match&&value!==null&&arr(values).some(v=>op.endsWith('Like')?glob(v,value):v===value);}}if(match){if(s.Effect==='Deny')deny=true;else allow=true;}}
+          return allow&&!deny;
         }
-        return;
-
-      /* ===================== STEP FUNCTIONS ===================== */
-      case 'stepfunctions':
-        if (op === 'list-state-machines') {
-          const sms = list('stateMachines');
-          if (!sms.length) return print('ok', '{\n    "stateMachines": []\n}');
-          print('ok', '{\n    "stateMachines": [\n' +
-            sms.map(m => `        { "stateMachineArn": "arn:aws:states:${sim.account.region || 'us-east-1'}:123456789012:stateMachine:${m.name}", "name": "${m.name}", "type": "${m.type || 'STANDARD'}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-state-machine') {
-          const arn = flag('state-machine-arn') || flag('name');
-          const m = find('stateMachines', arn && arn.split(':').pop());
-          if (!m) return print('err', `StateMachineDoesNotExist: ${arn}`);
-          print('ok', prettyJson({ name: m.name, type: m.type || 'STANDARD', status: 'ACTIVE', definition: m.definition || {} }));
-        } else if (op === 'start-execution') {
-          const arn = flag('state-machine-arn') || flag('name');
-          const m = find('stateMachines', arn && arn.split(':').pop());
-          if (!m) return print('err', `StateMachineDoesNotExist: ${arn}`);
-          const execs = list('executions');
-          const name = 'exec-' + Date.now().toString(36).slice(-6);
-          execs.push({ name, stateMachine: m.name, status: m.failAt ? 'FAILED' : 'SUCCEEDED', failedState: m.failAt || null, input: flag('input') || '{}' });
-          print('ok', `{ "executionArn": "arn:aws:states:${sim.account.region || 'us-east-1'}:123456789012:execution:${m.name}:${name}", "startDate": "${new Date().toISOString()}" }`);
-        } else if (op === 'list-executions') {
-          const execs = list('executions');
-          if (!execs.length) return print('ok', '{\n    "executions": []\n}');
-          print('ok', '{\n    "executions": [\n' +
-            execs.map(e => `        { "name": "${e.name}", "stateMachineName": "${e.stateMachine}", "status": "${e.status}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-execution' || op === 'get-execution-history') {
-          const arn = flag('execution-arn') || flag('name');
-          const execs = list('executions');
-          const e = execs.find(x => !arn || x.name === arn || (arn || '').endsWith(x.name)) || execs[execs.length - 1];
-          if (!e) return print('err', 'ExecutionDoesNotExist: pehle start-execution chalao');
-          if (op === 'describe-execution') {
-            print('ok', prettyJson({ name: e.name, stateMachineName: e.stateMachine, status: e.status, input: e.input }));
-          } else {
-            const m = find('stateMachines', e.stateMachine);
-            const states = (m && m.states) || ['ValidateOrder', 'ChargePayment', 'ShipOrder'];
-            const lines = [];
-            for (const st of states) {
-              if (e.failedState && st === e.failedState) { lines.push(`  ${st}: TaskFailed  ← yahan toota (retry/catch dekho)`); break; }
-              lines.push(`  ${st}: TaskSucceeded`);
-            }
-            print('ok', `Execution ${e.name} (${e.status}):\n` + lines.join('\n'));
+        function roleAllows(arn,principal,action,resource,source){const r=list('roles').find(r=>r.arn===arn||`arn:aws:iam::${account}:role/${r.name}`===arn);return !!r&&policyAllows(r.trustPolicy,principal,'sts:AssumeRole','*',source)&&policyAllows({Statement:Object.values(r.inline||{}).flatMap(d=>{try{const p=typeof d==='string'?JSON.parse(d):d;return Array.isArray(p?.Statement)?p.Statement:[];}catch(e){return [];}})},null,action,resource,source);}
+        const busArn=n=>`arn:aws:events:${region}:${account}:event-bus/${n}`,ruleArn=(b,n)=>`arn:aws:events:${region}:${account}:rule/${b==='default'?'':b+'/'}${n}`;
+        const buses=()=>[{name:'default',arn:busArn('default'),busId:'builtin-default'},...list('eventBuses')];
+        function bus(value='default',requiredExists=true){const b=buses().find(b=>b.name===value||b.arn===value);if(!b&&requiredExists)throw Error('ResourceNotFoundException: Event bus does not exist in this Region/account');return b;}
+        function rules(){return list('eventRules').map(r=>{r.bus=r.bus||'default';r.arn=r.arn||ruleArn(r.bus,r.name);r.ruleId=r.ruleId||'seed:'+r.arn;r.revision=r.revision||1;r.targets=(r.targets||[]).map((t,i)=>typeof t==='string'?{Id:'target-'+(i+1),Arn:t}:t);return r;});}
+        function rule(){const b=bus(flag('event-bus-name')||'default'),name=required(op==='list-targets-by-rule'||op==='put-targets'||op==='remove-targets'?'rule':'name'),r=rules().find(r=>r.name===name&&r.bus===b.name);if(!r)throw Error('ResourceNotFoundException: Exact rule/bus not found');return r;}
+        const lambdaArn=f=>`arn:aws:lambda:${region}:${account}:function:${f.name}`;
+        const lambda=arn=>list('lambdas').find(f=>lambdaArn(f)===arn||f.name===arn);
+        function retry(p){if(!object(p)||Object.keys(p).some(k=>!['MaximumRetryAttempts','MaximumEventAgeInSeconds'].includes(k)))bad('RetryPolicy supports MaximumRetryAttempts/MaximumEventAgeInSeconds');if(p.MaximumRetryAttempts!==undefined)integer(p.MaximumRetryAttempts,0,185,'MaximumRetryAttempts');if(p.MaximumEventAgeInSeconds!==undefined)integer(p.MaximumEventAgeInSeconds,60,86400,'MaximumEventAgeInSeconds');return clone(p);}
+        function dlq(config){if(!object(config)||Object.keys(config).some(k=>k!=='Arn')||typeof config.Arn!=='string')bad('DeadLetterConfig needs Arn');const q=list('queues').find(q=>q.arn===config.Arn);if(!q||q.isFifo||!q.arn.startsWith(`arn:aws:sqs:${region}:${account}:`))bad('Simulator requires existing same-Region/account Standard SQS delivery DLQ');return q;}
+        function queueSend(q,event,provenance,attributes={}){q.messages=q.messages||[];q.queueId=q.queueId||'seed:'+q.arn;const now=Date.parse(clock()),m={messageId:next('event-message'),body:JSON.stringify(event),messageAttributes:clone(attributes),sentAt:now,visibleAt:now+Number(q.attributes?.DelaySeconds||0)*1000,receiveCount:0,provenance:clone(provenance)};q.messages.push(m);return m;}
+        function targetAllowed(t,r){if(t.RoleArn)return roleAllows(t.RoleArn,'events.amazonaws.com',t.Arn.includes(':lambda:')?'lambda:InvokeFunction':'sqs:SendMessage',t.Arn,r.arn);const fn=lambda(t.Arn),q=list('queues').find(q=>q.arn===t.Arn);return fn?policyAllows(fn.policy,'events.amazonaws.com','lambda:InvokeFunction',t.Arn,r.arn):q?policyAllows(q.policy||q.attributes?.Policy,'events.amazonaws.com','sqs:SendMessage',t.Arn,r.arn):false;}
+        function dispatch(r,t,event){const fn=lambda(t.Arn),q=list('queues').find(q=>q.arn===t.Arn),provenance={ruleArn:r.arn,ruleId:r.ruleId,ruleRevision:r.revision,eventId:event.id,targetId:t.Id};let outcome=!fn&&!q?'NO_RESOURCE':targetAllowed(t,r)?'ACCEPTED':'NO_PERMISSIONS',m;
+          if(outcome==='ACCEPTED'){if(q)m=queueSend(q,event,provenance);else if(fn.pendingConfig||fn.state&&fn.state!=='Active')outcome='RESOURCE_NOT_READY';else{fn.pendingEvents=fn.pendingEvents||[];fn.pendingEvents.push(clone(event));}}
+          const record={...provenance,targetArn:t.Arn,status:outcome,messageId:m?.messageId,queueId:q?.queueId};
+          if(['NO_RESOURCE','NO_PERMISSIONS'].includes(outcome)&&t.DeadLetterConfig){const dead=list('queues').find(q=>q.arn===t.DeadLetterConfig.Arn);if(dead&&policyAllows(dead.policy||dead.attributes?.Policy,'events.amazonaws.com','sqs:SendMessage',dead.arn,r.arn)){const message=queueSend(dead,event,{...provenance,deliveryFailure:outcome},{ERROR_CODE:{DataType:'String',StringValue:outcome},RULE_ARN:{DataType:'String',StringValue:r.arn},TARGET_ARN:{DataType:'String',StringValue:t.Arn}});record.deadLetterMessageId=message.messageId;}else record.deadLetterFailure='NO_PERMISSIONS_OR_RESOURCE';}
+          (sim.account.eventDeliveries||(sim.account.eventDeliveries=[])).push(record);print('sys',`Teaching delivery observation ${t.Id}: ${outcome}. Async Lambda acceptance is not handler/business completion; retry timing is not modeled.`);
+        }
+        function scheduleArn(g,n){return `arn:aws:scheduler:${region}:${account}:schedule/${g}/${n}`;}
+        const groupArn=n=>`arn:aws:scheduler:${region}:${account}:schedule-group/${n}`;
+        function groups(){return [{name:'default',arn:groupArn('default'),groupId:'builtin-default'},...list('scheduleGroups')];}
+        function group(n){const g=groups().find(g=>g.name===n);if(!g)throw Error('ResourceNotFoundException: Schedule group not found');return g;}
+        function expression(value){let m;if((m=value.match(/^rate\((\d+) (minute|minutes|hour|hours|day|days)\)$/))){if(!Number.isSafeInteger(Number(m[1]))||Number(m[1])<1||Number(m[1])===1&&m[2].endsWith('s')||Number(m[1])!==1&&!m[2].endsWith('s'))bad('Rate value/unit singular-plural mismatch');return;}if((m=value.match(/^cron\(([^)]+)\)$/))){const parts=m[1].split(/\s+/);if(parts.length!==6||parts.some(s=>!/^[A-Za-z0-9*?,/\-LW#]+$/.test(s))||!((parts[2]==='?')!==(parts[4]==='?')))bad('Cron needs6 fields and exactly one day-of-month/day-of-week ?');const ranges=[[0,59],[0,23],[1,31],[1,12],[1,7],[1970,2199]],aliases=[[],[],[],['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'],['SUN','MON','TUE','WED','THU','FRI','SAT'],[]];for(let i=0;i<parts.length;i++){if(parts[i]==='?'){if(i!==2&&i!==4)bad('? allowed only in cron day fields');continue;}for(const token of parts[i].split(',')){const [base,step,...extra]=token.split('/');if(extra.length||step!==undefined&&(!/^\d+$/.test(step)||Number(step)<1))bad('Invalid cron step');if(base==='*')continue;const limit=base.split('-');if(limit.length>2)bad('Invalid cron range');const ns=limit.map(v=>{if(/^\d+$/.test(v))return Number(v);const alias=aliases[i].indexOf(v.toUpperCase());return alias<0?NaN:alias+1;});if(ns.some(n=>!Number.isFinite(n))||ns.some(n=>n<ranges[i][0]||n>ranges[i][1])||ns.length===2&&ns[1]<ns[0])bad('Cron field outside range; special L/W/# syntax outside this local subset');}}return;}if(/^at\(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\)$/.test(value)&&Number.isFinite(Date.parse(value.slice(3,-1)+'Z'))&&new Date(value.slice(3,-1)+'Z').toISOString().slice(0,19)===value.slice(3,-1))return;bad('Use documented rate(...), six-field cron(...) or at(YYYY-MM-DDThh:mm:ss) expression; no shell cron');}
+        function schedule(){const name=required('name'),g=group(flag('group-name')||'default'),s=list('schedules').find(s=>s.name===name&&s.group===g.name);if(!s)throw Error('ResourceNotFoundException: Exact schedule/group not found');return s;}
+        function scheduleView(s){return {Arn:s.arn,Name:s.name,GroupName:s.group,ScheduleExpression:s.expression,ScheduleExpressionTimezone:s.timezone,State:s.state,FlexibleTimeWindow:clone(s.window),Target:clone(s.target),Description:s.description||''};}
+        function scheduleConfig(){const expr=required('schedule-expression'),zone=flag('schedule-expression-timezone')||'UTC',window=doc('flexible-time-window'),target=doc('target'),state=flag('state')||'ENABLED';expression(expr);try{new Intl.DateTimeFormat('en-US',{timeZone:zone});}catch(e){bad('Unknown IANA schedule-expression-timezone');}if(!['ENABLED','DISABLED'].includes(state)||!object(window)||!['OFF','FLEXIBLE'].includes(window.Mode)||Object.keys(window).some(k=>!['Mode','MaximumWindowInMinutes'].includes(k)))bad('State or FlexibleTimeWindow invalid');if(window.Mode==='FLEXIBLE')integer(window.MaximumWindowInMinutes,1,1440,'MaximumWindowInMinutes');else if(window.MaximumWindowInMinutes!==undefined)bad('OFF window has no MaximumWindowInMinutes');if(!object(target)||typeof target.Arn!=='string'||(typeof target.RoleArn!=='string'||!/^arn:aws:iam::\d{12}:role\/.+/.test(target.RoleArn))||Object.keys(target).some(k=>!['Arn','RoleArn','Input','RetryPolicy','DeadLetterConfig'].includes(k)))bad('Simulator Scheduler targets need Arn/RoleArn and optional Input/retry/DLQ');const fn=lambda(target.Arn),q=list('queues').find(q=>q.arn===target.Arn);if(!fn&&!q)bad('Simulator supports existing Lambda/Standard SQS schedule targets');if(q?.isFifo)bad('FIFO scheduler SqsParameters are outside this model');if(target.Input!==undefined&&(typeof target.Input!=='string'||bytes(target.Input)>262144))bad('Target Input must be string within256KiB');if(target.RetryPolicy)retry(target.RetryPolicy);if(target.DeadLetterConfig)dlq(target.DeadLetterConfig);return {expression:expr,timezone:zone,window:clone(window),target:clone(target),state,description:flag('description')||''};}
+        const machineArn=n=>`arn:aws:states:${region}:${account}:stateMachine:${n}`;
+        function machines(){return list('stateMachines').map(m=>{m.arn=m.arn||machineArn(m.name);m.machineId=m.machineId||'seed:'+m.arn;m.revision=m.revision||1;m.type=m.type||'STANDARD';return m;});}
+        function machine(){const arn=required('state-machine-arn'),m=machines().find(m=>m.arn===arn);if(!m)throw Error('StateMachineDoesNotExist: Use exact state-machine ARN');return m;}
+        function pathRead(root,path,missing=false){if(path==='$')return {present:true,value:root};if(typeof path!=='string'||!/^\$\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(path))throw Error('States.Runtime: Simulator JSONPath supports $ or dotted ordinary keys');let value=root;for(const key of path.slice(2).split('.')){if(['__proto__','constructor','prototype'].includes(key))throw Error('States.Runtime: Unsafe path key');if(!object(value)||!own(value,key)){if(missing)return {present:false};throw Error('States.Runtime: Missing JSONPath '+path);}value=value[key];}return {present:true,value};}
+        const bounded=v=>{if(bytes(JSON.stringify(v))>262144)throw Error('States.DataLimitExceeded: State payload exceeds256KiB; use a reference');return v;};
+        function mergeResult(input,path,result){if(path===null)return bounded(input);if(path===undefined||path==='$')return bounded(clone(result));if(typeof path!=='string'||!/^\$\.[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(path))throw Error('States.Runtime: Unsupported ResultPath');const output=clone(input);if(!object(output))throw Error('States.Runtime: ResultPath requires object input');const keys=path.slice(2).split('.');let cursor=output;for(const key of keys.slice(0,-1)){if(['__proto__','constructor','prototype'].includes(key))throw Error('States.Runtime: Unsafe ResultPath');if(!own(cursor,key))cursor[key]={};if(!object(cursor[key]))throw Error('States.Runtime: Cannot write ResultPath through scalar');cursor=cursor[key];}const key=keys.at(-1);if(['__proto__','constructor','prototype'].includes(key))throw Error('States.Runtime: Unsafe ResultPath');cursor[key]=clone(result);return bounded(output);}
+        function parameters(template,input,depth=0){if(depth>16)throw Error('States.Runtime: Simulator Parameters nesting limit16');if(Array.isArray(template))return template.map(v=>parameters(v,input,depth+1));if(!object(template))return template;const out=Object.create(null);for(const [key,value]of Object.entries(template)){const dynamic=key.endsWith('.$'),name=dynamic?key.slice(0,-2):key;if(['__proto__','constructor','prototype'].includes(name))throw Error('States.Runtime: Unsafe Parameters key');out[name]=dynamic?clone(pathRead(input,value).value):parameters(value,input,depth+1);}return out;}
+        function choice(c,input){if(!object(c))throw Error('States.Runtime: Invalid Choice');if(c.And)return Array.isArray(c.And)&&c.And.every(n=>choice(n,input));if(c.Or)return Array.isArray(c.Or)&&c.Or.some(n=>choice(n,input));if(c.Not)return !choice(c.Not,input);const value=pathRead(input,c.Variable,true);if(c.IsPresent!==undefined)return value.present===c.IsPresent;if(!value.present)return false;if(c.StringEquals!==undefined)return typeof value.value==='string'&&value.value===c.StringEquals;if(c.BooleanEquals!==undefined)return typeof value.value==='boolean'&&value.value===c.BooleanEquals;if(c.NumericGreaterThan!==undefined)return typeof value.value==='number'&&value.value>c.NumericGreaterThan;throw Error('States.Runtime: Unsupported Choice comparator');}
+        function parameterSchema(p,depth=0){if(depth>16)throw Error('InvalidDefinition: Parameters nesting exceeds local16level limit');if(Array.isArray(p)){p.forEach(v=>parameterSchema(v,depth+1));return;}if(!object(p))return;const names=new Set();for(const [key,value]of Object.entries(p)){const name=key.endsWith('.$')?key.slice(0,-2):key;if(names.has(name)||['__proto__','constructor','prototype'].includes(name))throw Error('InvalidDefinition: Duplicate/unsafe resolved Parameters key');names.add(name);if(key.endsWith('.$')){try{pathRead({},value,true);}catch(e){throw Error('InvalidDefinition: This model supports only dotted JSONPath Parameters, no intrinsics');}}else parameterSchema(value,depth+1);}}
+        function choiceSchema(c,top=false,depth=0){if(!object(c)||depth>16)throw Error('InvalidDefinition: Invalid/beyond-scope Choice');if(!top&&own(c,'Next'))throw Error('InvalidDefinition: Nested Choice condition cannot have Next');const keys=Object.keys(c).filter(k=>k!=='Next'&&k!=='Comment'),logic=['And','Or','Not'].find(k=>own(c,k));if(top&&typeof c.Next!=='string')throw Error('InvalidDefinition: Choice Next required');if(logic){if(keys.length!==1)throw Error('InvalidDefinition: One Choice boolean operator required');if(logic==='Not')choiceSchema(c.Not,false,depth+1);else{if(!Array.isArray(c[logic])||!c[logic].length)throw Error('InvalidDefinition: And/Or needs conditions');c[logic].forEach(n=>choiceSchema(n,false,depth+1));}return;}const ops=['StringEquals','BooleanEquals','NumericGreaterThan','IsPresent'].filter(k=>own(c,k));if(keys.length!==2||!keys.includes('Variable')||ops.length!==1||typeof c.Variable!=='string')throw Error('InvalidDefinition: Unsupported Choice comparator');try{pathRead({},c.Variable,true);}catch(e){throw Error('InvalidDefinition: Unsupported Choice JSONPath');}const op=ops[0],value=c[op];if(op==='StringEquals'&&typeof value!=='string'||['BooleanEquals','IsPresent'].includes(op)&&typeof value!=='boolean'||op==='NumericGreaterThan'&&(typeof value!=='number'||!Number.isFinite(value)))throw Error('InvalidDefinition: Wrong comparator value type');}
+        function definition(d){if(!object(d)||typeof d.StartAt!=='string'||!object(d.States)||!own(d.States,d.StartAt)||!Object.keys(d.States).length)throw Error('InvalidDefinition: StartAt and matching States object required');if(d.TimeoutSeconds!==undefined)throw Error('Simulator ASL scope: workflow timeout scheduling is not modeled; verify deadlines in runtime');if(bytes(JSON.stringify(d))>1048576)throw Error('InvalidDefinition: Definition exceeds1MiB');if(Object.keys(d).some(k=>!['StartAt','States','Comment','Version','TimeoutSeconds'].includes(k)))throw Error('InvalidDefinition: Unsupported top-level ASL field in this model');if(d.Version!==undefined&&d.Version!=='1.0'||d.Comment!==undefined&&typeof d.Comment!=='string')throw Error('InvalidDefinition: Version1.0 and string Comment required when present');const refs=[];
+          for(const [name,s]of Object.entries(d.States)){if(['__proto__','constructor','prototype'].includes(name)||!object(s)||!['Pass','Task','Choice','Succeed','Fail'].includes(s.Type))throw Error('InvalidDefinition: Simulator supports Pass/Task/Choice/Succeed/Fail and ordinary state names');const allowed={Pass:['Type','Next','End','Comment','Result','ResultPath','Parameters'],Task:['Type','Next','End','Comment','Parameters','ResultPath','Resource','Retry','Catch'],Choice:['Type','Comment','Choices','Default'],Succeed:['Type','Comment'],Fail:['Type','Error','Cause','Comment']}[s.Type];if(Object.keys(s).some(k=>!allowed.includes(k)))throw Error('InvalidDefinition: Unsupported field for '+s.Type+'; timeout/other ASL features are not silently emulated');if(s.Parameters!==undefined){if(!object(s.Parameters))throw Error('InvalidDefinition: Parameters object required');parameterSchema(s.Parameters);}
+            if(s.Next!==undefined)refs.push(s.Next);if(['Pass','Task'].includes(s.Type)&&(s.End===true)===(typeof s.Next==='string'))throw Error('InvalidDefinition: Pass/Task needs exactly one Next or End=true');if(s.End!==undefined&&typeof s.End!=='boolean')throw Error('InvalidDefinition: End must be boolean');if(['Succeed','Fail','Choice'].includes(s.Type)&&(s.Next!==undefined||s.End!==undefined))throw Error('InvalidDefinition: Choice/Succeed/Fail cannot use Next/End');
+            if(s.Type==='Task'){if(s.Resource!=='arn:aws:states:::lambda:invoke'||!object(s.Parameters))throw Error('InvalidDefinition: This ASL model supports optimized lambda:invoke Tasks with Parameters only');if(!own(s.Parameters,'FunctionName')&&!own(s.Parameters,'FunctionName.$'))throw Error('InvalidDefinition: Task FunctionName required');if(Object.keys(s.Parameters).some(k=>!['FunctionName','FunctionName.$','Payload','Payload.$'].includes(k)))throw Error('Simulator ASL scope: synchronous optimized Lambda FunctionName/Payload only; async InvocationType and other parameters unsupported');if(own(s.Parameters,'FunctionName')&&typeof s.Parameters.FunctionName!=='string')throw Error('InvalidDefinition: FunctionName must be string');}
+            if(s.Type==='Choice'){if(!Array.isArray(s.Choices)||!s.Choices.length)throw Error('InvalidDefinition: Choice requires Choices');for(const c of s.Choices){choiceSchema(c,true);refs.push(c.Next);}if(s.Default!==undefined)refs.push(s.Default);}
+            for(const kind of ['Retry','Catch'])if(s[kind]!==undefined){if(s.Type!=='Task'||!Array.isArray(s[kind]))throw Error('InvalidDefinition: Retry/Catch arrays supported on Task only');for(let i=0;i<s[kind].length;i++){const r=s[kind][i];if(!object(r)||!Array.isArray(r.ErrorEquals)||!r.ErrorEquals.length||r.ErrorEquals.some(n=>typeof n!=='string'||!n))throw Error('InvalidDefinition: ErrorEquals nonempty string list required');if(r.ErrorEquals.includes('States.ALL')&&(r.ErrorEquals.length!==1||i!==s[kind].length-1))throw Error('InvalidDefinition: States.ALL must be alone in final retrier/catcher');if(Object.keys(r).some(k=>!(kind==='Catch'?['ErrorEquals','Next','ResultPath']:['ErrorEquals','MaxAttempts','IntervalSeconds','BackoffRate']).includes(k)))throw Error('InvalidDefinition: Unsupported retrier/catcher field in local subset');if(kind==='Catch'){if(typeof r.Next!=='string')throw Error('InvalidDefinition: Catch requires Next');refs.push(r.Next);}else{if(r.MaxAttempts!==undefined&&(!Number.isInteger(r.MaxAttempts)||r.MaxAttempts<0||r.MaxAttempts>8))throw Error('Simulator ASL scope: MaxAttempts0..8 to bound local replay; AWS permits larger budgets');if(r.IntervalSeconds!==undefined&&(!Number.isInteger(r.IntervalSeconds)||r.IntervalSeconds<1))throw Error('InvalidDefinition: IntervalSeconds positive integer');if(r.BackoffRate!==undefined&&(typeof r.BackoffRate!=='number'||!Number.isFinite(r.BackoffRate)||r.BackoffRate<1))throw Error('InvalidDefinition: BackoffRate must be finite>=1');}}}
           }
-        } else {
-          print('err', `unknown Step Functions op: ${op}`);
+          if(refs.some(n=>typeof n!=='string'||!own(d.States,n)))throw Error('InvalidDefinition: Every Next/Default/Catch target must exist');return clone(d);
         }
-        return;
+        function errorsMatch(list,type){return list.includes(type)||list.includes('States.ALL')&&!['States.Runtime','States.DataLimitExceeded'].includes(type)||list.includes('States.TaskFailed')&&!['States.Timeout','States.Runtime','States.DataLimitExceeded'].includes(type);}
+        function execute(m,name,input,inputText){const arn=`arn:aws:states:${region}:${account}:execution:${m.name}:${name}`,e={name,arn,executionId:next('execution'),machineId:m.machineId,machineArn:m.arn,machineRevision:m.revision,stateMachine:m.name,type:m.type,input:clone(input),inputText,status:'RUNNING',startDate:clock(),events:[],trace:[]};
+          const add=(type,details={})=>{const id=e.events.length+1;e.events.push({id,previousEventId:id-1,type,timestamp:clock(),...clone(details)});};add('ExecutionStarted',{executionStartedEventDetails:{input:inputText,roleArn:m.roleArn}});
+          let current=m.definition.StartAt,data=clone(input),budget=0;
+          try{while(current){if(++budget>128)throw Error('Simulator.ScopeLimit: Local interpreter transition budget128 exceeded');const s=m.definition.States[current];if(!s)throw Error('States.Runtime: State missing');add(s.Type+'StateEntered',{stateEnteredEventDetails:{name:current,input:JSON.stringify(data)}});
+              if(s.Type==='Fail')throw Error((s.Error||'States.Failed')+': '+(s.Cause||'Fail state reached'));
+              if(s.Type==='Succeed'){add('SucceedStateExited',{stateExitedEventDetails:{name:current,output:JSON.stringify(data)}});current=null;continue;}
+              if(s.Type==='Choice'){const c=s.Choices.find(c=>choice(c,data)),to=c?c.Next:s.Default;if(!to)throw Error('States.NoChoiceMatched: No Choice or Default matched');add('ChoiceStateExited',{stateExitedEventDetails:{name:current,output:JSON.stringify(data)}});current=to;continue;}
+              if(s.Type==='Pass'){const result=s.Parameters?parameters(s.Parameters,data):own(s,'Result')?clone(s.Result):data;data=mergeResult(data,s.ResultPath,result);add('PassStateExited',{stateExitedEventDetails:{name:current,output:JSON.stringify(data)}});current=s.End?null:s.Next;continue;}
+              const retried=new Map();let caught=false;
+              while(true){if(++budget>128)throw Error('Simulator.ScopeLimit: Local interpreter attempt budget128 exceeded');const p=parameters(s.Parameters,data),fn=lambda(p.FunctionName);add('TaskScheduled',{taskScheduledEventDetails:{resourceType:'lambda',resource:'invoke',parameters:JSON.stringify(p)}});
+                try{if(!fn)throw Error('Lambda.ResourceNotFoundException: Original Task function missing');if(!roleAllows(m.roleArn,'states.amazonaws.com','lambda:InvokeFunction',lambdaArn(fn),m.arn))throw Error('States.Permissions: Workflow role lacks scoped trust/invoke permission');const payload=own(p,'Payload')?p.Payload:{},output=AG.sagaWorker(sim.account,fn,payload);add('TaskSucceeded',{taskSucceededEventDetails:{resourceType:'lambda',resource:'invoke',output:JSON.stringify({Payload:output,StatusCode:200,ExecutedVersion:'$LATEST'})}});e.trace.push({state:current,type:'TaskSucceeded',operation:fn.sagaOperation,functionId:fn.fixtureId,output:clone(output)});data=mergeResult(data,s.ResultPath,{Payload:output,StatusCode:200,ExecutedVersion:'$LATEST'});break;
+                }catch(error){const type=error.type||error.message.split(':')[0],cause=error.message;add('TaskFailed',{taskFailedEventDetails:{resourceType:'lambda',resource:'invoke',error:type,cause}});e.trace.push({state:current,type:'TaskFailed',operation:fn?.sagaOperation,error:type,functionId:fn?.fixtureId});const r=(s.Retry||[]).find(r=>errorsMatch(r.ErrorEquals,type));if(r&&(retried.get(r)||0)<(r.MaxAttempts??3)){retried.set(r,(retried.get(r)||0)+1);continue;}const c=(s.Catch||[]).find(c=>errorsMatch(c.ErrorEquals,type));if(!c)throw error;data=mergeResult(data,c.ResultPath,{Error:type,Cause:cause});current=c.Next;caught=true;break;}
+              }
+              if(!caught){add('TaskStateExited',{stateExitedEventDetails:{name:current,output:JSON.stringify(data)}});current=s.End?null:s.Next;}
+            }
+            e.status='SUCCEEDED';e.output=clone(data);add('ExecutionSucceeded',{executionSucceededEventDetails:{output:JSON.stringify(data)}});
+          }catch(error){e.status='FAILED';e.error=error.type||error.message.split(':')[0];e.cause=error.message;add('ExecutionFailed',{executionFailedEventDetails:{error:e.error,cause:e.cause}});}
+          e.stopDate=clock();list('executions').push(e);return e;
+        }
+        try {
+          if(flag('region')&&flag('region')!==region)bad('Simulator mission is scoped to '+region+'; use that Region with the exact fixture ARNs');
+          if(service==='events'){
+            if(op==='list-event-buses')return resultJson({EventBuses:buses().map(b=>({Name:b.name,Arn:b.arn}))});
+            if(op==='create-event-bus'){const name=required('name');if(!/^[A-Za-z0-9_.-]{1,256}$/.test(name)||name==='default')bad('Use ordinary custom Classic bus name; default already exists');if(buses().some(b=>b.name===name))throw Error('ResourceAlreadyExistsException: Event bus exists');const b={name,arn:busArn(name),busId:next('bus')};list('eventBuses').push(b);return resultJson({EventBusArn:b.arn});}
+            if(op==='describe-event-bus'){const b=bus(flag('name')||'default');return resultJson({Name:b.name,Arn:b.arn});}
+            if(op==='delete-event-bus'){const b=bus(required('name'));if(b.name==='default'||rules().some(r=>r.bus===b.name))bad('Cannot delete default bus or bus with rules');list('eventBuses').splice(list('eventBuses').indexOf(b),1);return print('ok','');}
+            if(op==='test-event-pattern'){const pattern=doc('event-pattern'),event=doc('event');if(!object(event)||['id','account','source','detail-type','time','region','resources'].some(k=>!own(event,k)))bad('Test event needs complete EventBridge envelope: id/account/source/detail-type/time/region/resources');return resultJson({Result:AG.eventPatternMatch(pattern,event)});}
+            if(op==='list-rules'){const b=bus(flag('event-bus-name')||'default');return resultJson({Rules:rules().filter(r=>r.bus===b.name&&r.name.startsWith(flag('name-prefix')||'')).map(r=>({Name:r.name,Arn:r.arn,State:r.state||'ENABLED',EventBusName:r.bus,...(r.pattern?{EventPattern:JSON.stringify(r.pattern)}:{}),...(r.schedule?{ScheduleExpression:r.schedule}:{})}))});}
+            if(op==='put-rule'){
+              const name=required('name'),b=bus(flag('event-bus-name')||'default'),state=flag('state')||'ENABLED',pattern=flag('event-pattern')===null?undefined:AG.validateEventPattern(doc('event-pattern')),schedule=flag('schedule-expression')===null?undefined:required('schedule-expression');if(!/^[A-Za-z0-9_.-]{1,64}$/.test(name)||!['ENABLED','DISABLED'].includes(state)||!pattern&&!schedule)bad('Valid rule name/state and event pattern or schedule required');if(schedule){if(b.name!=='default')bad('Legacy scheduled rules use default bus only; prefer Scheduler');expression(schedule);}
+              let r=rules().find(r=>r.name===name&&r.bus===b.name);if(!r){r={name,bus:b.name,arn:ruleArn(b.name,name),ruleId:next('rule'),targets:[],revision:0};list('eventRules').push(r);}r.pattern=pattern?clone(pattern):undefined;r.schedule=schedule;r.state=state;r.description=flag('description')||'';r.revision++;return resultJson({RuleArn:r.arn});
+            }
+            if(op==='put-events'){
+              const entries=doc('entries');if(!Array.isArray(entries)||!entries.length||entries.length>10)bad('Classic PutEvents requires1..10entries (new Custom Event Bus V2 has separate quotas)');let total=0;for(const entry of entries){if(!object(entry))bad('Every entry must be object');total+=bytes(String(entry.Source||''))+bytes(String(entry.DetailType||''))+bytes(String(entry.Detail||''))+(entry.Time===undefined?0:14)+(Array.isArray(entry.Resources)?entry.Resources.reduce((n,v)=>n+bytes(String(v)),0):0);}if(total>=1048576)bad('Classic PutEvents total entry bytes must be less than1MiB');
+              const entryTime=e=>{if(e.Time===undefined)return clock();const ms=typeof e.Time==='number'?e.Time*1000:typeof e.Time==='string'?Date.parse(e.Time):NaN;if(!Number.isFinite(ms)||!Number.isFinite(new Date(ms).getTime()))bad('Time must be a valid ISO date string or Unix seconds');return new Date(ms).toISOString();};for(const entry of entries)entryTime(entry);
+              const outcomes=[];for(const entry of entries){let detail;try{if(typeof entry.Source!=='string'||!entry.Source||typeof entry.DetailType!=='string'||!entry.DetailType||typeof entry.Detail!=='string')throw Error('Source/DetailType/JSON-string Detail required');if(entry.Source.startsWith('aws.'))throw Error('Custom publisher cannot spoof reserved aws. source');detail=JSON.parse(entry.Detail);if(!object(detail)||entry.Resources!==undefined&&(!Array.isArray(entry.Resources)||entry.Resources.some(v=>typeof v!=='string')))throw Error('Detail object/Resources string array required');}catch(error){outcomes.push({ErrorCode:entry.Source?.startsWith?.('aws.')?'NotAuthorizedForSourceException':'MalformedDetail',ErrorMessage:error.message});continue;}
+                const b=bus(entry.EventBusName||'default',false),id=next('event'),event={version:'0',id,account,source:entry.Source,'detail-type':entry.DetailType,time:entryTime(entry),region,resources:entry.Resources||[],detail};outcomes.push({EventId:id});if(!b){print('sys','Teaching observation: nonexistent bus accepted then dropped, without FailedEntryCount (documented AWS behavior). Verify bus and delivery.');continue;}for(const r of rules().filter(r=>r.bus===b.name&&r.state!=='DISABLED'&&r.pattern&&AG.eventPatternMatch(r.pattern,event)))for(const t of r.targets)dispatch(r,t,event);
+              }return resultJson({FailedEntryCount:outcomes.filter(r=>r.ErrorCode).length,Entries:outcomes});
+            }
+            if(!['describe-rule','put-targets','list-targets-by-rule','remove-targets','delete-rule','enable-rule','disable-rule'].includes(op))return print('err','Simulator scope: unsupported Classic EventBridge op '+op);
+            const r=rule();
+            if(op==='describe-rule')return resultJson({Name:r.name,Arn:r.arn,EventBusName:r.bus,State:r.state||'ENABLED',...(r.pattern?{EventPattern:JSON.stringify(r.pattern)}:{}),...(r.schedule?{ScheduleExpression:r.schedule}:{})});
+            if(op==='list-targets-by-rule')return resultJson({Targets:clone(r.targets)});
+            if(op==='put-targets'){
+              const raw=text('targets');let targets;if(raw.startsWith('['))targets=json(raw,'--targets');else targets=flags('targets').map(value=>{const m=value.match(/^Id=([A-Za-z0-9_.-]+),Arn=(arn:aws:[^,\s]+)$/);if(!m)bad('Use --targets JSON/file or Id=target-id,Arn=full-arn; bare ARN is not AWS target syntax');return {Id:m[1],Arn:m[2]};});
+              if(!Array.isArray(targets)||!targets.length)bad('Targets must be nonempty array');const ids=new Set();for(const t of targets){if(!object(t)||typeof t.Id!=='string'||!/^[A-Za-z0-9_.-]{1,64}$/.test(t.Id)||ids.has(t.Id)||typeof t.Arn!=='string'||!new RegExp(`^arn:aws:(lambda|sqs):${region}:${account}:`).test(t.Arn))bad('Unique target Id and supported same-Region/account Lambda/SQS Arn required');ids.add(t.Id);if(Object.keys(t).some(k=>!['Id','Arn','RoleArn','RetryPolicy','DeadLetterConfig'].includes(k)))bad('Simulator target subset supports Id/Arn/RoleArn/RetryPolicy/DeadLetterConfig');if(t.RetryPolicy)retry(t.RetryPolicy);if(t.DeadLetterConfig)dlq(t.DeadLetterConfig);if(t.RoleArn!==undefined&&(typeof t.RoleArn!=='string'||!/^arn:aws:iam::\d{12}:role\/.+/.test(t.RoleArn)))bad('RoleArn must be IAM role ARN');if(list('queues').some(q=>q.arn===t.Arn&&q.isFifo))bad('Simulator Classic SQS targets are Standard; FIFO SqsParameters are not modeled');}
+              const merged=r.targets.filter(t=>!ids.has(t.Id)).concat(clone(targets));if(merged.length>5)throw Error('LimitExceededException: Classic rule supports at most5targets');r.targets=merged;r.revision++;return resultJson({FailedEntryCount:0,FailedEntries:[]});
+            }
+            if(op==='remove-targets'){const ids=flags('ids');if(!ids.length)bad('--ids required');r.targets=r.targets.filter(t=>!ids.includes(t.Id));r.revision++;return resultJson({FailedEntryCount:0,FailedEntries:[]});}
+            if(op==='delete-rule'){if(r.targets.length&&!toks.includes('--force'))bad('Remove targets before deleting rule');list('eventRules').splice(list('eventRules').indexOf(r),1);return print('ok','');}
+            r.state=op==='enable-rule'?'ENABLED':'DISABLED';r.revision++;return print('ok','');
+          }
+          if(service==='scheduler'){
+            if(op==='list-schedule-groups')return resultJson({ScheduleGroups:groups().filter(g=>g.name.startsWith(flag('name-prefix')||'')).map(g=>({Name:g.name,Arn:g.arn,State:'ACTIVE'}))});
+            if(op==='create-schedule-group'){const name=required('name');if(!/^[A-Za-z0-9_.-]{1,64}$/.test(name))bad('Valid schedule group name required');if(groups().some(g=>g.name===name))throw Error('ConflictException: Schedule group exists');const g={name,arn:groupArn(name),groupId:next('schedule-group')};list('scheduleGroups').push(g);return resultJson({ScheduleGroupArn:g.arn});}
+            if(op==='get-schedule-group'){const g=group(required('name'));return resultJson({Name:g.name,Arn:g.arn,State:'ACTIVE'});}
+            if(op==='delete-schedule-group'){const g=group(required('name'));if(g.name==='default')bad('Default group cannot be deleted');if(list('schedules').some(s=>s.group===g.name))bad('Simulator requires deleting owned schedules before deleting group');list('scheduleGroups').splice(list('scheduleGroups').indexOf(g),1);return print('ok','');}
+            if(op==='list-schedules')return resultJson({Schedules:list('schedules').filter(s=>(flag('group-name')===null||s.group===flag('group-name'))&&s.name.startsWith(flag('name-prefix')||'')&&(flag('state')===null||s.state===flag('state'))).map(s=>({Arn:s.arn,Name:s.name,GroupName:s.group,State:s.state,Target:{Arn:s.target.Arn}}))});
+            if(op==='create-schedule'||op==='update-schedule'){const name=required('name'),g=group(flag('group-name')||'default');if(!/^[A-Za-z0-9_.-]{1,64}$/.test(name))bad('Valid schedule name required');const cfg=scheduleConfig();let s=list('schedules').find(s=>s.name===name&&s.group===g.name);if(op==='create-schedule'&&s)throw Error('ConflictException: Schedule exists; use update-schedule');if(op==='update-schedule'&&!s)throw Error('ResourceNotFoundException: Schedule missing');if(!s){s={name,group:g.name,arn:scheduleArn(g.name,name),scheduleId:next('schedule'),revision:0};list('schedules').push(s);}Object.assign(s,cfg);s.revision++;return resultJson({ScheduleArn:s.arn});}
+            if(!['get-schedule','delete-schedule'].includes(op))return print('err','Simulator scope: unsupported Scheduler op '+op);const s=schedule();if(op==='delete-schedule'){list('schedules').splice(list('schedules').indexOf(s),1);return print('ok','');}const view=scheduleView(s);if(resultJson(view)&&flag('query')===null){sim.account.scheduleReads=(sim.account.scheduleReads||[]).filter(r=>r.scheduleId!==s.scheduleId);sim.account.scheduleReads.push({scheduleId:s.scheduleId,revision:s.revision,view:clone(view)});}return;
+          }
+          if(op==='list-state-machines')return resultJson({stateMachines:machines().map(m=>({name:m.name,stateMachineArn:m.arn,type:m.type}))});
+          if(op==='create-state-machine'){
+            const name=required('name'),type=flag('type')||'STANDARD',roleArn=required('role-arn'),def=definition(doc('definition'));if(!/^[A-Za-z0-9_.-]{1,80}$/.test(name)||!['STANDARD','EXPRESS'].includes(type)||!/^arn:aws:iam::\d{12}:role\/.+/.test(roleArn))bad('Valid state machine name/type/role-arn required');const old=machines().find(m=>m.name===name);if(old){if(old.type!==type)throw Error('StateMachineAlreadyExists: Immutable type differs');return resultJson({stateMachineArn:old.arn,creationDate:old.created||clock()});}const m={name,arn:machineArn(name),type,roleArn,definition:def,machineId:next('machine'),revision:1,created:clock()};list('stateMachines').push(m);return resultJson({stateMachineArn:m.arn,creationDate:m.created});
+          }
+          if(['describe-execution','get-execution-history','stop-execution'].includes(op)){
+            const arn=required('execution-arn'),e=list('executions').find(e=>e.arn===arn);if(!e)throw Error('ExecutionDoesNotExist: Exact execution ARN not found');if(e.type==='EXPRESS')throw Error('InvalidArn: Express histories are in configured CloudWatch Logs; use StartSyncExecution result for synchronous Express');
+            if(op==='stop-execution'){if(e.status!=='RUNNING')throw Error('ExecutionNotRunning: Execution already closed');e.status='ABORTED';e.error=flag('error')||'Aborted';e.cause=flag('cause')||'';e.stopDate=clock();e.events.push({id:e.events.length+1,previousEventId:e.events.length,type:'ExecutionAborted',timestamp:clock(),executionAbortedEventDetails:{error:e.error,cause:e.cause}});return resultJson({stopDate:e.stopDate});}
+            if(op==='describe-execution')return resultJson({executionArn:e.arn,stateMachineArn:e.machineArn,name:e.name,status:e.status,input:e.inputText,...(e.output!==undefined?{output:JSON.stringify(e.output)}:{}),...(e.error?{error:e.error,cause:e.cause}:{}),startDate:e.startDate,stopDate:e.stopDate});
+            const events=clone(e.events);if(toks.includes('--reverse-order'))events.reverse();if(resultJson({events})&&flag('query')===null)sim.account.workflowRead={executionArn:e.arn,executionId:e.executionId,machineId:e.machineId,machineRevision:e.machineRevision,status:e.status,events:clone(events)};return;
+          }
+          if(!['describe-state-machine','update-state-machine','delete-state-machine','start-execution','start-sync-execution','list-executions'].includes(op))return print('err','Simulator scope: unsupported Step Functions op '+op);
+          const m=machine();
+          if(op==='describe-state-machine')return resultJson({stateMachineArn:m.arn,name:m.name,type:m.type,roleArn:m.roleArn,status:'ACTIVE',definition:JSON.stringify(m.definition||{}),revisionId:String(m.revision)});
+          if(op==='update-state-machine'){const def=flag('definition')===null?m.definition:definition(doc('definition')),roleArn=flag('role-arn')||m.roleArn;if(flag('definition')===null&&flag('role-arn')===null)bad('Supply definition or role-arn');if(typeof roleArn!=='string'||!/^arn:aws:iam::\d{12}:role\/.+/.test(roleArn))bad('Valid role-arn required');m.definition=clone(def);m.roleArn=roleArn;m.revision++;return resultJson({updateDate:clock(),revisionId:String(m.revision)});}
+          if(op==='delete-state-machine'){list('stateMachines').splice(list('stateMachines').indexOf(m),1);return print('ok','');}
+          if(op==='list-executions'){if(m.type==='EXPRESS')throw Error('InvalidArn: ListExecutions does not provide Express history; configure CloudWatch Logs');return resultJson({executions:list('executions').filter(e=>e.machineId===m.machineId&&(flag('status-filter')===null||e.status===flag('status-filter'))).map(e=>({executionArn:e.arn,stateMachineArn:e.machineArn,name:e.name,status:e.status,startDate:e.startDate,stopDate:e.stopDate}))});}
+          if(op==='start-sync-execution'&&m.type!=='EXPRESS')throw Error('StateMachineTypeNotSupported: StartSyncExecution requires EXPRESS');
+          const raw=flag('input')===null?'{}':text('input'),input=json(raw,'--input'),name=flag('name')||next('run');if(!object(input)||bytes(raw)>262144||!/^[A-Za-z0-9_.-]{1,80}$/.test(name))bad('Simulator requires object input within256KiB and valid execution name');definition(m.definition);
+          const prior=list('executions').find(e=>e.machineId===m.machineId&&e.name===name);if(prior&&m.type==='STANDARD'){if(prior.status==='RUNNING'&&prior.inputText===raw)return resultJson({executionArn:prior.arn,startDate:prior.startDate});throw Error('ExecutionAlreadyExists: Standard execution name cannot be reused after closure or with different input; choose a fresh execution name and retain the same business orderId');}
+          const e=execute(m,name,input,raw);if(op==='start-sync-execution')return resultJson({executionArn:e.arn,stateMachineArn:m.arn,name,status:e.status,input:raw,...(e.output!==undefined?{output:JSON.stringify(e.output)}:{error:e.error,cause:e.cause}),startDate:e.startDate,stopDate:e.stopDate});
+          return resultJson({executionArn:e.arn,startDate:e.startDate});
+        }catch(error){return print('err',error.message);}
+      }
 
       /* ===================== KINESIS (data streams) ===================== */
       case 'kinesis':
