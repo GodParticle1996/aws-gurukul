@@ -344,7 +344,7 @@ const VISUALS = {
         <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Cost Optimization</span><span class="q">pay for value, rightsize, reserved</span></div>
         <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Sustainability</span><span class="q">min resources, max benefit</span></div>
       </div>
-      <div class="dg-cap"><b>Well-Architected Tool</b> = AWS ka free tool jo tumhari architecture ko 6 pillars par review karta hai. Har pillar ke design principles + best practices. SAA exam ki atma yahin hai.</div>`,
+      <div class="dg-cap"><b>Well-Architected Tool</b> = Workload scope + applicable lens + evidence → prioritized improvement plan and milestones. Constructive review; no automatic runtime test or certification.</div>`,
   },
 
   orgs: {

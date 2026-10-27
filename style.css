@@ -856,7 +856,7 @@ pre {
 .playbook { margin: 16px 0; padding: 14px 16px; border-radius: var(--radius); background: linear-gradient(135deg, #2a1d0a, #111a2e); border: 1px solid #ff990055; text-align: left; }
 .playbook h4 { margin: 0 0 10px; color: var(--accent); }
 .pb-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px; }
-.pb-col { background: #0a1224; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
+.pb-col { min-width: 0; overflow-wrap: anywhere; background: #0a1224; border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; }
 .pb-col h5 { margin: 2px 0 6px; font-size: .9rem; }
 .pb-col ul { margin: 0; padding-left: 18px; line-height: 1.55; font-size: .92rem; }
 .pb-col.use h5 { color: var(--good); } .pb-col.avoid h5 { color: var(--bad); }
@@ -1122,6 +1122,6 @@ pre {
 }
 
 @media (max-width: 640px) {
-  .lesson-card .security-table { table-layout: fixed; }
-  .lesson-card .security-table th, .lesson-card .security-table td { padding: 6px 4px; overflow-wrap: anywhere; }
+  .lesson-card .security-table, .lesson-card .review-table { table-layout: fixed; }
+  .lesson-card .security-table th, .lesson-card .security-table td, .lesson-card .review-table th, .lesson-card .review-table td { padding: 6px 4px; overflow-wrap: anywhere; }
 }

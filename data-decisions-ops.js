@@ -14,7 +14,7 @@ AG.registerDecisions([
     title: 'Region gir jaaye toh? — Backup & Restore, Pilot Light, Warm Standby, Multi-site',
     short: 'DR strategy',
     tldr: 'Do numbers se strategy nikalti hai: RTO (kitni der down chalega) aur RPO (kitna data kho sakte ho). Jitne chhote numbers, utni mehengi strategy. Business se numbers pucho, phir chuno.',
-    levels: ['dr', 'resilience'],
+    levels: ['dr', 'resilience', 'wellarch'],
     start: 'q1',
     nodes: {
       q1: {
@@ -105,7 +105,7 @@ AG.registerDecisions([
     title: 'Kya dekhna hai? — CloudWatch metrics/logs/alarms, X-Ray, CloudTrail, Config, VPC Flow Logs',
     short: 'Observability tool',
     tldr: 'Sawal se tool: "app kaisi chal rahi hai?" → CloudWatch metrics + alarms. "Error kya tha?" → CloudWatch Logs. "Request kahan slow hui?" → X-Ray traces. "Kisne kya API call kiya?" → CloudTrail. "Resource ki config kab badli / compliant hai?" → Config. "Kaunsa IP kahan baat kar raha?" → VPC Flow Logs.',
-    levels: ['observability', 'logsetl'],
+    levels: ['observability', 'logsetl', 'wellarch'],
     start: 'q1',
     nodes: {
       q1: {
@@ -143,7 +143,7 @@ AG.registerDecisions([
     title: 'Infra code mein kaise likhun? — CloudFormation, CDK, SAM, Terraform',
     short: 'IaC tool',
     tldr: 'Sirf AWS + AWS-native support → CloudFormation (YAML) ya CDK (code). Serverless apps → SAM. Multi-cloud / team Terraform jaanti hai → Terraform. Console click = koi history nahi, koi repeat nahi.',
-    levels: ['iac'],
+    levels: ['iac', 'wellarch'],
     start: 'q1',
     nodes: {
       q1: {

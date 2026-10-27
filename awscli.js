@@ -841,6 +841,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
 
     if (AG.securityCLI && AG.securityCLI({service,op,toks,flag,flags,sim,list,print,resultJson,s3Encryption})) return;
+    if (AG.auditCLI && AG.auditCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (AG.capacityCLI && AG.capacityCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
 
     if(service==='s3api'&&['put-bucket-lifecycle-configuration','get-bucket-lifecycle-configuration','delete-bucket-lifecycle','put-bucket-replication','get-bucket-replication','delete-bucket-replication','put-object-lock-configuration','get-object-lock-configuration','put-object-retention','get-object-retention','put-object-legal-hold','get-object-legal-hold','put-bucket-intelligent-tiering-configuration','get-bucket-intelligent-tiering-configuration','get-bucket-versioning','put-bucket-versioning','head-object','get-object','restore-object'].includes(op)){

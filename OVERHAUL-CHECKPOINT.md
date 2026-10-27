@@ -1,7 +1,8 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-27
 
-**Phase A and Phase B complete (Beginner1–8; Intermediate1–12, including selected caching and boss2).** User approved continuing at the Beginner
-track checkpoint. **Intermediate1–12 including boss2 is complete. Required Intermediate track question pending; next candidate after the answer is Advanced1 `wellarch` (§5.C1), lab21.**
+**Phase A and B complete; Advanced1 `wellarch`/lab21 complete.**
+Intermediate track checkpoint answered **Continue — Advanced1 wellarch** (2026-10-27).
+Next **Advanced2 `orgs` (§5.C2),lab22**; continue per-level loop/local commits, ask before push.
 
 ## User decisions
 
@@ -25,6 +26,8 @@ Round 2 answered on 2026-10-25:
 
 Beginner track checkpoint answered on 2026-10-25: **Continue — Intermediate 1 vpcdeep shuru karo (Recommended)**.
 Continue Intermediate levels in order with per-level summaries and local commits, as already selected.
+Intermediate track checkpoint answered on2026-10-27: **Continue — Advanced 1 wellarch (Recommended)**.
+Continue Advanced levels in order with per-level summaries/local commits; ask before every push.
 Two-part level UX is selected and scheduled with Phase E, in the chosen levels-first order.
 
 Exam check on 2026-10-25: the current [official AWS exam guide](https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03.html)
@@ -36,8 +39,86 @@ Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 232 stages, 59/59 terminal missions,
-80 interactive labs, 20 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 237 stages, 60/60 terminal missions,
+84 interactive labs, 21 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review checks.
+
+## Advanced 1 `wellarch` loop completed (2026-10-27; master §5.C1)
+
+User's required Intermediate checkpoint answer: **Continue — Advanced 1 wellarch (Recommended)**, recorded before
+implementation under User decisions and in an additive memory note. Boss2 predecessor **f25aec2**. Same levels-first,
+per-level local-commit/automatic-continuation workflow. Next **Advanced2 `orgs` (§5.C2), lab22**. No push.
+
+1. Read the entire old wellarch block/interview/cards and its visual, existing engine/lab conventions; captured old
+   1280/360px baseline. Removed invented IPO success story, fixed50questions, implied mandatory quarterly cadence,
+   service checklist/certification framing, misclassified Performance item without a Performance bin and history-only
+   inspection wins. Current primary docs describe a constructive review, scope/lens-specific questions, HRI/MRI
+   improvement plans and milestones; no fixed question count promise.
+2. New IIFE `data-adv-1-wellarch.js`, same stable `wellarch` ID, index/DATA registered before the remaining legacy
+   Advanced file; old block removed. Eight cards/four myths/playbook/table/small decision tree/nine exam cues;
+   dryrun→flowlab→six-pillar bins→risk/evidence match→triage→8-action terminal→lab21→8bonus MCQs;
+   4interview MCQs+4-action terminal,8flashcards and optional approved billable homework. Links `dr`,
+   `observability`, `iac` Decision Dojo trees. Roman Hinglish/pronoun/mixed-script lint clean.
+3. Main mission repairs three **declared course configuration contracts**:original DB HA/≥7day backups/available;
+   correct dimension/unit/Count-Sum5xx alarm and current supplied-period ALARM read; exact scoped CloudTrail S3
+   policy, multi-Region/global/digest settings, All-management selector, logging and current status. Original DB
+   resource/data, private BPA/evidence bucket/object, ALB/topic and seeded events preserved. Interview repairs the
+   original paused/misconfigured trail without replacing identity/evidence. Every intended omission loses; both
+   solutions win only at final current read. Delete/purge/recreate/stale/forced-green/incorrect scope cannot win;
+   semantic policy order/singleton lists and real CLI equals/whitespace alternatives remain accepted.
+4. Namespaced IIFE `audit-cli.js`:real CloudTrail create/update/describe/get/delete, logging/status, bounded basic
+   management selectors and seeded Region/90day Event-history lookup. Typed flags/JSON/filters, trail naming,
+   missing resources, SourceArn/account/path/ACL permission checks and explicit Deny guarded. No autonomous
+   collection/delivery/digest validation/backfill, full IAM/policy engine, data-event implementation, shadow-region
+   API or complete pagination claim. Trail physical identity/revision/current status read guard stale success.
+5. **Plan refinements:**trade-off board shows fictional component quotes, guaranteed critical On-Demand capacity
+   after AZ loss, modeled DB pressure, declared constraint failures and app vCPU-hours; it does not fabricate
+   uptime/p95/security/carbon scores from knobs. All648states tested. Example HA/7days/cache/25%Spot/edge/30day
+   logs/profileM:2100requests/s critical capacity,640DBunits/s,$559.75/month fictional component gross,
+   2400app vCPU-h/month. A price discount leaves resource-hours unchanged. Quotes/capacities are explicit course
+   assumptions, not real AWS prices/EC2 measurements or a full-production budget. Runtime SLO, recovery and
+   environmental impact require actual evidence. Two-part save UX remains Phase E as selected.
+6. Lab21 Moto probes ran before final lesson authoring. Exact `seed.sh` launcher replays the bounded seed→scan→
+   repair→scan→cleanup sequence, calling `risk_scan.py` from `lab.py`. Scanner checks actual expected fields for
+   three course contracts, not an official AWS WA Tool risk assessment. **7behavior checks plus cleanup8 passed**:
+   count3→0, actual narrow S3policy readback, DB HA/backups/private metadata, Query alarm fields/topic,
+   trail flags/selector/status and original TEST bytes. Owned trail/alarm/topic/DB/VPC/subnets/bucket removed;
+   owned listener closed. No shared4566reset or real AWS/~/.aws writes; every client endpoint explicit.
+7. **Captured emulator boundaries:**Moto5.2.4 allows CloudTrail logging without bucket policy, reports synthetic
+   LatestDeliveryTime although S3only contains TEST-preserve.txt, returns default selectors[] and LookupEvents
+   HTTP500/NotImplemented. Expected500 is narrowly handled; unexpected API/connection failures still fail.
+   CloudWatch SDK default-CBOR path remains incompatible; private in-memory supported Query model used without
+   installed-package patch, actual Put/Describe/Delete API calls. Alarm initialOK/Unchecked is not fresh health.
+   No actual ALB/SQL restore/failover, runtime metrics/actions, CloudTrail files/digests/validation or full WA review.
+   Initial sandbox startup failed before listener creation; only that exact owned process stopped. First unsupported
+   lookup attempt failed after config checks and still cleaned owned resources; later exact replay fully passed.
+8. `node validate.js`:**ALL CHECKS PASSED —39levels,237stages,60/60terminal missions,84interactive labs,
+   21real-lab projects;27trees/144leaves/148scenarios**. Added in-process `validate-review.js`:
+   **1,726checks**,648planner states, omissions/clean resets, identity/safety/currentness, correct destination
+   permissions/explicit Deny, selector/lookup JSON, malformed flags/names/window/garbage and legitimate alternatives.
+   15MCQs,0length-bias flags, correct positions4/4/4/3; inline checks also pass. Existing focused suites remain green.
+9. Chromium1280/360px:**48recorded samples,0console/page errors and0page overflow**. Intro/all8lesson cards/all8
+   stages, dryrun questions/progression/diagram bounds, documented solved planner, named keyboard sliders,
+   final-only keyboard terminal,3related decision trees, Advanced certificate and disposable stable-ID/old-schema/
+   corrupt-storage reload checked. Screenshots inspected. Fixed phone comparison-table wrapping and a long
+   playbook token; generic playbook columns now min-width0/overflow-wrap:anywhere. Existing host emoji boxes
+   reflect absent glyphs, not broken app assets.
+
+Evidence under persistent ignored `.overhaul-evidence/`:
+`WELLARCH-MOTO-PROBE[-2].txt`, `WELLARCH-SANDBOX-STARTUP-FAIL.txt`, `WELLARCH-LAB21-REPLAY.txt`,
+`WELLARCH-REVIEW-TESTS.txt`, `WELLARCH-FULL-VALIDATE.txt`, `WELLARCH-BROWSER-REPORT.json`,
+`WELLARCH-BROWSER-LOG.txt`, `wellarch-screenshots/` (intro/dryrun/planner default+solved/terminal default+solved
+and individual cards at1280/360px); old baseline `wellarch-old-{1280,360}.png`.
+
+Sources verified during this loop:
+- [Framework / constructive review](https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html), [six pillars](https://docs.aws.amazon.com/wellarchitected/latest/framework/the-pillars-of-the-framework.html), [review process](https://docs.aws.amazon.com/wellarchitected/latest/framework/the-review-process.html)
+- [Workload scope](https://docs.aws.amazon.com/wellarchitected/latest/userguide/define-workload.html), [lenses](https://docs.aws.amazon.com/wellarchitected/latest/userguide/lenses.html), [current documentation/catalog examples](https://docs.aws.amazon.com/wellarchitected/)
+- [Improvement/HRI/MRI](https://docs.aws.amazon.com/wellarchitected/latest/userguide/improving-your-workload.html), [milestones](https://docs.aws.amazon.com/wellarchitected/latest/userguide/milestones.html), [implementation tracking](https://docs.aws.amazon.com/wellarchitected/latest/userguide/implement-and-track-improvements.html)
+- [Sustainability pillar](https://docs.aws.amazon.com/wellarchitected/latest/sustainability-pillar/sustainability-pillar.html), [WA Tool pricing](https://aws.amazon.com/well-architected-tool/pricing/)
+- [CloudTrail S3policy](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html), [CreateTrail flags/naming](https://docs.aws.amazon.com/cli/latest/reference/cloudtrail/create-trail.html), [naming](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-trail-naming-requirements.html)
+- [Event history](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html), [concepts/default management/global scope](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-concepts.html), [digest enable versus actual validation](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-intro.html)
+
+No parallel agents, Docker installation/start, real AWS, shared emulator reset or push. Local commit follows all
+required validation/browser/checkpoint/memory work; next orgs continues automatically, no per-level approval pause.
 
 ## Intermediate 12 `boss2` loop completed (2026-10-27; master §5.B11)
 
