@@ -186,7 +186,7 @@ AG.registerDecisions([
     title: 'Kaunsa database? — RDS, Aurora, DynamoDB, ElastiCache, Redshift, Athena...',
     short: 'Database chuno',
     tldr: 'Pehle query ka shape: ek row by key (OLTP) ya lakhon rows ka aggregate (analytics)? Phir relational joins/unknown queries (SQL) ya known key access with explicit invariants (DynamoDB)?',
-    levels: ['rds', 'dynamodb', 'datastore'],
+    levels: ['rds', 'dynamodb', 'datastore', 'boss2'],
     start: 'q1',
     nodes: {
       q1: {
@@ -364,7 +364,7 @@ AG.registerDecisions([
     title: 'Cache kahan lagaun? — CloudFront, API Gateway cache, ElastiCache, DAX',
     short: 'Caching layer',
     tldr: 'Scope/freshness decide karke useful cache layer choose karo. Static/public content → CloudFront edge. Har user ka alag data → app ke paas ElastiCache. Repeated eventual DynamoDB reads → reviewed DAX; strong reads pass through.',
-    levels: ['cloudfront', 'dynamodb', 'caching', 'datastore'],
+    levels: ['cloudfront', 'dynamodb', 'caching', 'datastore', 'boss2'],
     start: 'q1',
     nodes: {
       q1: {

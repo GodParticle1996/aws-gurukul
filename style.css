@@ -473,6 +473,7 @@ pre {
 
 /* ---------- terminal (aws cli simulator) ---------- */
 .term-goal {
+  overflow-wrap: anywhere;
   background: #ff99000d;
   border: 1px solid #ff99004d;
   border-radius: 12px;

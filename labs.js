@@ -360,9 +360,12 @@
       input.type = 'range';
       input.min = String(kn.min); input.max = String(kn.max);
       input.step = String(kn.step || 1); input.value = String(kn.value);
+      input.setAttribute('aria-label', kn.label);
+      input.setAttribute('aria-valuetext', fmtKnob(kn, kn.value));
       input.addEventListener('input', () => {
         k[kn.id] = Number(input.value);
         vv.textContent = fmtKnob(kn, k[kn.id]);
+        input.setAttribute('aria-valuetext', vv.textContent);
         touched = true;
         paint();
       });

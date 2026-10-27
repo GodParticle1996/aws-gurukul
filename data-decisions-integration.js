@@ -14,7 +14,7 @@ AG.registerDecisions([
     title: 'Services ko kaise jodun? — SQS, SNS, EventBridge, Kinesis, Amazon MQ',
     short: 'Messaging chuno',
     tldr: 'Competing workers + job buffer → SQS; repeated delivery still needs idempotency. Ek event, kai subscribers (fan-out) → SNS (+SQS). Event ke content par routing, SaaS events, schedules → EventBridge. Ordered stream, replay, kai consumers same data padhein → Kinesis. Purana JMS/AMQP app → Amazon MQ.',
-    levels: ['sqssns', 'events', 'messaging', 'eventbridge'],
+    levels: ['sqssns', 'events', 'messaging', 'eventbridge', 'boss2'],
     start: 'q1',
     nodes: {
       q1: {

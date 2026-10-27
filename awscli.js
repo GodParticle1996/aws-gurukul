@@ -704,8 +704,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           'update-function-configuration': ['function-name','memory-size','timeout','handler','architectures*','environment'], 'wait': ['function-name','qualifier'],
           'put-function-concurrency': ['function-name','reserved-concurrent-executions'], 'get-function-concurrency': ['function-name'], 'delete-function-concurrency': ['function-name'],
           'put-function-event-invoke-config': ['function-name','qualifier','maximum-retry-attempts','maximum-event-age-in-seconds','destination-config'], 'get-function-event-invoke-config': ['function-name','qualifier'],
-          'create-event-source-mapping': ['function-name','event-source-arn','batch-size','function-response-types*','enabled!','no-enabled!'],
-          'update-event-source-mapping': ['uuid','batch-size','function-response-types*','enabled!','no-enabled!'], 'get-event-source-mapping': ['uuid'], 'delete-event-source-mapping': ['uuid'], 'list-event-source-mappings': ['function-name','event-source-arn'],
+          'create-event-source-mapping': ['function-name','event-source-arn','batch-size','function-response-types*','scaling-config','enabled!','no-enabled!'],
+          'update-event-source-mapping': ['uuid','batch-size','function-response-types*','scaling-config','enabled!','no-enabled!'], 'get-event-source-mapping': ['uuid'], 'delete-event-source-mapping': ['uuid'], 'list-event-source-mappings': ['function-name','event-source-arn'],
           'invoke': ['function-name','qualifier','invocation-type','payload','cli-binary-format','log-type'],
           'put-provisioned-concurrency-config': ['function-name','qualifier','provisioned-concurrent-executions'], 'get-provisioned-concurrency-config': ['function-name','qualifier'], 'delete-provisioned-concurrency-config': ['function-name','qualifier'], 'publish-version': ['function-name'],
           'add-permission': ['function-name','statement-id','action','principal','source-arn','source-account'], 'get-policy': ['function-name'], 'delete-function': ['function-name'],
@@ -841,6 +841,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
 
     if (AG.securityCLI && AG.securityCLI({service,op,toks,flag,flags,sim,list,print,resultJson,s3Encryption})) return;
+    if (AG.capacityCLI && AG.capacityCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
 
     if(service==='s3api'&&['put-bucket-lifecycle-configuration','get-bucket-lifecycle-configuration','delete-bucket-lifecycle','put-bucket-replication','get-bucket-replication','delete-bucket-replication','put-object-lock-configuration','get-object-lock-configuration','put-object-retention','get-object-retention','put-object-legal-hold','get-object-legal-hold','put-bucket-intelligent-tiering-configuration','get-bucket-intelligent-tiering-configuration','get-bucket-versioning','put-bucket-versioning','head-object','get-object','restore-object'].includes(op)){
       const clone=x=>JSON.parse(JSON.stringify(x)),object=x=>!!x&&typeof x==='object'&&!Array.isArray(x);
@@ -1857,7 +1858,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
 
       /* ===================== RDS ===================== */
       case 'rds': {
-        const dbJson = r => ({ DBInstanceIdentifier: r.id, DBInstanceClass: r.class, Engine: r.engine,
+        const nextDbResourceId=()=>{let id;do{sim.account.rdsResourceSequence=(sim.account.rdsResourceSequence||0)+1;id='db-'+String(sim.account.rdsResourceSequence).padStart(26,'0');}while(list('rds').some(r=>r.resourceId===id));return id;};
+        const dbJson = r => ({ DBInstanceIdentifier: r.id, DbiResourceId:r.resourceId, DBInstanceClass: r.class, Engine: r.engine,
           DBInstanceStatus: r.state, MultiAZ: !!r.multiAZ, BackupRetentionPeriod: r.backupRetention == null ? 1 : r.backupRetention,
           StorageEncrypted: !!r.encrypted, PubliclyAccessible: !!r.publicAccess, DeletionProtection: !!r.deletionProtection,
           AllocatedStorage: r.storage || 20, MaxAllocatedStorage: r.maxStorage || 0,
@@ -1955,7 +1957,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           }
           if (source.state !== 'available') return print('err', 'InvalidDBInstanceState: source must be available');
           const r = JSON.parse(JSON.stringify(source));
-          r.id = id; r.name = id; r.state = 'creating'; r.pending = {}; delete r.pendingApply;
+          r.id = id; r.name = id; r.resourceId=nextDbResourceId(); r.state = 'creating'; r.pending = {}; delete r.pendingApply;
           r.endpoint = `${id}.sim.${sim.account.region || 'us-east-1'}.rds.amazonaws.com`;
           r.deletionProtection = false; r.class = flag('db-instance-class') || r.class;
           if (op === 'create-db-instance-read-replica') { r.source = source.id; r.multiAZ = false; }
@@ -2010,7 +2012,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         const revision=f=>f.revisionId||'r0';
         function completeUpdate(f) {if(f.pendingConfig){Object.assign(f,f.pendingConfig);delete f.pendingConfig;f.lastUpdateStatus='Successful';f.revisionId='r'+((f.revisionCounter||0)+1);f.revisionCounter=(f.revisionCounter||0)+1;}}
         function config(f,version) {return {FunctionName:f.name,Runtime:f.runtime,Handler:f.handler,MemorySize:f.memory||128,Timeout:f.timeout||3,State:f.state||'Active',LastUpdateStatus:f.pendingConfig?'InProgress':f.lastUpdateStatus||'Successful',RevisionId:revision(f),Version:f._version||version||'$LATEST',Architectures:f.architectures||['x86_64'],Environment:clone(f.environment||{Variables:{}})};}
-        const mapView=m=>({UUID:m.uuid,FunctionArn:`arn:aws:lambda:${sim.account.region}:123456789012:function:${m.functionName}`,EventSourceArn:m.eventSourceArn,BatchSize:m.batchSize,FunctionResponseTypes:clone(m.responseTypes),State:m.state});
+        const mapView=m=>({UUID:m.uuid,FunctionArn:`arn:aws:lambda:${sim.account.region}:123456789012:function:${m.functionName}`,EventSourceArn:m.eventSourceArn,BatchSize:m.batchSize,FunctionResponseTypes:clone(m.responseTypes),ScalingConfig:clone(m.scalingConfig||{}),State:m.state});
+        const scalingConfig=()=>{const c=read('scaling-config');if(!c||typeof c!=='object'||Array.isArray(c)||Object.keys(c).some(k=>k!=='MaximumConcurrency')||c.MaximumConcurrency!==undefined&&(!Number.isInteger(c.MaximumConcurrency)||c.MaximumConcurrency<2||c.MaximumConcurrency>1000))throw Error('InvalidParameterValueException: ScalingConfig supports MaximumConcurrency integer2..1000 or {} to remove; provisioned poller mode is outside this fixture');return clone(c);};
         const advanceMap=m=>{if(m.pendingState){m.state=m.pendingState;delete m.pendingState;}};
         function selected(f,q) {if(!q||q==='$LATEST')return f;const v=f.aliases&&f.aliases[q]||q;const saved=f.versions&&Object.prototype.hasOwnProperty.call(f.versions,v)&&f.versions[v];if(!saved)throw Error('ResourceNotFoundException: Published version/alias not found');return {...saved,name:f.name,roleName:f.roleName,workload:f.workload,_version:v};}
         function validateMapping(f,arn,batch,types) {
@@ -2078,18 +2081,20 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if(op==='create-event-source-mapping') {
             const {fn}=getFn(),arn=required('event-source-arn'),batch=flag('batch-size')===null?10:numeric('batch-size',1,10000),types=flags('function-response-types');
             validateMapping(fn,arn,batch,types);
+            const scale=flag('scaling-config')===null?{}:scalingConfig();
             if(toks.includes('--enabled')&&toks.includes('--no-enabled'))throw Error('InvalidParameterValueException: Mutually exclusive enable flags');
             if(mappings().some(m=>m.functionName===fn.name&&m.eventSourceArn===arn))throw Error('ResourceConflictException: Mapping for this function/event source already exists; update the mapping');
             const seq=(sim.account.lambdaMappingSequence||0)+1,uuid='11111111-0000-4000-8000-'+String(seq).padStart(12,'0');
-            const m={uuid,functionName:fn.name,eventSourceArn:arn,batchSize:batch,responseTypes:types,state:'Creating',pendingState:toks.includes('--no-enabled')?'Disabled':'Enabled'};
+            const m={uuid,functionName:fn.name,eventSourceArn:arn,batchSize:batch,responseTypes:types,scalingConfig:scale,state:'Creating',pendingState:toks.includes('--no-enabled')?'Disabled':'Enabled'};
             sim.account.lambdaMappingSequence=seq;mappings().push(m);return resultJson(mapView(m));
           }
           if(op==='update-event-source-mapping') {
             const m=mapping(),f=functions().find(f=>f.name===m.functionName);if(!f)throw Error('ResourceNotFoundException: Mapping function missing');
             const batch=flag('batch-size')===null?m.batchSize:numeric('batch-size',1,10000),types=flag('function-response-types')===null?m.responseTypes:flags('function-response-types');
             validateMapping(f,m.eventSourceArn,batch,types);
+            const scale=flag('scaling-config')===null?m.scalingConfig||{}:scalingConfig();
             if(toks.includes('--enabled')&&toks.includes('--no-enabled'))throw Error('InvalidParameterValueException: Mutually exclusive enable flags');
-            m.batchSize=batch;m.responseTypes=types;m.pendingState=toks.includes('--no-enabled')?'Disabled':toks.includes('--enabled')?'Enabled':m.pendingState||m.state;m.state='Updating';return resultJson(mapView(m));
+            m.batchSize=batch;m.responseTypes=types;m.scalingConfig=scale;m.pendingState=toks.includes('--no-enabled')?'Disabled':toks.includes('--enabled')?'Enabled':m.pendingState||m.state;m.state='Updating';return resultJson(mapView(m));
           }
           if(op==='get-event-source-mapping'){const m=mapping();advanceMap(m);return resultJson(mapView(m));}
           if(op==='list-event-source-mappings') {
@@ -2541,46 +2546,6 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           print('err', `'${op}' is mission mein scripted nahi hai — file apply karo (ls dekho) ya terraform use karo.`);
         } else {
           print('err', `unknown CloudFormation op: ${op}`);
-        }
-        return;
-
-      /* ===================== CLOUDWATCH ===================== */
-      case 'cloudwatch':
-        if (op === 'describe-alarms') {
-          const alarms = list('alarms');
-          if (!alarms.length) return print('ok', '{\n    "MetricAlarms": []\n}');
-          print('ok', '{\n    "MetricAlarms": [\n' +
-            alarms.map(a => `        { "AlarmName": "${a.name}", "StateValue": "${a.state}", "MetricName": "${a.metric}", "Namespace": "${a.namespace || 'AWS/EC2'}", "Threshold": ${a.threshold} }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-alarms-for-metric') {
-          print('ok', '{\n    "MetricAlarms": []\n}');
-        } else if (op === 'put-metric-alarm') {
-          const name = flag('alarm-name');
-          if (!name) return print('err', 'error: --alarm-name required');
-          const alarms = list('alarms');
-          if (alarms.find(a => a.name === name)) return print('err', `Alarm '${name}' already exists`);
-          alarms.push({ name, metric: flag('metric-name') || 'CPUUtilization', namespace: flag('namespace') || 'AWS/EC2', threshold: Number(flag('threshold') || 80), state: 'INSUFFICIENT_DATA' });
-          print('ok', `Alarm created: ${name}`);
-        } else if (op === 'delete-alarms') {
-          const name = flag('alarm-names');
-          if (!name) return print('err', 'error: --alarm-names required');
-          const alarms = list('alarms');
-          const idx = alarms.findIndex(a => a.name === name);
-          if (idx < 0) return print('err', `ResourceNotFound: Alarm '${name}' not found`);
-          alarms.splice(idx, 1);
-          print('ok', '');
-        } else if (op === 'set-alarm-state') {
-          const name = flag('alarm-name');
-          const state = flag('state-value');
-          if (!name || !state) return print('err', 'error: --alarm-name and --state-value required');
-          const a = find('alarms', name);
-          if (!a) return print('err', `ResourceNotFound: Alarm '${name}' not found`);
-          a.state = state.toUpperCase();
-          print('ok', '');
-        } else if (op === 'get-metric-statistics') {
-          print('ok', '{\n    "Datapoints": []\n}');
-        } else {
-          print('err', `unknown CloudWatch op: ${op}`);
         }
         return;
 

@@ -1,7 +1,7 @@
-# AWS Gurukul overhaul checkpoint — 2026-10-26
+# AWS Gurukul overhaul checkpoint — 2026-10-27
 
-**Phase A complete; Phase B through `security` complete (Intermediate 1–11, including selected caching).** User approved continuing at the Beginner
-track checkpoint. Next: **`boss2`** (master plan §5.B11; UI ordinal12), then ask the required Intermediate track checkpoint question.
+**Phase A and Phase B complete (Beginner1–8; Intermediate1–12, including selected caching and boss2).** User approved continuing at the Beginner
+track checkpoint. **Intermediate1–12 including boss2 is complete. Required Intermediate track question pending; next candidate after the answer is Advanced1 `wellarch` (§5.C1), lab21.**
 
 ## User decisions
 
@@ -36,8 +36,111 @@ Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 227 stages, 58/58 terminal missions,
-76 interactive labs, 19 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 232 stages, 59/59 terminal missions,
+80 interactive labs, 20 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity checks.
+
+## Intermediate 12 `boss2` loop completed (2026-10-27; master §5.B11)
+
+Same `boss2` ID retained in `data-int-12-boss2.js`. Last legacy `data-intermediate.js` removed; index/validator
+load order and original saved level identity preserved. **Intermediate track complete; required end-of-track
+question pending.** Next candidate after the user's checkpoint answer: Advanced1 `wellarch` (§5.C1), lab21.
+Local per-level commit authorized; no push/deployment. Security predecessor **b853c58**, Events **74b6777**.
+
+1. Audited the old entire boss level, its visual, lab08 and existing ASG/RDS/Lambda/CloudWatch conventions before
+   editing. Removed universal company/stack claims, fixed latency/hit/saving promises, single-Region anti-pattern,
+   Multi-AZ=regional DR, monthly-user capacity guess, instant database migration and history-only audit wins.
+   The incident now permits tested rollback, bounded admission/pools and evidence-based vertical scaling rather
+   than universally marking those mitigations wrong. Fictional ShopKaro story stays explicitly labelled.
+2. Eight lesson cards, four myths, a comparison table/small decision tree, playbook and nine exam cues;
+   dryrun → declared capacity flowlab → bins → incident → triage → 12-action terminal → lab20 → 8 bonus MCQs;
+   four interview MCQs plus a three-action terminal, eight flashcards and optional approved billable homework.
+   `compute`, `database`, `caching`, `messaging` Decision Dojo trees link boss2. Pronoun/mixed-script lint clean.
+3. State-based mission preserves original DB resource identity/data/HA/backups/encryption/protection, network/SGs,
+   original email function/mapping/role and queued intent. Requires an available private reader, balanced modeled
+   healthy capacity, two future schedules, function reserved20 plus original enabled mapping maximum20, correct
+   p95 alarm with current supplied-metric readback, and actual SNS-origin manual TEST body received with a valid
+   current receipt. All omissions lose; intended wins only after the final receive. Interview wins only after
+   the final mapping read settles Enabled. Deleted/purged work, broad SGs, oversized capacity, stale reads,
+   missing/wrong dimensions, forced alarm states and direct SQS injection cannot win. Supported CLI alternatives
+   work; checks do not depend on the exact command-history string.
+4. Namespaced IIFE `capacity-cli.js`: bounded five-field ASG schedule metadata (UTC/IANA timezone, no timer),
+   strict CloudWatch simple/percentile alarm schema/upsert, dimensions, M-of-N supplied aggregates, explicit
+   missing/low-sample/manual-state boundaries and current revision/physical-identity readback. Native old
+   contradictory CloudWatch branch removed. Lambda mapping `--scaling-config` uses actual2..1000 contract or{}
+   to remove, independently from reserved concurrency; updates settle on get/list. RDS replica/restore now gets
+   a distinct DbiResourceId instead of cloning the source identity. Errors/JSON types/missing flags guarded.
+5. **Plan refinement:** planner reports capacity/weighted DB pressure/ideal queue drain rather than inventing
+   DB CPU, p95 and error percentages from six knobs. Those require real measurements, taught in the load-test
+   and alarm cards. All864planner states tested. Reference2000requests/s,80%cacheable-hit,1reader,12workers,
+   concurrency20/queueOn:post-AZ2240requests/s;writer558.4units/s;reader633.6reads/s;email320tasks/s;
+   ideal10000-task net drain83.3s. Gross app+ALB-only≈$0.2881/h≈₹25.35/h at₹88/$1; excludes DB/readers/cache,
+   queue/Lambda, CPU credits/EBS, NAT, logs/transfer, tax/allowances. Fictional worker capacity/LCU assumptions,
+   dated US East rate-card illustration, not a real EC2 rating or a full-sale quotation. Part1/Part2 save UX remains
+   Phase E, following the selected levels-first order.
+6. Lab20 was probed before final lesson authoring, then exact repository scripts replayed:
+   - `lab.py`: Terraform1.17.0/provider6.70.0, explicit own loopback endpoints/local backend; **18 added,18
+     destroyed**, actual state empty, owned listener closed. Internal ALB/no app/listener; S3/BPA/OAC/CloudFront
+     scoped policy, WAF association, work queues/DLQ, SNS topic/SQS alert sink/policy/raw subscription.
+     Repeat plan **exit2**, honestly reports Moto OAC/default/readback and JSON drift. OAC attachment is dropped;
+     no working private-CDN claim. Provider-native CloudWatch CBOR failed decoding; native alarm HCL remains
+     optional/gated. A private in-memory SDK model selects a supported Query protocol for actual two alarm
+     Put/Describe/Delete APIs, no installed package patch or fabricated response. Initial Moto alarmOK says
+     Unchecked/Initial, not measured health. Explicit manual READINESS_TEST SNS→SQS receive/delete passed;
+     no actual metric-triggered page, WAF traffic or checkout SLO is claimed.
+   - `metadata.py`: **6behavior checks + cleanup7**. ASG6→12, two future schedules leave current12 unchanged,
+     five-field cron/IANA timezone retained; private ordinary-password PostgreSQL source/reader metadata;
+     reserved20/mapping20/partial batch readback. Owned resources deleted/listener closed. No Docker/Lambda
+     invoke, real SQL, replica lag, autonomous schedule or boot timing is claimed.
+   - `load.py`: DNS/socket network forbidden, in-process Moto SDK plus actual host SQLite durable TEST intents.
+     Each scenario10×1000unique windows +100deliberate duplicate copies; exact10000IDs/payloads, received/ack
+     conservation and controlled visible/inflight0 checked. External emails0. **Exact repository replay**:
+     1worker173.523s/57.63unique intents per drain-second;5workers162.705s/61.46. Sum of bounded drain windows
+     excludes publishing; not an initial10000burst, AWS/Lambda/network benchmark or a5×speedup. Only emulator
+     API calls serialized to avoid Moto5.2.4 pending-set iteration crash; business workers remain concurrent.
+     Scoped virtual queues removed. SQLite/ledger historical evidence retained under ignored `.lab`.
+7. `node validate.js`: **ALL CHECKS PASSED —39levels,232stages,59/59terminal missions,80interactive labs,
+   20real-lab projects;27trees/144leaves/148scenarios**. Added `validate-capacity.js` in-process:
+   **2,187 checks**,864planner states, omissions, clean resets, semantic CLI alternatives, malformed flags/JSON,
+   supplied-metric semantics, safety/resource identity, direct-injection and stale-read cheats. Existing focused
+   suites remain green.15MCQs:0length-bias flags, positions4/4/4/3; inline checks also pass. Distractors revised
+   toward plausible reservation/standby/routing/percentile/receipt misconceptions, with explanations of each.
+8. Chromium1280px/360px: **50recorded samples, no console/page errors or page overflow**; intro/all8cards/all8
+   stages, dryrun progression/label bounds, documented solved planner, named keyboard sliders and final-only
+   keyboard terminal replay, four related decision trees, certificate, stable-ID/old-schema reload and corrupt
+   disposable progress recovery. Inspected screenshots. Fixed dryrun label overlap and terminal long ARN/URL
+   wrapping. Generic flowlab ranges now expose aria-label/aria-valuetext; validator DOM implements attributes.
+   Existing app dark palette remains; the host lacks emoji glyphs (boxes in screenshots), not broken assets.
+
+### Failed preparation evidence retained honestly
+
+- Initial HCL formatting and provider CBOR attempts failed. One early saved-plan `-state` experiment wrote to a
+  different path; cleanup originally inspected the wrong path, so that run did **not** execute Terraform destroy.
+  Its original state is archived; the owned disposable server closed. Explicit local backend fixed later runs;
+  successful final replay actually destroyed18and checked the actual backend state. No shared/real AWS existed.
+- HTTP-server initial10100-copy burst timed out180s after770durable intents; actual scoped destroy/listener
+  closure followed. No successful full HTTP burst is claimed. Later in-process tests first exposed an overly
+  strict receive-count expectation, then Moto's concurrent pending-set crash; corrected Standard redelivery
+  conservation and API-only locking produced the two successful exact-workload captures above.
+
+Evidence under ignored, persistent `aws-gurukul/.overhaul-evidence/`:
+- `BOSS2-LAB20-TERRAFORM-REPLAY.txt`, `BOSS2-LAB20-METADATA-REPLAY.txt`, `BOSS2-LAB20-LOAD-REPLAY.txt`.
+- `BOSS2-FULL-VALIDATE.txt`, `BOSS2-CAPACITY-TESTS.txt`, `BOSS2-BROWSER-REPORT.json`, `BOSS2-BROWSER-LOG.txt`.
+- `boss2-screenshots/`: intro/dryrun/planner default+solved/terminal default+solved and individual lesson cards
+  at1280/360px. Historical failed captures and `boss2-draft/DESIGN.md` remain for audit, not current status.
+
+### Sources checked during this level's loop
+
+- [ASG schedules / five-field cron / time zone](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-scheduled-scaling.html)
+- [Create schedule / UTC start](https://docs.aws.amazon.com/autoscaling/ec2/userguide/scheduled-scaling-create-scheduled-action.html)
+- [Warmup](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html), [cooldowns](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-scaling-cooldowns.html), [health grace](https://docs.aws.amazon.com/autoscaling/ec2/userguide/health-check-grace-period.html)
+- [RDS async readers](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.html), [PostgreSQL restrictions](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_PostgreSQL.Replication.ReadReplicas.html), [RDS Proxy](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-proxy.html)
+- [Lambda SQS scaling](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html), [mapping cap2..1000](https://docs.aws.amazon.com/lambda/latest/api/API_ScalingConfig.html), [function concurrency](https://docs.aws.amazon.com/lambda/latest/dg/lambda-concurrency.html)
+- [Low-sample percentiles](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/percentiles-with-low-samples.html), [missing data/evaluation](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html), [statistics](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Statistics-definitions.html), [alarm configuration](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/ConsoleAlarms.html)
+- [Transactional outbox](https://docs.aws.amazon.com/prescriptive-guidance/latest/cloud-design-patterns/transactional-outbox.html)
+- [ALB list pricing](https://aws.amazon.com/elasticloadbalancing/pricing/), [dated T3 illustration](https://docs.aws.amazon.com/prescriptive-guidance/latest/optimize-costs-microsoft-workloads/right-size-selection.html)
+- [AWS SDK supported protocols](https://github.com/aws/aws-sdk-js-v3/blob/main/supplemental-docs/CLIENTS.md), [CloudWatch protocol migration](https://github.com/aws/aws-sdk-go-v2/issues/3432)
+
+No parallel agents, Docker installation/start, real AWS, shared emulator reset, ~/.aws writes or push used.
 
 ## Intermediate 11 `security` loop completed (2026-10-26; master §5.B10)
 

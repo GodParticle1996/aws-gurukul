@@ -322,30 +322,13 @@ const VISUALS = {
   },
 
   boss2: {
-    t: 'Boss — Multi-AZ resilient e-commerce',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node"><span class="ni">🌐</span><span class="nl">Global users</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-accent pulse"><span class="ni">📡</span><span class="nl">Route 53</span><span class="ns">latency routing</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-gold"><span class="ni">📍</span><span class="nl">CloudFront</span><span class="ns">edge cache</span></div>
-        <div class="dg-down flow"></div>
-        <div class="dg-box is-good"><span class="bx-label">VPC Multi-AZ (us-east-1)</span>
-          <div class="dg-stack">
-            <div class="dg-flow"><div class="dg-node is-accent"><span class="ni">⚖️</span><span class="nl">ALB</span></div></div>
-            <div class="dg-flow">
-              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2 ASG</span><span class="ns">3 AZs</span></div>
-              <div class="dg-node is-gold"><span class="ni">⚡</span><span class="nl">ElastiCache</span><span class="ns">Redis</span></div>
-            </div>
-            <div class="dg-flow">
-              <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">RDS Multi-AZ</span></div>
-              <div class="dg-node is-good"><span class="ni">🪣</span><span class="nl">S3 (images)</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-cap">Production e-commerce: <b>Route 53 → CloudFront → ALB → ASG (multi-AZ) → ElastiCache + RDS Multi-AZ + S3</b>. Caching = fast, multi-AZ = survive failure, decoupled = scale parts independently.</div>`,
+    t: 'Mahasale — requirements, boundaries, evidence',
+    html: `<div class="dg-grid">
+      <div class="dg-rung a"><span class="lv">1</span><span class="cmd">Offered peak + AZ loss</span><span class="q">fictional course input: 2000 requests/s; 12 workers; 3 AZ</span></div>
+      <div class="dg-rung g"><span class="lv">2</span><span class="cmd">Writer / routed reader</span><span class="q">HA, async consistency and connection budgets differ</span></div>
+      <div class="dg-rung a"><span class="lv">3</span><span class="cmd">Durable work + bounded consumer</span><span class="q">pending intent is not external email delivery</span></div>
+      <div class="dg-rung g"><span class="lv">4</span><span class="cmd">Fresh tail / business evidence</span><span class="q">manual alert-route test is not a customer SLO</span></div>
+    </div><div class="dg-cap">One-Region Multi-AZ can fit the requirements. Real launch needs measured gates, preserved work, owners and rollback; a service diagram alone cannot prove readiness.</div>`,
   },
 
   /* ================= TRACK 3 — ADVANCED ================= */
