@@ -1,8 +1,8 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-27
 
-**Phase A and B complete; Advanced1 `wellarch`/lab21 complete.**
+**Phase A and B complete; Advanced1 `wellarch`/lab21 and Advanced2 `orgs`/lab22 complete.**
 Intermediate track checkpoint answered **Continue — Advanced1 wellarch** (2026-10-27).
-Next **Advanced2 `orgs` (§5.C2),lab22**; continue per-level loop/local commits, ask before push.
+Next **Advanced3 `dr` (§5.C3),lab23**; continue per-level loop/local commits, ask before push.
 
 ## User decisions
 
@@ -39,8 +39,75 @@ Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 237 stages, 60/60 terminal missions,
-84 interactive labs, 21 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 240 stages, 61/61 terminal missions,
+88 interactive labs, 22 real-lab projects. Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+
+## Advanced 2 `orgs` loop completed (2026-10-27; master §5.C2)
+
+Predecessor local commit **6929d10**. Entire old level/visual/Organizations handler and master specification audited.
+Same `orgs` ID retained in `data-adv-2-orgs.js`; old block removed; engine/data registered in index and validator.
+
+1. Eight question/analogy/mechanism cards, four myths, comparison/playbook/decision guidance, nine exam cues;
+   dryrun → 648-state permission flowlab → bins → policy fill → triage → seven-action terminal → lab22 → eight MCQs.
+   Four interview MCQs + three-action terminal, eight flashcards and approved-real-AWS homework. Fiction labeled.
+   Identity Center, Control Tower, central logging, RAM, service-specific delegation, tag/backup/RCP/declarative
+   policies and billing have distinct scopes. Relevant identity/multiaccount Decision Dojo trees link this level.
+2. Namespaced `orgs-cli.js`: strict typed Organizations parser, OU hierarchy/move/CRUD and policy attachments,
+   five-level OU depth, min-one/max-five directly attached SCPs, management fixture caller, trusted access and
+   service-specific Config delegated registration. Missing/wrong flags, JSON, lookups, policy syntax/context,
+   cycles, stale reads and garbage guarded. Original old handler removed. ListAccounts uses State.
+3. Bounded semantic evaluator unions Allow at each node, intersects root/every OU/account, honors explicit Deny
+   and management/service-linked-role SCP exemptions. Member root/delegates remain affected. Full current SCP
+   language includes Allow conditions/resources and NotAction/NotResource; older deny-only guidance is stale.
+   Request evaluator explicitly models same-account role ARN resource grants for existing PutObject, identity
+   Deny, permissions boundary and SCP ceilings; not a universal IAM formula or cross-account/session/RCP engine.
+4. Main mission creates nested Sandbox, moves only dev, attaches reviewed endpoint/location and audit policies,
+   enables config-multiaccountsetup.amazonaws.com trusted access, registers original audit account and finally
+   reads the current filtered delegation registry. Current semantic request contracts plus original production
+   DB/orders, six accounts, OUs, policy identity/baselines and IAM grants are preserved. All omissions lose;
+   main wins only after action7. Interview repairs the missing Workloads Allow and wrong condition on the original
+   policy, then current DescribePolicy read is final action3. Deletion/reset/broad replacement, root disruption,
+   wrong account moves, stale/query-empty reads and unsupported shortcuts cannot win. Legitimate alternate
+   new-OU allocation and supported CLI alternatives work; goals do not match literal command strings.
+5. Scoped lab22 was probed before final authoring, then exact repository `lab.py` replay passed: six behavior
+   checks + membership cleanup7 + scoped cleanup8; owned loopback listener closed. Actual nested OU/move/default
+   FullAWSAccess/policy/delegation metadata and virtual member STS identity verified. Moto accepts delegation
+   without prerequisite trusted access and permits forbidden eu-west-1 S3 create despite attached Deny SCP.
+   Those gaps are taught explicitly. Membership removal is NOT real AWS account closure. No live accounts,
+   Identity Center/Control Tower/RAM/Config rules/RCP/tag/backup/billing runtime or SCP enforcement proof claimed.
+6. `validate-orgs.js`: **1,888 checks, all648 planner states,15 MCQs,0 length flags; positions4/4/4/3**.
+   Focused/full validator pass: **39levels240stages61/61missions88interactive22real labs**, all prior suites green.
+   Pronoun/mixed-script lint and git diff whitespace clean. SDK errors/flags, semantic alternatives, every
+   omission, explicit Deny, IAM/resource/boundary nuances and production preservation covered.
+7. Browser: **48 samples at1280px/360px,0 console/page errors,0 page overflow**. All eight cards/stages, six
+   dryrun steps, documented planner, named slider keyboard controls, final-only terminal and keyboard fill
+   verified. Wrong fill teaches the applicable Deny. Intro/dryrun/planner start+solved/terminal screenshots
+   inspected. Long ARN token wrapping fixed; fill tokens/blanks have visible focus and Enter/Space controls.
+   Advanced certificate, both linked trees, stable-ID reload, old-schema and corrupt disposable progress pass.
+8. Evidence (gitignored, local): `.overhaul-evidence/ORGS-{MOTO-PROBE,LAB22-REPLAY,FOCUSED-TESTS,FULL-VALIDATE,BROWSER-LOG}.txt`,
+   `ORGS-BROWSER-REPORT.json`, `orgs-browser.cjs`, `orgs-screenshots/`; initial research `orgs-draft/DESIGN.md`.
+
+Primary sources checked this level (2026-10-27):
+- [SCP scope/exemptions](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html),
+  [evaluation](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_evaluation.html),
+  [current syntax](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps_syntax.html),
+  [2025 full IAM language expansion](https://aws.amazon.com/about-aws/whats-new/2025/09/aws-organizations-iam-language-service-control-policies/).
+- [ListAccounts State](https://docs.aws.amazon.com/organizations/latest/APIReference/API_ListAccounts.html),
+  [delegation prerequisite/error](https://docs.aws.amazon.com/organizations/latest/APIReference/API_RegisterDelegatedAdministrator.html),
+  [Config service principals](https://docs.aws.amazon.com/config/latest/developerguide/aggregated-register-delegated-administrator.html).
+- [IAM role/resource nuance](https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic_policy-eval-denyallow.html),
+  [Identity Center](https://docs.aws.amazon.com/singlesignon/latest/userguide/what-is.html),
+  [RAM ownership](https://docs.aws.amazon.com/ram/latest/userguide/what-is.html).
+- [Control Tower behaviors](https://docs.aws.amazon.com/controltower/latest/controlreference/control-behavior.html),
+  [proactive scope](https://docs.aws.amazon.com/controltower/latest/controlreference/proactive-controls.html),
+  [tag enforcement](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_tag-policies-enforcement.html),
+  [required-key IaC](https://docs.aws.amazon.com/organizations/latest/userguide/enforce-required-tag-keys-iac.html),
+  [RCP](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_rcps.html),
+  [declarative](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_declarative_policies.html).
+- [Consolidated billing](https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/consolidated-billing.html),
+  [sharing preferences](https://docs.aws.amazon.com/us_en/awsaccountbilling/latest/aboutv2/billing-pref.html).
+
+**Next: Advanced3 `dr`, master §5.C3,lab23. Local commit then continue automatically. No push.**
 
 ## Advanced 1 `wellarch` loop completed (2026-10-27; master §5.C1)
 

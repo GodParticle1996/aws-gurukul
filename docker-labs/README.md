@@ -66,6 +66,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `19-kms-secrets-waf` | 🛡️ Security | Actual host AES-GCM envelope/tamper checks, secret stages, KMS/SSM/WAF/GuardDuty metadata and explicit runtime gaps |
 | `20-mahasale-terraform` | 🏆 Mahasale boss | 18 owned Terraform objects, visible OAC drift, SDK Query alarm metadata/manual SNS channel, ASG/RDS/Lambda config, network-forbidden 10000 TEST intents per1/5worker scenario; no storefront/runtime/real email |
 | `21-wellarch-risk-scan` | 🏛️ Well-Architected | Scoped3contract scanner, DB HA/backups, reviewed Query5xx alarm, trail policy/management logging metadata and preserved TEST evidence; explicit Moto delivery/history gaps, owned cleanup |
+| `22-org-scp-guardrails` | 🏢 Organizations | Virtual org/accounts/nested OUs/default SCP attachments/Config delegation/member STS identity; actual forbidden bucket reveals missing Moto SCP enforcement, scoped membership/resource cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

@@ -841,6 +841,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
 
     if (AG.securityCLI && AG.securityCLI({service,op,toks,flag,flags,sim,list,print,resultJson,s3Encryption})) return;
+    if (AG.organizationsCLI && AG.organizationsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (AG.auditCLI && AG.auditCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (AG.capacityCLI && AG.capacityCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
 
@@ -3220,63 +3221,6 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       }
 
       /* ===================== ORGANIZATIONS ===================== */
-      case 'organizations':
-        if (op === 'describe-organization') {
-          const o = sim.account.organization || {};
-          print('ok', `{ "Organization": { "Id": "${o.id || 'o-exampleorgid'}", "MasterAccountId": "${o.managementAccountId || '111111111111'}", "MasterAccountEmail": "${o.email || 'root@company.com'}", "FeatureSet": "${o.featureSet || 'ALL'}" } }`);
-        } else if (op === 'list-accounts') {
-          const accts = list('orgAccounts');
-          if (!accts.length) return print('ok', '{\n    "Accounts": []\n}');
-          print('ok', '{\n    "Accounts": [\n' +
-            accts.map(a => `        { "Id": "${a.id}", "Name": "${a.name}", "Email": "${a.email || a.name + '@company.com'}", "Status": "${a.status || 'ACTIVE'}", "OrganizationalUnit": "${a.ou || 'Root'}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'list-organizational-units-for-parent' || op === 'list-organizational-units') {
-          const ous = list('orgUnits');
-          if (!ous.length) return print('ok', '{\n    "OrganizationalUnits": []\n}');
-          print('ok', '{\n    "OrganizationalUnits": [\n' +
-            ous.map(u => `        { "Id": "${u.id}", "Name": "${u.name}", "Arn": "arn:aws:organizations::111111111111:ou/o-exampleorgid/${u.id}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'list-policies') {
-          const scps = list('scps');
-          if (!scps.length) return print('ok', '{\n    "Policies": []\n}');
-          print('ok', '{\n    "Policies": [\n' +
-            scps.map(p => `        { "Id": "${p.id}", "Name": "${p.name}", "Type": "SERVICE_CONTROL_POLICY", "AwsManaged": ${p.awsManaged ? 'true' : 'false'} }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-policy') {
-          const id = flag('policy-id');
-          if (!id) return print('err', 'error: --policy-id required');
-          const p = list('scps').find(x => x.id === id || x.name === id);
-          if (!p) return print('err', `PolicyNotFoundException: ${id}`);
-          print('ok', prettyJson({ Policy: { PolicySummary: { Id: p.id, Name: p.name, Type: 'SERVICE_CONTROL_POLICY' }, Content: p.document || {} } }));
-        } else if (op === 'list-targets-for-policy') {
-          const id = flag('policy-id');
-          const p = list('scps').find(x => x.id === id || x.name === id);
-          if (!p) return print('err', `PolicyNotFoundException: ${id}`);
-          const targets = p.targets || [];
-          print('ok', '{\n    "Targets": [\n' +
-            targets.map(t => `        { "TargetId": "${t}", "Type": "ORGANIZATIONAL_UNIT" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'attach-policy') {
-          const id = flag('policy-id');
-          const target = flag('target-id');
-          if (!id || !target) return print('err', 'error: --policy-id and --target-id required');
-          const p = list('scps').find(x => x.id === id || x.name === id);
-          if (!p) return print('err', `PolicyNotFoundException: ${id}`);
-          p.targets = p.targets || [];
-          if (!p.targets.includes(target)) p.targets.push(target);
-          print('ok', `SCP ${p.name} attached to ${target}`);
-        } else if (op === 'detach-policy') {
-          const id = flag('policy-id');
-          const target = flag('target-id');
-          const p = list('scps').find(x => x.id === id || x.name === id);
-          if (!p) return print('err', `PolicyNotFoundException: ${id}`);
-          p.targets = (p.targets || []).filter(t => t !== target);
-          print('ok', '');
-        } else {
-          print('err', `unknown Organizations op: ${op}`);
-        }
-        return;
-
       /* EventBridge Classic / Scheduler / bounded Step Functions ASL model.
          Configuration, delivery acceptance and TEST business state are distinct proofs. */
       case 'events':

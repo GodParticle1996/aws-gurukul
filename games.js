@@ -110,6 +110,8 @@ AG.renderers.fill = function renderFill(stage, arena, onDone) {
       const idx = +m[1];
       const slot = el('span', 'blank');
       slot.dataset.blank = String(idx);
+      slot.tabIndex = 0; slot.setAttribute('role', 'button'); slot.setAttribute('aria-label', 'Blank ' + (idx + 1));
+      slot.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); slot.click(); } });
       slot.textContent = '＿＿';
       slot.addEventListener('dragover', e => { if (!slot.classList.contains('filled')) { e.preventDefault(); slot.classList.add('over'); } });
       slot.addEventListener('dragleave', () => slot.classList.remove('over'));
@@ -134,15 +136,17 @@ AG.renderers.fill = function renderFill(stage, arena, onDone) {
     chip.draggable = true;
     chip.dataset.id = String(i);
     chip._tok = tok;
+    chip.tabIndex = 0; chip.setAttribute('role', 'button'); chip.setAttribute('aria-label', 'Token ' + tok); chip.setAttribute('aria-pressed', 'false');
+    chip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); } });
     chip.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', chip.dataset.id); selectChip(chip); });
     chip.addEventListener('click', e => { e.stopPropagation(); selectChip(selected === chip ? null : chip); });
     pool.appendChild(chip);
   });
 
   function selectChip(chip) {
-    pool.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+    pool.querySelectorAll('.chip').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
     selected = chip;
-    if (chip) chip.classList.add('selected');
+    if (chip) { chip.classList.add('selected'); chip.setAttribute('aria-pressed', 'true'); }
   }
 
   function attempt(chip, idx, slot) {
@@ -154,7 +158,7 @@ AG.renderers.fill = function renderFill(stage, arena, onDone) {
       // (e.g. from_port = {3} aur to_port = {3}) — sab ek saath bhar do
       tpl.querySelectorAll(`[data-blank="${idx}"]`).forEach(s => {
         s.textContent = chip._tok;
-        s.classList.add('filled');
+        s.classList.add('filled'); s.tabIndex = -1; s.setAttribute('aria-label', 'Blank ' + (idx + 1) + ': ' + chip._tok); s.setAttribute('aria-disabled', 'true');
       });
       chip.remove();
       selected = null;
@@ -168,11 +172,11 @@ AG.renderers.fill = function renderFill(stage, arena, onDone) {
         `<code>${escapeHtml(blank.answer)}</code> — ${blank.explain}`);
       shake(chip); shake(slot);
       feedback.className = 'feedback bad';
-      feedback.innerHTML = `❌ <b>${escapeHtml(chip._tok)}</b> wahan fit nahi hota — doosra blank ya token try karo.`;
+      feedback.innerHTML = `❌ <b>${escapeHtml(chip._tok)}</b> selected blank ke liye correct nahi. ${blank.explain}`;
     }
   }
 
-  arena.append(tpl, feedback, el('p', 'pool-label', '👇 Token ko blank mein drag karo (ya tap-tap):'), pool);
+  arena.append(tpl, feedback, el('p', 'pool-label', 'Token select karo, phir blank. Keyboard: Tab se token/blank par jao, Enter ya Space se select/apply karo.'), pool);
 };
 
 /* ============================================================

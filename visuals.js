@@ -348,39 +348,15 @@ const VISUALS = {
   },
 
   orgs: {
-    t: 'AWS Organizations — OU tree aur SCP guardrails',
-    html: `
-      <div class="dg-col">
-        <div class="dg-node is-gold" data-hs="mgmt"><span class="ni">👑</span><span class="nl">Management account</span><span class="ns">billing + org root · yahan workload MAT chalao</span></div>
-        <div class="dg-down flow"></div>
-        <div class="dg-flow">
-          <div class="dg-box is-accent"><span class="bx-label">🗂️ OU: Production</span>
-            <div class="dg-col">
-              <div class="dg-node is-accent" data-hs="account"><span class="ni">🏦</span><span class="nl">prod-web</span><span class="ns">222222222222</span></div>
-              <div class="dg-node is-accent" data-hs="account"><span class="ni">🏦</span><span class="nl">prod-data</span><span class="ns">333333333333</span></div>
-              <span class="dg-pill bad" data-hs="scp">SCP: deny region ≠ ap-south-1/us-east-1</span>
-            </div>
-          </div>
-          <div class="dg-box is-good"><span class="bx-label">🗂️ OU: Sandbox</span>
-            <div class="dg-col">
-              <div class="dg-node is-good" data-hs="account"><span class="ni">🧪</span><span class="nl">dev-sandbox</span><span class="ns">444444444444</span></div>
-              <span class="dg-pill bad" data-hs="scp">SCP: deny expensive instance types</span>
-            </div>
-          </div>
-          <div class="dg-box is-bad"><span class="bx-label">🗂️ OU: Security</span>
-            <div class="dg-col">
-              <div class="dg-node is-bad" data-hs="account"><span class="ni">🔍</span><span class="nl">log-archive</span><span class="ns">org CloudTrail sink</span></div>
-              <div class="dg-node is-bad" data-hs="account"><span class="ni">🛡️</span><span class="nl">audit</span><span class="ns">read-only cross-account role</span></div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:14px">
-        <span class="dg-pill bad" data-hs="scp">SCP = maximum permission (guardrail), grant NAHI karti</span>
-        <span class="dg-pill acc" data-hs="ct">Control Tower = landing zone one-click</span>
-        <span class="dg-pill gold" data-hs="billing">Consolidated billing = volume discount + shared RI/Savings Plans</span>
-      </div>
-      <div class="dg-cap"><b>Account = blast radius ki deewar.</b> Prod, dev, security alag accounts. <b>SCP</b> OU par lagti hai aur ceiling set karti hai — effective permission = SCP ∩ IAM policy. Admin bhi SCP ke bahar kuch nahi kar sakta.</div>`,
+    t: 'Organizations — tree, grants and ceilings',
+    html: `<div class="dg-grid">
+      <div class="dg-rung a"><span class="lv">1</span><span class="cmd">Management account</span><span class="q">privileged org tasks; SCP exemption</span></div>
+      <div class="dg-rung g"><span class="lv">2</span><span class="cmd">Root → Workloads</span><span class="q">applicable Allow required at each level</span></div>
+      <div class="dg-rung a"><span class="lv">3</span><span class="cmd">Production / Sandbox</span><span class="q">separate accounts, reviewed scoped ceilings</span></div>
+      <div class="dg-rung g"><span class="lv">4</span><span class="cmd">Security accounts</span><span class="q">log ownership / service-specific audit delegate</span></div>
+      <div class="dg-rung a"><span class="lv">5</span><span class="cmd">Grant + request context</span><span class="q">IAM/resource path, boundary and explicit Deny</span></div>
+      <div class="dg-rung g"><span class="lv">6</span><span class="cmd">Canary + exception owner</span><span class="q">verify actual service enforcement and recovery</span></div>
+    </div><div class="dg-cap">Strong account isolation still needs narrow cross-account trust. SCPs never grant permission; management identities and service-linked roles have exemptions. Delegation, workforce access, resource sharing and billing have distinct contracts.</div>`,
   },
 
   dr: {

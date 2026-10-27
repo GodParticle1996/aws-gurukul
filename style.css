@@ -308,6 +308,9 @@ pre {
 .pool { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 10px; }
 .pool-label { color: var(--muted); margin: 16px 0 0; }
 .chip {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   background: var(--panel2);
   border: 1px solid #3c507e;
   border-radius: 10px;
@@ -318,6 +321,7 @@ pre {
   user-select: none;
   transition: border-color .12s, transform .12s;
 }
+.chip:focus-visible, .blank:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 .chip:hover { border-color: var(--accent); transform: translateY(-2px); }
 .chip.selected { border-color: var(--accent); box-shadow: 0 0 0 2px #ff990055; }
 .chip.placed { cursor: default; border-color: #34d39960; background: #34d39912; transform: none; font-size: .8rem; padding: 5px 10px; }
