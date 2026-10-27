@@ -641,6 +641,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
     // Scoped DR fixture owns its documented flags (copy-image, image waiter, cross-Region replica) before the shared guard.
     if (sim.account.drMode && AG.drCLI && AG.drCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
+    if (sim.account.hybridMode && AG.hybridCLI && AG.hybridCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Fail before mutation on misspelled flags or stray positional values.
     if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {
       const specs = {

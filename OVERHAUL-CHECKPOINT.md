@@ -1,8 +1,8 @@
 # AWS Gurukul overhaul checkpoint — 2026-10-27
 
-**Phase A and B complete; Advanced1 `wellarch`/lab21, Advanced2 `orgs`/lab22 and Advanced3 `dr`/lab23 complete.**
+**Phase A and B complete; Advanced1–4 (`wellarch`, `orgs`, `dr`, `advnet`) complete.**
 Intermediate track checkpoint answered **Continue — Advanced1 wellarch** (2026-10-27).
-Next **Advanced4 `advnet` (§5.C4), lab24**; continue per-level loop/local commits, ask before push.
+Next **Advanced5 `containers` (§5.C5), lab25**; continue per-level loop/local commits, ask before push.
 
 ## User decisions
 
@@ -39,8 +39,56 @@ Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 245 stages, 62/62 terminal missions,
-23 real-lab projects (DR adds `validate-dr.js`: 1,148 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 250 stages, 64/64 terminal missions,
+24 real-lab projects (adds `validate-dr.js` 1,148 checks and `validate-hybrid.js` 778 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+
+## Advanced 4 `advnet` loop completed (2026-10-27; master §5.C4)
+
+Predecessor dr **de3b71a**.
+
+1. **Content:** new `data-adv-4-advnet.js`, same `advnet` ID; old block (no terminal, "N² connections", invented bank
+   story) removed; `VISUALS.advnet` rewritten; `firewall` tree now links advnet (`vpcconnect`/`privateaccess` already did).
+   Eight Hinglish cards: VPN-first timeline (2 tunnels, 1.25 Gbps standard / 5 Gbps large-bandwidth, ECMP needs BGP),
+   DX building blocks (dedicated 1/10/100/400 Gbps vs hosted 50 Mbps–25 Gbps, LOA-CFA, 72 business-hour review,
+   billing start, VIF types, DX gateway, no default encryption), resiliency models, TGW association vs propagation
+   (exactly one association, many propagations, static > propagated, most specific wins), segmentation + return path,
+   hybrid DNS (VPC Resolver naming, inbound/outbound/rules, 2+ IPs), on-prem S3 via interface endpoint + PrivateLink,
+   inspection/appliance mode + approx costs (Ohio examples). Four myths, playbook, nine exam cues, kab-kya table.
+   Stages: 7-step packet-walk dry run (3 asks) → 128-state link planner → bins → DX-setup order → segmentation triage →
+   8-action VPN onboarding terminal → lab24 → 8 MCQs. Interview: 4 MCQs + 4-action segmentation repair.
+2. **Engine `hybrid-cli.js`** (account.hybridMode, early hook): TGW describe, route-table create, associate (real
+   `Resource.AlreadyAssociated` when already associated), disassociate, enable/disable propagation (duplicate/not-found
+   errors), association/propagation reads, `search-transit-gateway-routes` (required filters; computed static +
+   propagated routes), static/blackhole routes, customer gateways, VPN on TGW (pending → `vpn-connection-available`
+   waiter; dynamic BGP prefixes or `StaticRoutesOnly`), describe/delete VPN, dry-run. `AG.hybridHop/hybridRoundTrip`
+   evaluator: source attachment's table decides, most specific prefix, static beats propagated, return path required.
+3. **Missions:** main = VPN → waiter → associate rt-onprem → rt-onprem ← prod, shared → rt-prod/rt-shared ← VPN →
+   rt-onprem route read (final). Interview = disable dev propagation in rt-prod → disassociate dev from rt-shared →
+   associate rt-dev → rt-dev read. Contracts are reachability-based (on-prem ↔ prod/shared, dev isolated both ways,
+   blackhole guardrail kept) plus structural invariants; static-routing VPN with static TGW routes and blackholing dev
+   in rt-prod are accepted alternatives.
+4. **`validate-hybrid.js`:** 778 checks, all 128 planner states (exactly 1 valid design: 2 VPN + BGP now, 10G DX + VPN
+   backup later, encryption add-on, hybrid DNS, separate tables), 15 MCQs 0 length flags positions 4/4/4/3; omissions,
+   13 contract-breaking follow-ups, guardrail-holds case, 17 state mutations, stale/query/wrong-table reads,
+   alternatives, atomic errors, evaluator unit checks (longest prefix, static wins, one-way ≠ conversation), garbage battery.
+5. **Lab24 `24-hybrid-tgw-segments`:** owned Moto probe first; exact replay **10 behavior checks + cleanup 11**, listener
+   closed. Real: segmented TGW metadata, static blackhole, VPN-type TGW attachment, Resolver inbound/outbound (2 IPs)
+   + forwarding rule association, documented evaluator matrix over real metadata. Moto gaps: propagated routes absent
+   from search, double association accepted, second propagation disable for the same attachment returns 500, VPN
+   instantly available; cleanup deletes route tables directly (noted). Lab table row added.
+6. **Browser:** 48 samples at 1280/360, 0 console/page errors, 0 overflow; dry run, planner and terminal inspected.
+7. Full validator **ALL CHECKS PASSED — 39 levels, 250 stages, 64/64 missions, 24 linked labs**.
+
+Evidence: `.overhaul-evidence/ADVNET-{LAB24-REPLAY,FOCUSED-TESTS,FULL-VALIDATE,BROWSER-LOG}.txt`, `ADVNET-BROWSER-REPORT.json`,
+`advnet-browser.cjs`, `advnet-screenshots/`.
+
+Sources checked (2026-10-27): [TGW route tables](https://docs.aws.amazon.com/vpc/latest/tgw/tgw-route-tables.html),
+[how TGW works (association limit, route priority)](https://docs.aws.amazon.com/vpc/latest/tgw/how-transit-gateways-work.html),
+[VPN quotas/bandwidth](https://docs.aws.amazon.com/vpn/latest/s2svpn/vpn-limits.html),
+[DX dedicated](https://docs.aws.amazon.com/directconnect/latest/UserGuide/dedicated_connection.html),
+[DX hosted](https://docs.aws.amazon.com/directconnect/latest/UserGuide/hosted_connection.html),
+[VPC Resolver](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/resolver.html),
+[TGW pricing](https://aws.amazon.com/transit-gateway/pricing/), [VPN pricing](https://aws.amazon.com/vpn/pricing/).
 
 ## Advanced 3 `dr` loop completed (2026-10-27; master §5.C3)
 

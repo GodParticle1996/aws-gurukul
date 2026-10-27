@@ -372,29 +372,15 @@ const VISUALS = {
   },
 
   advnet: {
-    t: 'Advanced Networking — Direct Connect + PrivateLink',
-    html: `
-      <div class="dg-split">
-        <div class="dg-box is-accent"><span class="bx-label">🏢 On-prem datacenter</span>
-          <div class="dg-flow">
-            <div class="dg-node is-accent" data-hs="dx"><span class="ni">🔌</span><span class="nl">Direct Connect</span><span class="ns">dedicated line · 1/10 Gbps</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-node is-gold" data-hs="tgw"><span class="ni">🌐</span><span class="nl">Transit Gateway</span><span class="ns">hub</span></div>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">AWS</span>
-          <div class="dg-flow">
-            <div class="dg-node is-good"><span class="ni">🌐</span><span class="nl">VPC-A</span></div>
-            <div class="dg-node is-good"><span class="ni">🌐</span><span class="nl">VPC-B</span></div>
-            <div class="dg-node is-good"><span class="ni">🌐</span><span class="nl">VPC-C</span></div>
-          </div>
-          <div class="dg-flow" style="margin-top:8px">
-            <div class="dg-node is-gold" data-hs="privatelink"><span class="ni">🔗</span><span class="nl">PrivateLink</span><span class="ns">private access to service</span></div>
-            <div class="dg-node" data-hs="endpoint"><span class="ni">🔌</span><span class="nl">VPC Endpoint</span><span class="ns">no public internet</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-cap"><b>Direct Connect</b> = dedicated line on-prem → AWS (consistent, private, no internet). <b>Transit Gateway</b> = hub connecting many VPCs + on-prem. <b>PrivateLink</b> = access AWS services privately (no public IP). <b>VPC Endpoint</b> = gateway to AWS service.</div>`,
+    t: 'Hybrid networking — VPN pehle, DX baad mein, TGW segments',
+    html: `<div class="dg-grid">
+      <div class="dg-rung a"><span class="lv">1</span><span class="cmd">Site-to-Site VPN (din)</span><span class="q">2 IPsec tunnels, up to 1.25 Gbps each; ECMP ke liye BGP</span></div>
+      <div class="dg-rung g"><span class="lv">2</span><span class="cmd">Direct Connect (hafte)</span><span class="q">dedicated 1/10/100/400 Gbps ya hosted; default encryption nahi</span></div>
+      <div class="dg-rung a"><span class="lv">3</span><span class="cmd">Transit Gateway hub</span><span class="q">attachment = exactly ek associated table; propagation kai tables</span></div>
+      <div class="dg-rung g"><span class="lv">4</span><span class="cmd">Segments + return path</span><span class="q">rt-prod / rt-dev / rt-shared / rt-onprem; static blackhole guardrail</span></div>
+      <div class="dg-rung a"><span class="lv">5</span><span class="cmd">Hybrid DNS</span><span class="q">Resolver inbound (on-prem → AWS), outbound + rules (AWS → on-prem)</span></div>
+      <div class="dg-rung g"><span class="lv">6</span><span class="cmd">Private services</span><span class="q">S3 interface endpoint from on-prem; PrivateLink for partners</span></div>
+    </div><div class="dg-cap">Har flow ke liye do sawal: source attachment ki table mein route hai? Destination ki table mein wapas route hai? DX + VPN backup sasta resiliency hai; critical workloads ke liye alag locations.</div>`,
   },
 
   containers: {

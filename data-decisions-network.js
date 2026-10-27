@@ -349,7 +349,7 @@ AG.registerDecisions([
     title: 'Kaunsi security layer? — Security Group, NACL, WAF, Shield, Network Firewall',
     short: 'Firewall layers',
     tldr: 'Instance ke darwaze par → Security Group (stateful, sirf allow). Subnet ki boundary par explicit DENY → NACL (stateless). HTTP attacks (SQLi, XSS, bots, rate limit) → WAF. DDoS → Shield. VPC-wide domain filtering / IPS → Network Firewall.',
-    levels: ['vpcbasics', 'security', 'vpcdeep'],
+    levels: ['vpcbasics', 'security', 'vpcdeep', 'advnet'],
     start: 'q1',
     nodes: {
       q1: {
