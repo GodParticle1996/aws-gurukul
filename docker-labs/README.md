@@ -71,6 +71,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `24-hybrid-tgw-segments` | 🔗 Hybrid networking | Segmented TGW (prod/dev/shared/on-prem tables, blackhole), VPN on TGW, Resolver inbound/outbound + rule; documented evaluator over real metadata; Moto search/double-association/propagation gaps explicit |
 | `25-ecs-fargate-service` | 📦 Containers | ECR immutable tags (latest excluded) + scan rule + lifecycle, execution vs task role, NAT-free private pull path, Fargate task definitions + circuit-breaker service; documented start contract over real metadata; Moto preview/validation/no-task gaps explicit; Docker section awaiting Docker |
 | `26-terraform-drift-import` | 🏗️ IaC | Actual Terraform SG drift/refresh-only/import/stale plan, HCL moved + native JSON equivalence, prevent_destroy, S3 conditional lock contention, original TEST data + scoped cleanup |
+| `27-cost-waste-hunter` | 💰 Cost | Real owned CLI EBS/snapshot/EIP/retention/Budget+SNS metadata, explicit billing/subscriber/runtime gaps, approximate EBS+IPv4 model and baseline-preserving cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

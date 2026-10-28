@@ -23,6 +23,8 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
   stage.bins.forEach(b => {
     const z = el('div', 'bin');
     z.dataset.bin = b.id;
+    z.tabIndex = 0; z.setAttribute('role', 'button'); z.setAttribute('aria-label', 'Category: ' + b.label);
+    z.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); z.click(); } });
     z.innerHTML = `<div class="bin-label">${b.label}</div><div class="bin-items"></div>`;
     z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('over'); });
     z.addEventListener('dragleave', () => z.classList.remove('over'));
@@ -44,6 +46,8 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
     chip.draggable = true;
     chip.dataset.id = String(i);
     chip._item = item;
+    chip.tabIndex = 0; chip.setAttribute('role', 'button'); chip.setAttribute('aria-label', 'Item: ' + item.text); chip.setAttribute('aria-pressed', 'false');
+    chip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); } });
     chip.addEventListener('dragstart', e => {
       e.dataTransfer.setData('text/plain', chip.dataset.id);
       selectChip(chip);
@@ -58,9 +62,9 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
   });
 
   function selectChip(chip) {
-    pool.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+    pool.querySelectorAll('.chip').forEach(c => { c.classList.remove('selected'); c.setAttribute('aria-pressed', 'false'); });
     selected = chip;
-    if (chip) chip.classList.add('selected');
+    if (chip) { chip.classList.add('selected'); chip.setAttribute('aria-pressed', 'true'); }
   }
 
   function attempt(chip, binId, zone) {
@@ -69,7 +73,7 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
     if (item.bin === binId) {
       if (!wrongOnce.has(item.text)) { firstTry++; AG.addXP(AG.XP_PER_ITEM); }
       chip.classList.remove('selected');
-      chip.classList.add('placed');
+      chip.classList.add('placed'); chip.tabIndex = -1; chip.setAttribute('role', 'note'); chip.setAttribute('aria-pressed', 'false');
       chip.draggable = false;
       zone.querySelector('.bin-items').appendChild(chip);
       zone.classList.add('flash-good');
@@ -87,7 +91,7 @@ AG.renderers.bins = function renderBins(stage, arena, onDone) {
         `<b>${correctBin ? correctBin.label : item.bin}</b> — ${item.explain}`);
       shake(chip); shake(zone);
       feedback.className = 'feedback bad';
-      feedback.innerHTML = `❌ <b>${item.text}</b> yahan nahi aata — phir se try karo!`;
+      feedback.innerHTML = `❌ Category mismatch: <b>${item.text}</b> — ${item.explain}`;
     }
   }
 
@@ -209,6 +213,8 @@ AG.renderers.order = function renderOrder(stage, arena, onDone) {
     chip.draggable = true;
     chip.dataset.id = String(step.idx);
     chip._step = step;
+    chip.tabIndex = 0; chip.setAttribute('role', 'button'); chip.setAttribute('aria-label', step.text);
+    chip.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); pool.querySelector('.chip')?.focus?.(); } });
     chip.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', chip.dataset.id));
     chip.addEventListener('click', () => attempt(chip));
     pool.appendChild(chip);
@@ -230,7 +236,7 @@ AG.renderers.order = function renderOrder(stage, arena, onDone) {
       if (current < stage.steps.length) {
         const next = slotsCol.children[current];
         next.classList.add('active');
-        next.querySelector('.slot-text').textContent = 'Iske baad kya hota hai?';
+        next.querySelector('.slot-text').textContent = 'Agla step kya hai?';
       } else {
         setTimeout(() => onDone({ firstTry, total: stage.steps.length }), 400);
       }

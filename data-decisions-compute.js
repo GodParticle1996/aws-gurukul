@@ -206,7 +206,7 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'Kaam beech mein ruk jaaye (instance 2 minute notice par chhin jaaye) toh chalega?',
-        why: 'Spot instances AWS ki khaali capacity hain — 90% tak sasti, par AWS 2 minute ka notice dekar wapas le sakta hai.',
+        why: 'Spot instances AWS ki spare capacity — up to90% off; stop/terminate warning usually2minutes best effort, hibernation immediately starts.',
         options: [
           { t: 'Haan — batch, CI builds, stateless workers, retry ho sakta hai', next: 'spot' },
           { t: 'Nahi — production database, user-facing server', next: 'q2' },
@@ -237,11 +237,11 @@ AG.registerDecisions([
       },
       spot: {
         leaf: true, icon: '🎯', pick: 'Spot Instances',
-        one: 'AWS ki khaali capacity — On-Demand se 90% tak sasti, 2 minute notice par wapas.',
+        one: 'AWS spare capacity — up to90% off, interruptions possible; price/capacity vary.',
         when: ['CI/CD build runners, batch jobs, big data (EMR), stateless web workers ASG mein mix', 'Kaam checkpoint/retry kar sakta hai'],
         avoid: ['Database, single-instance production server', 'Kaam jo beech mein ruk nahi sakta'],
-        gotchas: ['ASG mein multiple instance types + "price-capacity-optimized" allocation rakho — ek type ki capacity khatam ho toh doosra', 'Interruption notice EventBridge / instance metadata se pakdo aur graceful drain karo'],
-        cost: '60–90% bachat. Price demand ke saath dheere badalta hai.',
+        gotchas: ['ASG mein multiple instance types + "price-capacity-optimized" allocation rakho — ek type ki capacity khatam ho toh doosra', 'Best-effort notice EventBridge/IMDS se handle; stop/terminate usually2min, hibernation starts immediately; checkpoint/retry bhi chahiye'],
+        cost: 'Up to90% off advertised; actual price, capacity aur retry cost vary.',
         exam: '"MOST cost-effective" + "can tolerate interruptions" / "fault-tolerant batch" → Spot.',
         level: 'cost',
       },
@@ -261,7 +261,7 @@ AG.registerDecisions([
         when: ['Short-term, unpredictable kaam', 'Naye workload ka pehla mahina — usage samajhne ke liye', 'Savings Plan ke upar ka extra peak'],
         avoid: ['Saalon chalne wala steady baseline — Savings Plan se 30–70% bachat chhoot rahi hai'],
         gotchas: ['Sabse mehenga per-ghanta rate — Cost Explorer ka "Savings Plans recommendations" dekhte raho'],
-        cost: 'List price. m7g.large ≈ $0.0816/ghanta.',
+        cost: 'Current Region/type/OS On-Demand rate quote; active time plus residual storage/network cost count karo.',
         exam: '"short-term", "unpredictable", "cannot be interrupted", "no commitment" → On-Demand.',
         level: 'ec2',
       },
@@ -270,7 +270,7 @@ AG.registerDecisions([
         one: '$X/ghanta ka 1 ya 3 saal commit — kisi bhi EC2 family, region, Fargate aur Lambda par discount.',
         when: ['Steady baseline par jahan architecture badal sakta hai (EC2 → Fargate/Graviton)', 'Multi-region compute'],
         avoid: ['Pehle right-size kiye bina commit — oversized instances par discount lena = waste ko lock karna'],
-        gotchas: ['Commit $/ghanta mein hota hai, instance count mein nahi', 'Organization mein consolidated billing se saare accounts mein share hota hai'],
+        gotchas: ['Commit $/ghanta mein hota hai, instance count mein nahi', 'Organization sharing preferences aur eligible usage determine discount sharing'],
         cost: 'On-Demand se ~66% tak kam (3 saal, all upfront).',
         exam: '"flexibility to change instance family/region" + "commitment" → Compute Savings Plan.',
         level: 'cost',
@@ -299,14 +299,14 @@ AG.registerDecisions([
     compare: {
       cols: ['', 'On-Demand', 'Savings Plan / RI', 'Spot', 'Dedicated Host'],
       rows: [
-        ['Discount', '0%', '~66–72%', '60–90%', 'mehenga'],
+        ['Discount', '0%', '~66–72%', 'up to90%', 'mehenga'],
         ['Commitment', 'koi nahi', '1 ya 3 saal', 'koi nahi', 'per host'],
         ['Interruption', 'nahi', 'nahi', '2 min notice', 'nahi'],
         ['Use', 'unpredictable', 'steady baseline', 'fault-tolerant', 'BYOL / compliance'],
       ],
     },
     scenarios: [
-      { s: 'CI pipeline ke build runners — ek build fail ho toh dobara chal jaata hai.', answer: 'spot', explain: 'Interruption-tolerant → Spot, 60–90% bachat.' },
+      { s: 'CI pipeline ke build runners — ek build fail ho toh dobara chal jaata hai.', answer: 'spot', explain: 'Interruption-tolerant → Spot; actual savings/capacity vary.' },
       { s: 'Production web tier: 3 saal se 10 m7g.large 24×7 chal rahe hain, family badalne ka koi plan nahi.', answer: 'eisp', explain: 'Fix family + region, steady → EC2 Instance Savings Plan (max discount).' },
       { s: 'Company agle saal EC2 se Fargate aur Graviton par shift karegi, par baseline compute $5/ghanta hamesha rahega.', answer: 'csp', explain: 'Commit chahiye par flexibility bhi → Compute Savings Plan (Fargate/Lambda par bhi lagta hai).' },
       { s: 'Oracle database per-core licence ke saath BYOL karna hai.', answer: 'dedicated', explain: 'Per-core BYOL → Dedicated Host (cores/sockets visible).' },

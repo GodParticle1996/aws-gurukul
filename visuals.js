@@ -401,17 +401,8 @@ const VISUALS = {
   },
 
   cost: {
-    t: 'Cost Optimization — pay less, same value',
-    html: `
-      <div class="dg-ladder">
-        <div class="dg-rung g"><span class="lv">1</span><span class="cmd">Right-size</span><span class="q">CPU/RAM monitor, big instance → small</span></div>
-        <div class="dg-rung a"><span class="lv">2</span><span class="cmd">Reserved / Savings Plans</span><span class="q">1-3 yr commit, up to 72% off</span></div>
-        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Spot Instances</span><span class="q">90% off · interruptible workloads (batch)</span></div>
-        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Cost Allocation Tags</span><span class="q">team/project cost breakdown</span></div>
-        <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Lifecycle + S3 classes</span><span class="q">old data → Glacier (auto)</span></div>
-        <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Auto Scaling</span><span class="q">scale down at night = $ saved</span></div>
-      </div>
-      <div class="dg-cap"><b>On-demand</b> = expensive (default). <b>Reserved/Savings</b> = commit for discount. <b>Spot</b> = spare capacity, can be killed (batch jobs). <b>Cost Explorer</b> + <b>Budgets</b> = track & alert. Well-Architected Cost pillar.</div>`,
+    t: 'Cost — meter, owner, value aur hourly commitment',
+    html: `<div class="dg-ladder"><div class="dg-rung g"><span class="lv">1</span><span class="cmd">Measure</span><span class="q">Usage quantity × rate; cost per successful order</span></div><div class="dg-rung a"><span class="lv">2</span><span class="cmd">Preserve</span><span class="q">Data, recovery, HA, performance, retention</span></div><div class="dg-rung g"><span class="lv">3</span><span class="cmd">Reduce waste</span><span class="q">Approved idle inventory, gp3, network paths, dev schedules</span></div><div class="dg-rung a"><span class="lv">4</span><span class="cmd">Commit baseline</span><span class="q">Hourly eligibility + downturn + unused minimum</span></div><div class="dg-rung g"><span class="lv">5</span><span class="cmd">Govern</span><span class="q">Activated tags, Budget receiver, delayed billing review</span></div></div><div class="dg-cap">Compute SP up to66%; EC2 Instance SP up to72%; eligible Database SP up to35%. Advertised ceilings are not guaranteed savings. Spot needs fault tolerance. Budget is delayed tracking, not a universal real-time spend cap.</div>`,
   },
 
   observability: {

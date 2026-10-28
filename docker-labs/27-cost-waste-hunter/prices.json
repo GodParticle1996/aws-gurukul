@@ -1,0 +1,25 @@
+{
+  "asOf": "2026-10-28",
+  "approx": true,
+  "region": "us-east-1",
+  "gp2GiBMonthUSD": 0.1,
+  "gp3GiBMonthUSD": 0.08,
+  "extraIOPSMonthUSD": 0.005,
+  "extraMiBsMonthUSD": 0.04,
+  "ipv4HourUSD": 0.005,
+  "hoursPerModelMonth": 730,
+  "INRperUSD": 88,
+  "excludes": [
+    "snapshot incremental changed blocks",
+    "logs",
+    "compute",
+    "network",
+    "tax",
+    "credits",
+    "commitments"
+  ],
+  "sources": [
+    "https://docs.aws.amazon.com/us_en/emr/latest/ManagementGuide/emr-plan-storage-compare-volume-types.html",
+    "https://aws.amazon.com/vpc/pricing/"
+  ]
+}
