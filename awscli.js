@@ -196,8 +196,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     done: false,
     stage,
   };
-  // non-serializable bits (functions) survive via reference to the stage
-  sim.files = stage.files || {};
+  // Clone editable file records per replay; preserve their non-serializable callbacks.
+  sim.files = Object.fromEntries(Object.entries(stage.files || {}).map(([name, f]) => [name, f && typeof f === 'object' ? { ...f } : f]));
   sim.responses = stage.responses || [];
 
   /* ---------- UI ---------- */
@@ -213,11 +213,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       <span class="dot" style="background:#f87171"></span>
       <span class="dot" style="background:#ffb347"></span>
       <span class="dot" style="background:#34d399"></span>
-      <span>&nbsp;shishya@awsgurukul — aws cli</span>
+      <span>&nbsp;shishya@awsgurukul — ${sim.account.iacMode ? 'Terraform fixture' : 'aws cli'}</span>
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="aws s3 ls   (madad ke liye: help)"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -494,6 +494,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
 
     // shell-ish extras
+    if (norm === 'help' && sim.account.iacMode) {
+      print('sys', 'Terraform native-JSON fixture: init, validate, plan [-out=FILE] [-refresh-only] [-detailed-exitcode], apply FILE, apply -auto-approve, import ADDRESS ID, state list/show/pull/mv/rm, destroy -auto-approve.\nls; cat FILE; cp TEMPLATE main.tf.json; rm main.tf.json. Full HCL/provider process runs in lab26. State/plan/backend files are managed by the fixture; shell reset/force-unlock is not modeled.');
+      return;
+    }
     if (norm === 'help') {
       print('sys', [
         'Supported commands (is mission mein):',
@@ -576,6 +580,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       const names = Object.keys(sim.files);
       print('ok', names.length ? names.join('\n') : '(koi files nahi hain is mission mein)');
       return;
+    }
+
+    if (sim.account.iacMode && typeof AG.iacCLI === 'function') {
+      const it = tokenize(norm);
+      if (it.error) return print('err', it.error);
+      if (AG.iacCLI(sim, it.toks, print)) return;
     }
 
     /* ---------- TERRAFORM ---------- */

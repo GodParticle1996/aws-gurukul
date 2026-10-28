@@ -70,6 +70,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `23-backup-restore-failover` | 🚑 Disaster Recovery | Mumbai→Hyderabad vaults/plan copy rule, governance lock readback, snapshot restore, cross-Region replica ARN link, AMI copy, CRR config, failover pair; Moto selection/job/promotion/CRR/TestDNSAnswer gaps explicit; host SQLite restore shows a missing accepted order |
 | `24-hybrid-tgw-segments` | 🔗 Hybrid networking | Segmented TGW (prod/dev/shared/on-prem tables, blackhole), VPN on TGW, Resolver inbound/outbound + rule; documented evaluator over real metadata; Moto search/double-association/propagation gaps explicit |
 | `25-ecs-fargate-service` | 📦 Containers | ECR immutable tags (latest excluded) + scan rule + lifecycle, execution vs task role, NAT-free private pull path, Fargate task definitions + circuit-breaker service; documented start contract over real metadata; Moto preview/validation/no-task gaps explicit; Docker section awaiting Docker |
+| `26-terraform-drift-import` | 🏗️ IaC | Actual Terraform SG drift/refresh-only/import/stale plan, HCL moved + native JSON equivalence, prevent_destroy, S3 conditional lock contention, original TEST data + scoped cleanup |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

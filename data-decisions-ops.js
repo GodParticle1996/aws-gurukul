@@ -142,7 +142,7 @@ AG.registerDecisions([
     icon: '🏗️',
     title: 'Infra code mein kaise likhun? — CloudFormation, CDK, SAM, Terraform',
     short: 'IaC tool',
-    tldr: 'Sirf AWS + AWS-native support → CloudFormation (YAML) ya CDK (code). Serverless apps → SAM. Multi-cloud / team Terraform jaanti hai → Terraform. Console click = koi history nahi, koi repeat nahi.',
+    tldr: 'Sirf AWS + AWS-native support → CloudFormation (YAML) ya CDK (code). Serverless apps → SAM. Multi-cloud / team Terraform jaanti hai → Terraform. CloudTrail API audit deta hai; Git approved intent aur repeatability deta hai.',
     levels: ['iac', 'wellarch'],
     start: 'q1',
     nodes: {
@@ -162,10 +162,10 @@ AG.registerDecisions([
           { t: 'Team pehle se Terraform jaanti hai', next: 'tf' },
         ],
       },
-      cfn: { leaf: true, icon: '📜', pick: 'AWS CloudFormation', one: 'AWS ka native IaC — stacks, change sets, drift detection, StackSets (multi-account/region).', when: ['AWS-only, Organizations ke saath StackSets se har account mein baseline'], avoid: ['Multi-cloud'], gotchas: ['Change set dekh ke apply karo (kya replace hoga)', 'DeletionPolicy: Retain production DBs par'], cost: 'Free (AWS resources ka bill).', exam: '"deploy same infrastructure across multiple accounts/regions" → CloudFormation StackSets.', level: 'iac' },
+      cfn: { leaf: true, icon: '📜', pick: 'AWS CloudFormation', one: 'AWS ka native IaC — stacks, change sets, drift detection, StackSets (multi-account/region).', when: ['AWS-only, Organizations ke saath StackSets se har account mein baseline'], avoid: ['Multi-cloud'], gotchas: ['Change set dekh ke apply karo (kya replace hoga)', 'DeletionPolicy + UpdateReplacePolicy retention needs alag review; retained resource ka owner/bill rehta hai'], cost: 'Standard AWS resource management par extra CloudFormation charge nahi; resources aur eligible extension operations billed.', exam: '"deploy same infrastructure across multiple accounts/regions" → CloudFormation StackSets.', level: 'iac' },
       cdk: { leaf: true, icon: '🧩', pick: 'AWS CDK', one: 'TypeScript/Python mein infra — synth hokar CloudFormation banta hai.', when: ['Developers infra likhte hain, reusable constructs chahiye'], avoid: ['Team code nahi likhti / multi-cloud'], gotchas: ['cdk diff hamesha deploy se pehle'], cost: 'Free.', exam: '"define infrastructure using familiar programming languages" → CDK.', level: 'iac' },
       sam: { leaf: true, icon: '🐿️', pick: 'AWS SAM', one: 'Serverless shorthand on CloudFormation + sam local invoke/test.', when: ['Lambda-heavy apps, local testing'], avoid: ['Non-serverless bada infra'], gotchas: ['sam build + sam deploy --guided'], cost: 'Free.', exam: '"serverless application model", "local testing of Lambda" → SAM.', level: 'iac' },
-      tf: { leaf: true, icon: '🟪', pick: 'Terraform', one: 'Multi-provider IaC — HCL, plan/apply, state file.', when: ['Multi-cloud / SaaS providers', 'Team ka existing Terraform skill + modules'], avoid: ['State file ko local laptop par rakhna'], gotchas: ['Remote state: S3 backend (+ locking) — encrypted, versioned', 'terraform plan review PR mein'], cost: 'Open-source CLI free (HCP Terraform paid tiers).', exam: 'Exam AWS-native tools poochta hai; "multi-cloud IaC" real duniya mein → Terraform.', level: 'iac' },
+      tf: { leaf: true, icon: '🟪', pick: 'Terraform', one: 'Multi-provider IaC — HCL, plan/apply, state file.', when: ['Multi-cloud / SaaS providers', 'Team ka existing Terraform skill + modules'], avoid: ['State file ko local laptop par rakhna'], gotchas: ['Remote state: S3 backend (+ locking) — encrypted, versioned', 'terraform plan review PR mein'], cost: 'Terraform CLI BSL 1.1; OpenTofu MPL 2.0. HCP Terraform paid tiers.', exam: 'Exam AWS-native tools poochta hai; "multi-cloud IaC" real duniya mein → Terraform.', level: 'iac' },
     },
     scenarios: [
       { s: 'Har naye account mein CloudTrail + Config + baseline roles automatically deploy hone chahiye (Organizations).', answer: 'cfn', explain: 'CloudFormation StackSets with service-managed permissions.' },

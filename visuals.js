@@ -396,29 +396,8 @@ const VISUALS = {
   },
 
   iac: {
-    t: 'Infrastructure as Code — CloudFormation vs Terraform',
-    html: `
-      <div class="dg-split">
-        <div class="dg-box is-accent"><span class="bx-label">CloudFormation (AWS)</span>
-          <div class="dg-col">
-            <div class="dg-node is-accent" data-hs="template"><span class="ni">📄</span><span class="nl">Template (YAML/JSON)</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-node is-gold" data-hs="stack"><span class="ni">📚</span><span class="nl">Stack</span><span class="ns">resources group</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-node is-good"><span class="ni">✨</span><span class="nl">Resources created</span></div>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">Terraform (HashiCorp)</span>
-          <div class="dg-col">
-            <div class="dg-node is-good" data-hs="tfconfig"><span class="ni">📄</span><span class="nl">.tf (HCL)</span></div>
-            <div class="dg-arrow good flow"></div>
-            <div class="dg-node is-gold"><span class="ni">🗺️</span><span class="nl">State file</span><span class="ns">tfstate</span></div>
-            <div class="dg-arrow good flow"></div>
-            <div class="dg-node is-good"><span class="ni">✨</span><span class="nl">Multi-cloud</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-cap"><b>IaC</b> = infrastructure code mein (Git-tracked, repeatable). <b>CloudFormation</b> = AWS-only, free, stacks. <b>Terraform</b> = multi-cloud, state file, HCL. <b>Drift detection</b> = console vs code difference. No more manual clicks!</div>`,
+    t: 'IaC — config, binding aur actual resource',
+    html: `<div class="dg-flow"><div class="dg-node is-accent" data-hs="tfconfig"><span class="ni">📄</span><span class="nl">Config</span><span class="ns">Desired intent (.tf / .tf.json)</span></div><div class="dg-arrow flow"></div><div class="dg-node is-gold" data-hs="tfstate"><span class="ni">🗺️</span><span class="nl">State + lock</span><span class="ns">Address → physical ID</span></div><div class="dg-arrow flow"></div><div class="dg-node is-good" data-hs="live"><span class="ni">☁️</span><span class="nl">Actual AWS</span><span class="ns">Live attributes + data</span></div></div><div class="dg-cap">Normal plan refreshes current resources and compares desired intent. Refresh-only apply records reality without repairing drift. Import binds existing objects; moved changes addresses. CloudFormation retention and Terraform lifecycle guards have different boundaries.</div>`,
   },
 
   cost: {
