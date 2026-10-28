@@ -384,29 +384,15 @@ const VISUALS = {
   },
 
   containers: {
-    t: 'Containers — ECS / EKS / ECR',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node is-accent" data-hs="ecr"><span class="ni">📦</span><span class="nl">ECR</span><span class="ns">image registry</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-split">
-          <div class="dg-box is-good"><span class="bx-label">ECS (AWS native)</span>
-            <div class="dg-flow">
-              <div class="dg-node is-good" data-hs="fargate"><span class="ni">🚀</span><span class="nl">Fargate</span><span class="ns">serverless</span></div>
-              <div class="dg-node is-good"><span class="ni">🖥️</span><span class="nl">EC2</span><span class="ns">you manage</span></div>
-            </div>
-          </div>
-          <div class="dg-box is-gold"><span class="bx-label">EKS (Kubernetes)</span>
-            <div class="dg-node is-gold" data-hs="eks"><span class="ni">☸️</span><span class="nl">EKS</span><span class="ns">managed K8s</span></div>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill good" data-hs="fargate">Fargate = no EC2 to manage (serverless containers)</span>
-        <span class="dg-pill gold" data-hs="eks">EKS = portability, multi-cloud K8s</span>
-        <span class="dg-pill acc">Lambda vs containers = long-running/stateful → containers</span>
-      </div>
-      <div class="dg-cap"><b>ECR</b> = store container images. <b>ECS</b> = AWS's container orchestrator (Fargate = serverless, EC2 = you manage). <b>EKS</b> = managed Kubernetes. Use containers for long-running/stateful/multi-cloud. Lambda for short/event-driven.</div>`,
+    t: 'Containers — image se chalti service tak',
+    html: `<div class="dg-grid">
+      <div class="dg-rung a"><span class="lv">1</span><span class="cmd">ECR image</span><span class="q">version tag + digest; immutable tags, scan on push, lifecycle (preview ke baad)</span></div>
+      <div class="dg-rung g"><span class="lv">2</span><span class="cmd">Task definition</span><span class="q">versioned recipe: image, CPU/memory combo, ports, awslogs, dono roles</span></div>
+      <div class="dg-rung a"><span class="lv">3</span><span class="cmd">Execution role vs task role</span><span class="q">agent: pull/logs/secrets · app: S3/DynamoDB/SQS calls</span></div>
+      <div class="dg-rung g"><span class="lv">4</span><span class="cmd">awsvpc network</span><span class="q">har task ka ENI + SG; target type ip; private pull = NAT ya ECR/S3/logs endpoints</span></div>
+      <div class="dg-rung a"><span class="lv">5</span><span class="cmd">Service + deploys</span><span class="q">desired N do AZs mein; rolling + circuit breaker rollback; blue/green</span></div>
+      <div class="dg-rung g"><span class="lv">6</span><span class="cmd">Capacity</span><span class="q">Fargate / Fargate Spot / EC2 / Managed Instances; Kubernetes chahiye toh EKS</span></div>
+    </div><div class="dg-cap">Start se pehle fail (CannotPullContainerError) → execution role ya network. Start ke baad AccessDenied → task role. Waiter pass hone ke baad bhi PRIMARY deployment ka revision padho.</div>`,
   },
 
   iac: {

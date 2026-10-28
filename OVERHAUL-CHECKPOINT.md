@@ -1,8 +1,8 @@
-# AWS Gurukul overhaul checkpoint — 2026-10-27
+# AWS Gurukul overhaul checkpoint — 2026-10-28
 
-**Phase A and B complete; Advanced1–4 (`wellarch`, `orgs`, `dr`, `advnet`) complete.**
+**Phase A and B complete; Advanced1–5 (`wellarch`, `orgs`, `dr`, `advnet`, `containers`) complete.**
 Intermediate track checkpoint answered **Continue — Advanced1 wellarch** (2026-10-27).
-Next **Advanced5 `containers` (§5.C5), lab25**; continue per-level loop/local commits, ask before push.
+Next **Advanced6 `iac` (§5.C6), lab26**; continue per-level loop/local commits, ask before push.
 
 ## User decisions
 
@@ -39,8 +39,90 @@ Intermediate1 local commit: **e59e258**. Intermediate2 local commit: **e67c25b**
 Per-level commits are authorized. No push/deployment. `git log --oneline` records baseline and finished-level local commits.
 
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
-Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 250 stages, 64/64 terminal missions,
-24 real-lab projects (adds `validate-dr.js` 1,148 checks and `validate-hybrid.js` 778 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 254 stages, 65/65 terminal missions,
+100 interactive stages, 25 real-lab projects (adds `validate-dr.js` 1,148 checks, `validate-hybrid.js` 778 checks and
+`validate-containers.js` 813 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+
+## Advanced 5 `containers` loop completed (2026-10-28; master §5.C5)
+
+Predecessor advnet **6cbd657**. Took over uncommitted implementation; reviewed shipped code and actual evidence,
+then corrected factual/engine edge cases before browser/checkpoint/local delivery. No push.
+
+1. Same `containers` ID in `data-adv-5-containers.js`; old block removed, index/DATA registered. Eight question/
+   analogy/mechanism cards, four myths, playbook, nine exam cues, comparison table/decision tree; seven-step dryrun
+   (three asks) →72-state cost planner→role bins→ECS match→pull-permission triage→seven-action terminal→lab25→eight
+   MCQs. Four interview MCQs + four-action repair; eight flashcards, optional approved billable homework. Current
+   ECS native strategies, EKS options/limits, App Runner closure/Express Mode and App Mesh retirement verified.
+2. Namespaced `containers-cli.js`, early `account.containerMode` hook: ECR immutable/exclusion tags, registry/basic
+   scanning, lifecycle/preview/deletion; ECS task definitions, cluster/service/task metadata, capacity strategies,
+   rolling/circuit-breaker rollback and stability waiter; read-only IAM/ELB. Declared role/network/image/architecture/
+   logs/ALB-start contract; app S3 results derive from task role. Shared infra preserved. No containers, actual pull,
+   SQL/HTTP/ALB probes, Spot timing, full IAM/network engine, scanning findings or expiry runtime claimed.
+3. Main mission hardens existing ECR (protect release/rollback tags/digests), registers correct roles, creates
+   private two-AZ On-Demand service with IP target group and rollback, waits, then reads current service FINAL.
+   Interview repairs task-role/execution-role confusion while retaining v2.5.0, updates/waits/reads FINAL. Every
+   omission loses; stale/query/wrong-service reads, deletion/reset, lifecycle keep3, public networking, wrong role,
+   Spot API and rollback to old release cannot win. Equivalent JSON/shorthand/flags/family/scan alternatives pass.
+4. Fresh review fixes: ECR tag deletion preserves other aliases (last tag or digest removes image); tag+digest
+   selectors must agree. Protected version tags and actual running-task digest/definition/subnet now checked.
+   Architecture mismatch rejects both ARM and x86 directions. Rolling100/100 with no start/stop slot remains
+   IN_PROGRESS, preserves old tasks and explains the deadlock;150/100 or100/50 repair works. Malformed nested
+   service arrays/objects give typed atomic errors; unmodeled custom health checks cannot fabricate health.
+   Enhanced-no-rules defaults continuous-all; non-wildcard scan filters match substrings. Corrected ALB register→
+   probe→healthy→traffic order, missing-role NoCredentials versus wrong-role AccessDenied, source timeline/Ravi
+   consistency, compute-only exclusions and unsupported fixed85%packing breakeven. Table regions now keyboard-scroll.
+5. Planner72states, exactly1fit:ARM multi-arch/API On-Demand/workers Spot8h with SIGTERM handling, approximate
+   compute-only₹8,958/month. 730h/₹88 per USD; Spot60%off explicitly hypothetical, not quoted Spot rate or capacity
+   guarantee. Fargate Mumbai live official catalog verified2026-10-28:effective2026-10-01 x86vCPU$0.04256/h,
+   GB$0.004655/h;ARM$0.02383/$0.00261. ECR$0.10/GB-month live verified. EC2 m7i.xlarge$0.2121/h compared with
+   takeover's same-day official CSV capture, archived matching rows. EBS/ALB/endpoints/NAT/publicIPv4/ECR/logs/
+   transfer/allowances/tax/commitments excluded. No capacity/performance benchmark or universal EC2 breakeven.
+6. Exact owned Moto5.2.4 lab25 replay **11behavior checks+cleanup12**, listener closed. ECR metadata/policy/roles/
+   endpoints/tasks/service configuration and documented host evaluator verified. Captured gaps:exclusion-filter
+   untagged push500; immutable conflict code ImageAlreadyExists instead of ImageTagAlreadyExists; lifecycle
+   preview500/invalid any-priority accepted; AWS-managed policies absent; no Fargate size/network-mode/awslogs-role/
+   target-type/launch+strategy validation; deployment config null,0running tasks, update has no new deployment,
+   stable waiter fails. Dummy keys/explicit owned loopback endpoints/lab-local config; no real AWS/shared reset.
+   Docker absent at read-only check; optional Docker commands remain unrun, no runtime proof claimed.
+7. `validate-containers.js`: **813checks,72planner states,15MCQs0length flags,positions4/4/4/3**, including added
+   regression cases above; all prior suites/full validator pass: **39levels254stages65/65missions100interactive25labs**.
+   Pronoun/Devanagari lint clean (existing decision-file comment names banned words as a rule, not learner text).
+8. Browser: **49samples1280px/360px,0console/page errors,0page overflow**; all8cards/all8stages, dryrun label/node
+   geometry/three asks, named keyboard sliders, documented₹8,958planner, final-only keyboard main/interview,
+   linked containers/compute trees, certificate and stable-ID/old-schema/corrupt disposable progress reload pass.
+   Phone comparison table ArrowRight scroll verified. Required intro/dryrun/planner default+solved/terminal and
+   phone role/ECR cards inspected. Initial test-harness failures were callback300ms timing and unscoped table
+   locator, not product failures; corrected final harness passes. Existing host emoji font boxes remain.
+
+Evidence: `.overhaul-evidence/CONTAINERS-{FOCUSED-TESTS,FULL-VALIDATE,LAB25-REPLAY,BROWSER-LOG}.txt`,
+`CONTAINERS-BROWSER-REPORT.json`, `containers-browser.cjs`, `containers-screenshots/`, live AmazonECS/AmazonECR
+Mumbai price JSONs, `CONTAINERS-PRICE-ROWS.json`, `CONTAINERS-EC2-CAPTURED-ROWS.json`.
+
+Primary sources rechecked2026-10-28:
+- [Task role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task-iam-roles.html),
+  [execution role](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_execution_IAM_role.html),
+  [Fargate sizes/network](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-tasks-services.html),
+  [ECR endpoints](https://docs.aws.amazon.com/AmazonECR/latest/userguide/vpc-endpoints.html).
+- [Rolling/headroom/image resolution](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-ecs.html),
+  [circuit breaker](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-circuit-breaker.html),
+  [deployment API](https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeploymentConfiguration.html),
+  [Fargate Spot](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/fargate-capacity-providers.html).
+- [Tag deletion](https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_BatchDeleteImage.html),
+  [immutability](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-tag-mutability.html),
+  [lifecycle](https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html),
+  [enhanced defaults/filter matching](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning-enhanced-enabling.html),
+  [basic default](https://docs.aws.amazon.com/AmazonECR/latest/userguide/image-scanning-basic-enabling.html),
+  [deprecated repository scanning](https://docs.aws.amazon.com/AmazonECR/latest/APIReference/API_PutImageScanningConfiguration.html).
+- [EKS Fargate](https://docs.aws.amazon.com/eks/latest/userguide/fargate.html),
+  [Managed Instances](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ManagedInstances.html),
+  [14-day replacement](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/migrate-ec2-to-managed-instances.html),
+  [App Runner/Express Mode](https://docs.aws.amazon.com/apprunner/latest/dg/apprunner-availability-change.html),
+  [App Mesh retirement](https://docs.aws.amazon.com/app-mesh/latest/userguide/meshes.html).
+- [Fargate price](https://aws.amazon.com/fargate/pricing/),[EKS price](https://aws.amazon.com/eks/pricing/),
+  [Mumbai ECS offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECS/current/ap-south-1/index.json),
+  [Mumbai ECR offer](https://pricing.us-east-1.amazonaws.com/offers/v1.0/aws/AmazonECR/current/ap-south-1/index.json).
+
+**Next Advanced6 `iac`,master§5.C6/lab26. Local commit and automatic continuation; no track question here. No push.**
 
 ## Advanced 4 `advnet` loop completed (2026-10-27; master §5.C4)
 
