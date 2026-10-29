@@ -21,6 +21,18 @@ pehle `lab.py` padho, phir chalao:
 config use karta hai, har client ko explicit endpoint deta hai. Koi real AWS call, Docker, shared 4566 reset ya
 `~/.aws` write nahi hota. Objects ek unique `lab25-...` naam ke saath bante hain aur aakhir mein saaf hote hain.
 
+Failure-path regressions:
+
+```bash
+./docker-labs/.venv/bin/python -I docker-labs/25-ecs-fargate-service/test_cleanup.py
+```
+
+Expected result: `Ran 4 tests` aur `OK`. Tests first endpoint se pehle, ek endpoint ke baad aur
+experiment ki endpoint deletion se pehle failure inject karte hain. Har test apna disposable Moto server chalata hai.
+Successful endpoint deletion owned-ID list update karti hai; cleanup remaining IDs delete karti hai.
+Fourth test cleanup failure inject karta hai: original error preserve hoti hai, cleanup error exception note mein
+milti hai, later IAM cleanup continue karti hai aur listener close hota hai. Moto result real AWS runtime proof nahi hai.
+
 ## ex1 — ECR: release tags immutable, `latest` excluded, scan rule
 
 Repository pehle `IMMUTABLE` banti hai, untagged builds push hote hain, phir mode `IMMUTABLE_WITH_EXCLUSION` (filter

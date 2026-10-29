@@ -92,9 +92,23 @@ node validate.js      # browser ke bina poori app check
 
 Yeh check karta hai: syntax + cross-file redeclaration · duplicate VISUALS keys
 aur level ids · har stage ka schema (hotspot targets vs `data-hs`, incident graph
-reachability, quiz answer indices) · **saare 47 terminal missions asli simulator
+reachability, quiz answer indices) · **saare 66 terminal missions asli simulator
 par end-to-end** · saare fill stages solvable · app boot + har screen render ·
 diagram CSS classes · rank reachability.
+
+Focused regressions: `node validate-containers.js` aur `node validate-iac.js`.
+Lab25 partial-setup cleanup tests ka command [Lab25 README](docker-labs/25-ecs-fargate-service/README.md#run) mein hai.
+
+Optional Cost browser QA: local Playwright package aur Chromium pehle se chahiye.
+
+```bash
+node validate-cost-browser.cjs
+```
+
+Existing install alag folder mein ho toh `PLAYWRIGHT_MODULE` ko package ke absolute path aur
+`CHROMIUM_PATH` ko browser executable ke absolute path par set karo. Screenshots/report default
+`.overhaul-evidence/` mein save hote hain; `AWS_GURUKUL_EVIDENCE_DIR` output folder override karta hai.
+Browser test 1280px/360px, keyboard actions, final-step wins, reload aur overflow check karta hai.
 
 ## App extend karna (naya service seekha?)
 

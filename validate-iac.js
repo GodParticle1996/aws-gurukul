@@ -36,6 +36,31 @@ for(const stage of [mission,interview]){
  for(let i=0;i<stage.solution.length;i++){const o=run(stage,stage.solution.filter((_,j)=>j!==i));if(o.done)console.log('OMITTED',stage.title,i,o.trace,o.text);check(o.done===0,'omission '+i+' loses');}
 }
 const r=run(never,sol);check(mission.success(r.state),'reference ready');check(AG.iacCurrentPlan(r.state),'receipt current');check(r.state.account.securityGroups[0].ingress.length===1,'SSH actually removed');
+// EC2 and Terraform must inspect/mutate the same live SG, while state stays provider-shaped.
+const sgRead='aws ec2 describe-security-groups --group-ids sg-iac-prod026';
+const sshRevoke='aws ec2 revoke-security-group-ingress --group-id sg-iac-prod026 --protocol tcp --port 22 --cidr 0.0.0.0/0';
+const sshAdd=sshRevoke.replace('revoke-','authorize-');
+function permissions(result){const text=result.text.slice(result.text.lastIndexOf(sgRead)+sgRead.length).trim();return JSON.parse(text).SecurityGroups[0].IpPermissions;}
+const initialSG=run(never,[sgRead]), initialPermissions=permissions(initialSG);
+check(initialPermissions.some(p=>p.FromPort===22&&p.ToPort===22&&p.IpRanges.some(r=>r.CidrIp==='0.0.0.0/0')),'EC2 read exposes live world-open SSH');
+check(initialPermissions.some(p=>p.FromPort===443&&p.IpRanges.some(r=>r.CidrIp==='10.42.0.0/16')),'EC2 read exposes internal TLS');
+const repairedSG=run(never,[...sol,sgRead]);
+check(permissions(repairedSG).length===1&&permissions(repairedSG)[0].FromPort===443,'Terraform repair visible through EC2');
+const duplicateSG=run(never,[sshAdd]);check(duplicateSG.text.includes('InvalidPermission.Duplicate')&&duplicateSG.state.account.securityGroups[0].ingress.length===2,'EC2 recognizes existing Terraform-seeded SSH rule');
+const revokedSG=run(never,[sol[0],sshRevoke,'terraform plan',sgRead]);
+check(!revokedSG.text.includes('InvalidPermission.NotFound')&&permissions(revokedSG).length===1,'EC2 revoke removes actual SSH rule');
+check(revokedSG.text.includes('No changes.')&&revokedSG.state.account.iacState.serial===7,'out-of-band repair changes live AWS without writing Terraform state');
+const driftSG=run(never,[...sol,sshAdd,'terraform plan',sgRead]);
+check(permissions(driftSG).some(p=>p.FromPort===22)&&driftSG.text.includes('1 to change'),'EC2-added drift visible to the next normal Terraform plan');
+check(!mission.success(driftSG.state),'new live drift invalidates the mission receipt');
+const reapplySG=run(never,[...sol,sshAdd,'terraform apply -auto-approve',final,sgRead]);
+check(mission.success(reapplySG.state)&&permissions(reapplySG).length===1,'Terraform reapply repairs EC2 drift and recertifies');
+const refreshSG=run(never,[...sol,sshAdd,'terraform apply -refresh-only -auto-approve',sgRead]);
+check(permissions(refreshSG).some(p=>p.FromPort===22)&&refreshSG.state.account.iacState.bindings['aws_security_group.app'].attrs.ingress.some(r=>r.from_port===22&&r.cidr_blocks.includes('0.0.0.0/0')),'refresh-only records EC2 drift in Terraform schema without closing SSH');
+const multiFiles=copy(mission.files), multiConfig=JSON.parse(multiFiles['templates/reviewed.json'].content);
+multiConfig.resource.aws_security_group.app.ingress[0].cidr_blocks.push('10.43.0.0/16');multiFiles['templates/reviewed.json'].content=JSON.stringify(multiConfig);
+const multiSG=run({...never,files:multiFiles},[...sol,'aws ec2 revoke-security-group-ingress --group-id sg-iac-prod026 --protocol tcp --port 443 --cidr 10.43.0.0/16','terraform plan',sgRead]);
+check(permissions(multiSG).length===1&&permissions(multiSG)[0].IpRanges[0].CidrIp==='10.42.0.0/16'&&multiSG.text.includes('1 to change'),'multi-CIDR Terraform set supports individual EC2 revoke and drift detection');
 function loses(label,cmds,stage=mission){const r=run(stage,cmds);check(r.done===0,label+' must lose');return r;}
 function alt(label,cmds,stage=mission){const r=run(stage,cmds);check(r.done===1,label+' wins '+r.text.slice(-1200));check(r.trace.slice(0,-1).every(v=>!v),'alternative final-only '+label);}
 alt('copy before init',[sol[1],sol[0],...sol.slice(2)]);
@@ -61,7 +86,7 @@ const duplicate=run(never,[...sol,'terraform import aws_s3_bucket.archive '+ARCH
 const saved=run(never,[...sol.slice(0,4),s=>{s.files['main.tf.json'].content=JSON.stringify({resource:{}});return sol[4];}]);check(saved.state.account.securityGroups[0].ingress.length===1,'saved apply executes captured configuration');check(!saved.text.includes('Saved plan is stale'),'editing config alone not serial staleness');check(!mission.success(saved.state),'changed current config not certified');
 const lineage=run(never,[...sol.slice(0,4),s=>{s.account.iacState.lineage='other';return sol[4];}]);check(lineage.text.includes('does not match'),'lineage mismatch rejected');
 // Saved plan only rejects state changes; remote-only drift is not a state-serial detector.
-const changed=run(never,[...sol.slice(0,4),s=>{s.account.securityGroups[0].ingress.push({...s.account.securityGroups[0].ingress[0],from_port:8080,to_port:8080});return sol[4];}]);check(!changed.text.includes('Saved plan is stale'),'remote drift alone does not bump Terraform serial');
+const changed=run(never,[...sol.slice(0,4),s=>{s.account.securityGroups[0].ingress.push({...s.account.securityGroups[0].ingress[0],fromPort:8080,toPort:8080});return sol[4];}]);check(!changed.text.includes('Saved plan is stale'),'remote drift alone does not bump Terraform serial');
 const init={...mission,account:{...copy(mission.account),iacLock:{who:'owned-ci-run'}},success:()=>false};const lock=run(init,[sol[0],sol[1],sol[2]]);check(lock.text.includes('Error acquiring the state lock')&&lock.text.includes('owned-ci-run'),'held lock refuses mutation');check(Object.keys(lock.state.account.iacState.bindings).length===2,'lock failure no binding mutation');
 // Config fixtures vary, not command-history matching. Malicious/destructive paths never win.
 function variant(change){const v=copy(mission.files);const c=JSON.parse(v['templates/reviewed.json'].content);change(c);v['templates/reviewed.json'].content=JSON.stringify(c);return {...mission,files:v};}
@@ -89,7 +114,7 @@ const helper=run(never,['help']);check(helper.text.includes('Terraform native-JS
 const fuzz=run(never,[sol[0],...garbage]);check(!fuzz.text.includes('simulator error'),'garbage never escapes handler');check(!mission.success(fuzz.state),'garbage no win');
 const spaced=run(mission,sol.map(x=>'  '+x.replace(/ /g,'   ')+'  '));check(spaced.done===1,'extra whitespace works');
 // Current-state mutations invalidate receipt and cannot forge wins by retaining history.
-for(const mutate of [s=>s.account.buckets[0].objects=[],s=>s.account.securityGroups[0].ingress.push({...s.account.securityGroups[0].ingress[0],from_port:22,to_port:22}),s=>s.account.iacBackend.use_lockfile=false,s=>delete s.account.iacState.bindings['aws_s3_bucket.archive'],s=>s.account.iacState.bindings['aws_s3_bucket.archive'].id=APP,s=>s.account.iacLock={who:'other'},s=>s.files['main.tf.json'].content='{}',s=>s.account.callerIdentity.Account='555555555555',s=>s.account.region='us-east-1',s=>s.account.vpcs=[]]){
+for(const mutate of [s=>s.account.buckets[0].objects=[],s=>s.account.securityGroups[0].ingress.push({...s.account.securityGroups[0].ingress[0],fromPort:22,toPort:22}),s=>s.account.iacBackend.use_lockfile=false,s=>delete s.account.iacState.bindings['aws_s3_bucket.archive'],s=>s.account.iacState.bindings['aws_s3_bucket.archive'].id=APP,s=>s.account.iacLock={who:'other'},s=>s.files['main.tf.json'].content='{}',s=>s.account.callerIdentity.Account='555555555555',s=>s.account.region='us-east-1',s=>s.account.vpcs=[]]){
  const q=run(never,[...sol,s=>{mutate(s);return 'terraform state list';}]);check(!mission.success(q.state),'current-state corruption loses after solved history');}
 check(run(mission,sol).done===1,'fresh mission after corrupt fixture');
 let states=0,winners=0;const flow=level.stages.find(s=>s.type==='flowlab');for(let address=0;address<3;address++)for(let physical=0;physical<2;physical++)for(let sg=0;sg<2;sg++)for(let guard=0;guard<2;guard++)for(let backend=0;backend<3;backend++){const k={address,physical,sg,guard,backend},m=flow.model(k);check(m.verdict.ok===flow.check(k),'planner state verdict');states++;if(flow.check(k))winners++;}check(states===72&&winners===1,'72 states unique safe refactor');

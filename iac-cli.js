@@ -8,6 +8,19 @@
  const safe=v=>!obj(v)&&!Array.isArray(v)||Object.keys(v).every(k=>!['__proto__','prototype','constructor'].includes(k)&&safe(v[k]));
  const ipv4=c=>typeof c==='string'&&/^\d+\.\d+\.\d+\.\d+\/\d+$/.test(c)&&c.split('/')[0].split('.').every(n=>Number(n)<=255)&&Number(c.split('/')[1])<=32;
  const address=/^(aws_s3_bucket|aws_security_group)\.[a-zA-Z_][a-zA-Z0-9_]*$/;
+ // Live AWS uses the shared EC2 rule schema; native Terraform sets stay at the provider boundary.
+ AG.iacIngressToAWS=rules=>rules.flatMap(r=>r.cidr_blocks.map(cidr=>({protocol:r.protocol,fromPort:r.from_port,toPort:r.to_port,cidr})));
+ AG.iacIngressFromAWS=rules=>{
+  const groups=new Map();
+  for(const r of rules){
+   const key=JSON.stringify([r.protocol||'tcp',r.fromPort??0,r.toPort??0]);
+   if(!groups.has(key))groups.set(key,{from_port:r.fromPort??0,to_port:r.toPort??0,protocol:r.protocol||'tcp',cidr_blocks:[],description:'',ipv6_cidr_blocks:[],prefix_list_ids:[],security_groups:[],self:false});
+   const g=groups.get(key);
+   if(r.cidr&&!g.cidr_blocks.includes(r.cidr))g.cidr_blocks.push(r.cidr);
+   if(r.sourceGroup&&!g.security_groups.includes(r.sourceGroup))g.security_groups.push(r.sourceGroup);
+  }
+  return [...groups.values()];
+ };
  function config(sim){
   const f=sim.files['main.tf.json'];if(!f)return {};
   let d;try{d=JSON.parse(f.content);}catch(e){throw Error('Invalid JSON configuration: main.tf.json. cat templates/reviewed.json shows valid Terraform native JSON.');}
@@ -32,7 +45,7 @@
   }return out;
  }
  const remote=(a,key,id)=>key.startsWith('aws_s3_bucket.')?(a.buckets||[]).find(b=>b.name===id):(a.securityGroups||[]).find(g=>g.id===id);
- const attrs=(key,r,b)=>!r?null:key.startsWith('aws_s3_bucket.')?{bucket:r.name,force_destroy:!!b?.attrs?.force_destroy}:{name:r.name,description:r.description,vpc_id:r.vpcId,ingress:copy(r.ingress)};
+ const attrs=(key,r,b)=>!r?null:key.startsWith('aws_s3_bucket.')?{bucket:r.name,force_destroy:!!b?.attrs?.force_destroy}:{name:r.name,description:r.description,vpc_id:r.vpcId,ingress:AG.iacIngressFromAWS(r.ingress)};
  const desired=(key,c)=>key.startsWith('aws_s3_bucket.')?{bucket:c.bucket,force_destroy:!!c.force_destroy}:{name:c.name,description:c.description,vpc_id:c.vpc_id,ingress:copy(c.ingress)};
  const replacing=(key,old,c)=>key.startsWith('aws_s3_bucket.')?old.bucket!==c.bucket:old.name!==c.name||old.vpc_id!==c.vpc_id||old.description!==c.description;
  const view=sim=>({files:sim.files['main.tf.json']?.content??null,state:sim.account.iacState,backend:sim.account.iacBackend,buckets:sim.account.buckets,sgs:sim.account.securityGroups});
@@ -140,7 +153,7 @@
     if(x.key.startsWith('aws_s3_bucket.')){if((a.buckets||[]).some(b=>b.name===x.want.bucket))throw Error('Error creating S3 Bucket: BucketAlreadyOwnedByYou. Import the existing bucket; do not recreate production data.');const b={name:x.want.bucket,objects:[]};a.buckets.push(b);return b.name;}
     if(!(a.vpcs||[]).some(v=>v.id===x.want.vpc_id))throw Error('InvalidVpcID.NotFound: VPC does not exist.');
     if(a.securityGroups.some(g=>g.name===x.want.name&&g.vpcId===x.want.vpc_id))throw Error('InvalidGroup.Duplicate: security group name already exists in this VPC. Import the existing SG.');
-    const id='sg-iac-created-'+(++a.iacSeq|| (a.iacSeq=1));a.securityGroups.push({id,name:x.want.name,description:x.want.description,vpcId:x.want.vpc_id,ingress:copy(x.want.ingress)});return id;
+    const id='sg-iac-created-'+(++a.iacSeq|| (a.iacSeq=1));a.securityGroups.push({id,name:x.want.name,description:x.want.description,vpcId:x.want.vpc_id,ingress:AG.iacIngressToAWS(x.want.ingress)});return id;
    };
    try{
     for(const x of p.actions){
@@ -148,7 +161,7 @@
      if(['create','replace'].includes(x.kind)){const id=create(x);p.bindings[x.key]={id,attrs:copy(x.want)};persist();}
      if(x.kind==='update'){
       const r=remote(a,x.key,x.id);if(!r)throw Error('Remote object missing during apply: '+x.id+'. Create a fresh plan.');
-      if(!x.key.startsWith('aws_s3_bucket.'))r.ingress=copy(x.want.ingress); // force_destroy is provider-state metadata, not an S3 API setting
+      if(!x.key.startsWith('aws_s3_bucket.'))r.ingress=AG.iacIngressToAWS(x.want.ingress); // force_destroy is provider-state metadata, not an S3 API setting
       p.bindings[x.key]={id:x.id,attrs:copy(x.want)};persist();
      }
     }

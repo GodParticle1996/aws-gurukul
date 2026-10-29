@@ -41,7 +41,21 @@ Per-level commits are authorized. No push/deployment. `git log --oneline` record
 Events local commit: **74b6777**; messaging local commit: **3de9683**. Security delivery is recorded below; latest git log identifies its local commit.
 Current `node validate.js`: **ALL CHECKS PASSED** — 39 levels, 263 stages, 66/66 terminal missions,
 108 interactive stages, 27 real-lab projects (adds `validate-dr.js` 1,148 checks, `validate-hybrid.js` 778 checks and
-`validate-containers.js` 813 checks and `validate-iac.js` 219 checks and `validate-cost.js` 309 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+`validate-containers.js` 830 checks and `validate-iac.js` 230 checks and `validate-cost.js` 309 checks). Focused suites: 973 VPC + 304 RDS + 176,283 ALB/ASG + 2,342 architecture + 5,066 Route53 + 842 CloudFront + 19,355 S3 Advanced + 12,448 EFS + 8,342 Lambda + 2,199 DynamoDB + 2,743 caching + 27,214 messaging + 28,588 events + 1,438 security + 2,187 capacity + 1,726 review + 1,888 organization checks.
+
+## User-approved review repairs (2026-10-28; after Cost commit `caba7c1`)
+
+User requested a read-only recheck, then approved fixing all four reproduced findings with **Fix these issues**.
+Repair scope only; no new level started. On 2026-10-29 the user explicitly authorized committing all pending AWS Gurukul changes and pushing `main`, including the previously completed local overhaul commits. This approval supersedes the earlier local-only delivery hold. Git history and `origin/main` record the delivery revision; browser/Moto evidence remains local and gitignored.
+
+1. ECR duplicate `tagPrefixList` sets now fail policy validation for both put and preview, including reordered/repeated list entries. Invalid input leaves the prior account/policy/preview unchanged and cannot win. Distinct overlapping sets and explicit standard storage remain accepted. Boundary source: [AWS ECR evaluation rules](https://docs.aws.amazon.com/AmazonECR/latest/userguide/LifecyclePolicies.html); archive rules remain outside this fixture.
+2. IaC live SG rules now use the shared EC2 schema. Namespaced conversion at the Terraform provider boundary preserves native JSON config/state. EC2 reads expose 22/world and 443/internal; duplicate/revoke/authorize, normal repair, refresh-only and multi-CIDR drift checks use the same live state. Main/interview intended solutions still win only after the final step.
+3. Lab25 tracks remaining owned endpoint IDs after deletion, checks actual endpoint leftovers, continues independent cleanup after errors and preserves the primary failure with cleanup notes. Exact happy replay: 11 behavior checks + cleanup12/listener closed. Four owned-Moto integration tests cover zero/one/all endpoints and a secondary cleanup failure; all pass. No Docker/real AWS/shared Moto reset/~/.aws writes.
+4. Fixed the Cost browser summary-selector race. Canonical QA script is now tracked as `validate-cost-browser.cjs`, with configurable local Playwright/browser/evidence paths; the former ignored evidence entrypoint delegates to the tracked script. QA waits for stage navigation, then captures the uniquely identified mission summary.
+
+Validation: full `node validate.js` **ALL CHECKS PASSED**, 39 levels/263 stages/66 missions/27 lab projects; focused Containers830/IaC230/Cost309. Fresh browser runs: Containers49 + IaC49 + Cost51 = **149 samples**, 1280px/360px, zero recorded console/page errors or horizontal page overflow. Phone/desktop screenshots inspected. New regression commands documented in README and Lab25 README.
+
+Evidence: `.overhaul-evidence/review-fixes/{FULL-VALIDATE,LAB25-REPLAY,LAB25-CLEANUP-TESTS,CONTAINERS-BROWSER-LOG,IAC-BROWSER-LOG,COST-BROWSER-LOG}.txt`, corresponding browser JSON reports and screenshots. Representative screenshots: `review-fixes/iac-screenshots/terminal-solved-360.png`, `review-fixes/cost-screenshots/terminal-summary-360.png`, `review-fixes/containers-screenshots/terminal-solved-1280.png`. Original read-only report: `/tmp/aws-gurukul-review/REPORT.md`.
 
 ## Advanced 7 `cost` loop completed (2026-10-28; master§5.C7)
 

@@ -64,7 +64,7 @@
   const bad=m=>Error("InvalidParameterException: Invalid parameter at 'LifecyclePolicyText' failed to satisfy constraint: 'Lifecycle policy validation failure: "+m+"'");
   let p;try{p=JSON.parse(raw);}catch(e){throw bad('invalid JSON');}
   if(!obj(p)||!Array.isArray(p.rules)||!p.rules.length||p.rules.length>50)throw bad('a rules array with 1-50 rules is required');
-  const pri=new Set();let untagged=0;
+  const pri=new Set(),prefixSets=new Set();let untagged=0;
   for(const r of p.rules){
    if(!obj(r)||!Number.isInteger(r.rulePriority)||r.rulePriority<1||pri.has(r.rulePriority))throw bad('each rule needs a unique positive integer rulePriority');pri.add(r.rulePriority);
    const s=r.selection;if(!obj(s)||!obj(r.action))throw bad('each rule needs selection and action objects');
@@ -75,6 +75,14 @@
    if(P!==undefined&&T!==undefined)throw bad('use either tagPrefixList or tagPatternList, not both');
    if(s.tagStatus!=='tagged'&&(P!==undefined||T!==undefined))throw bad('tagPrefixList/tagPatternList are only valid with tagStatus tagged');
    if([P,T].some(l=>l!==undefined&&(!Array.isArray(l)||!l.length||l.some(x=>typeof x!=='string'||!x||(x.match(/\*/g)||[]).length>4))))throw bad('tag lists need nonempty strings with at most four * wildcards');
+   if(s.storageClass!==undefined&&s.storageClass!=='standard')throw bad('this fixture selects standard storage only; archive rules need a different countType');
+   if(P){
+    // ECR requires unique prefix sets across rules selecting the same storage class.
+    // List order and repeated entries do not create a different selection.
+    const key=JSON.stringify([...new Set(P)].sort());
+    if(prefixSets.has(key))throw bad('tagPrefixList must be a unique set across rules selecting standard storage');
+    prefixSets.add(key);
+   }
    if(!['imageCountMoreThan','sinceImagePushed'].includes(s.countType))throw bad('countType imageCountMoreThan or sinceImagePushed in this fixture (sinceImagePulled/sinceImageTransitioned belong to archive rules)');
    if(!Number.isInteger(s.countNumber)||s.countNumber<1)throw bad('countNumber must be a positive integer');
    if(s.countType==='sinceImagePushed'&&s.countUnit!=='days')throw bad('sinceImagePushed needs countUnit days');

@@ -13,11 +13,11 @@
   const sg=cfg().resource.aws_security_group.app;
   const account={iacMode:true,iacInitialized:interview,iacSeq:0,region:'ap-south-1',callerIdentity:{Account:'444444444444',Arn:'arn:aws:iam::444444444444:role/platform-engineer'},
    iacBackend:{type:'s3',bucket:'shopkaro-tfstate',key:'prod/terraform.tfstate',private:true,versioning:true,encrypted:true,use_lockfile:true},
-   vpcs:[{id:VPC,cidr:'10.42.0.0/16',name:'shop-vpc'}],securityGroups:[{id:SG,name:sg.name,description:sg.description,vpcId:VPC,ingress:[rule()]}],
+   vpcs:[{id:VPC,cidr:'10.42.0.0/16',name:'shop-vpc'}],securityGroups:[{id:SG,name:sg.name,description:sg.description,vpcId:VPC,ingress:AG.iacIngressToAWS([rule()])}],
    buckets:[{name:APP,objects:[{key:'TEST-order.txt',body:'original order TEST-26'}]},{name:ARCH,objects:[{key:'TEST-invoice.txt',body:'original invoice TEST-26'}]}],
    iacState:{lineage:'shopkaro-prod-lineage-26',serial:7,bindings:{'aws_security_group.app':{id:SG,attrs:copy(sg)},'aws_s3_bucket.app':{id:APP,attrs:{bucket:APP,force_destroy:false}}}},iacPlans:{},iacReceipt:null};
   if(interview)account.iacState.bindings['aws_s3_bucket.archive']={id:ARCH,attrs:{bucket:ARCH,force_destroy:false}};
-  else account.securityGroups[0].ingress.push({...rule(),from_port:22,to_port:22,cidr_blocks:['0.0.0.0/0']});
+  else account.securityGroups[0].ingress.push({protocol:'tcp',fromPort:22,toPort:22,cidr:'0.0.0.0/0'});
   return account;
  }
  // State attrs have no lifecycle. Lifecycle is configuration, not an AWS setting.
@@ -26,7 +26,7 @@
  function core(s){const a=s.account;return a.iacMode===true&&a.iacInitialized===true&&a.region===baseline.region&&same(a.callerIdentity,baseline.callerIdentity)&&same(a.iacBackend,baseline.iacBackend)&&same(a.vpcs,baseline.vpcs)&&a.iacState.lineage===baseline.iacState.lineage&&!a.iacLock&&a.buckets.length===2&&a.securityGroups.length===1&&baseline.buckets.every(b=>{const r=a.buckets.find(r=>r.name===b.name);return r&&same(r.objects,b.objects);});}
  function ready(s,label,receipt=true){try{
   const a=s.account,c=AG.iacConfig(s),keys=['aws_security_group.app','aws_s3_bucket.app','aws_s3_bucket.'+label],b=a.iacState.bindings,g=a.securityGroups.find(g=>g.id===SG);
-  return core(s)&&Object.keys(c).length===3&&Object.keys(b).length===3&&keys.every(k=>!!b[k]&&!!c[k])&&b[keys[0]].id===SG&&b[keys[1]].id===APP&&b[keys[2]].id===ARCH&&!!g&&g.name==='orders-app'&&g.vpcId===VPC&&g.description==='ShopKaro internal TLS'&&same(g.ingress,[rule()])&&same(c[keys[0]].ingress,[rule()])&&keys.slice(1).every(k=>c[k].lifecycle?.prevent_destroy===true&&c[k].force_destroy!==true&&b[k].attrs.force_destroy!==true)&&c[keys[1]].bucket===APP&&c[keys[2]].bucket===ARCH&&(!receipt||AG.iacCurrentPlan(s));
+  return core(s)&&Object.keys(c).length===3&&Object.keys(b).length===3&&keys.every(k=>!!b[k]&&!!c[k])&&b[keys[0]].id===SG&&b[keys[1]].id===APP&&b[keys[2]].id===ARCH&&!!g&&g.name==='orders-app'&&g.vpcId===VPC&&g.description==='ShopKaro internal TLS'&&same(g.ingress,AG.iacIngressToAWS([rule()]))&&same(c[keys[0]].ingress,[rule()])&&keys.slice(1).every(k=>c[k].lifecycle?.prevent_destroy===true&&c[k].force_destroy!==true&&b[k].attrs.force_destroy!==true)&&c[keys[1]].bucket===APP&&c[keys[2]].bucket===ARCH&&(!receipt||AG.iacCurrentPlan(s));
  }catch(e){return false;}}
  const solution=['terraform init','cp templates/reviewed.json main.tf.json','terraform import aws_s3_bucket.archive '+ARCH,'terraform plan -out=repair.tfplan','terraform apply repair.tfplan','terraform plan -detailed-exitcode'];
  const isolution=['cp templates/renamed.json main.tf.json','terraform state mv aws_s3_bucket.archive aws_s3_bucket.invoices','terraform plan -detailed-exitcode'];

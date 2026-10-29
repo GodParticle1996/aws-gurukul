@@ -1,7 +1,7 @@
 """Lab25: owned loopback Moto only. ECR hardening, both ECS roles, Fargate task definitions and a service with a
 circuit breaker, plus a documented start-contract evaluator over the real Moto metadata. No real AWS, Docker run,
 image pull, container or ALB probe."""
-import hashlib, json, logging, os, socket, time
+import hashlib, json, logging, os, socket, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 LAB = Path(__file__).resolve().parent / '.lab'; LAB.mkdir(exist_ok=True)
@@ -20,6 +20,13 @@ ecr, ecs, iam, ec2, elb = client('ecr'), client('ecs'), client('iam'), client('e
 stamp = str(time.time_ns()); name = 'lab25-' + stamp; short = 'l25' + stamp[-7:]; REPO = name + '/orders'; checks = 0
 own = {'repo': None, 'roles': [], 'policies': [], 'cluster': None, 'tds': [], 'services': [], 'vpc': None, 'subnets': [], 'sgs': [], 'rt': None, 'eps': [], 'tgs': []}
 ACCT = '123456789012'; INVOICES = 'arn:aws:s3:::shopkaro-invoices/*'
+
+def delete_endpoints(ids):
+    if not ids: return
+    result = ec2.delete_vpc_endpoints(VpcEndpointIds=list(ids))
+    failed = {e['ResourceId'] for e in result.get('Unsuccessful', [])}
+    own['eps'] = [e for e in own['eps'] if e not in ids or e in failed]
+    if failed: raise RuntimeError('Endpoint cleanup failed: ' + json.dumps(result['Unsuccessful']))
 
 def check(ok, label):
     global checks
@@ -205,38 +212,51 @@ try:
         if path == 'logs' or 'logs' not in grants(ex): return 'ResourceInitializationError: logs'
         return 'START + S3 OK' if tk and 's3-invoices' in grants(tk) else 'START, app AccessDenied s3:PutObject (' + (tk or 'no task role').split('/')[-1] + ')'
     matrix = {'orders:1 exec=pull+logs task=S3': contract(good), 'orders:2 roles swapped': contract(swapped), 'orders:3 task role = execution role': contract(one_role)}
-    ec2.delete_vpc_endpoints(VpcEndpointIds=[own['eps'][1]])  # remove ecr.dkr, then re-evaluate the good revision
+    dkr_endpoint = next(e['VpcEndpointId'] for e in eps if e['ServiceName'].endswith('.ecr.dkr'))
+    delete_endpoints([dkr_endpoint])  # remove ecr.dkr, then re-evaluate the good revision
     matrix['orders:1 after ecr.dkr endpoint deleted'] = contract(good)
     print('CONTRACT', json.dumps({k: v.replace(name + '-', '') for k, v in matrix.items()}), flush=True)
     check(list(matrix.values()) == ['START + S3 OK', 'CannotPull: AccessDenied ecr:GetAuthorizationToken (' + name + '-task)', 'START, app AccessDenied s3:PutObject (' + name + '-exec)', 'CannotPull: connection issue to ECR (timeout)'],
           'documented evaluator over real Moto metadata: right roles start and upload; swapped roles cannot pull; one shared role starts but S3 is denied; missing ecr.dkr times out')
     print('BEHAVIOR CHECKS', checks, flush=True)
 finally:
+    primary_error = sys.exception()
+    cleanup_errors = []
+    def cleanup(label, action, **kwargs):
+        try: action(**kwargs)
+        except Exception as error: cleanup_errors.append((label, error))
+    def delete_role(role_name):
+        for p in iam.list_attached_role_policies(RoleName=role_name)['AttachedPolicies']: iam.detach_role_policy(RoleName=role_name, PolicyArn=p['PolicyArn'])
+        for n in iam.list_role_policies(RoleName=role_name)['PolicyNames']: iam.delete_role_policy(RoleName=role_name, PolicyName=n)
+        iam.delete_role(RoleName=role_name)
     try:
         for sv in own['services']:
-            ecs.update_service(cluster=own['cluster'], service=sv, desiredCount=0); ecs.delete_service(cluster=own['cluster'], service=sv)
-        for td in own['tds']: ecs.deregister_task_definition(taskDefinition=td)
-        if own['cluster']: ecs.delete_cluster(cluster=own['cluster'])
-        if own['repo']: ecr.delete_repository(repositoryName=own['repo'], force=True)
-        ecr.put_registry_scanning_configuration(scanType='BASIC', rules=[])
-        for t in own['tgs']: elb.delete_target_group(TargetGroupArn=t)
-        if own['eps']: ec2.delete_vpc_endpoints(VpcEndpointIds=[e for e in own['eps'] if e != own['eps'][1]])
-        for a in own.get('assocs', []): ec2.disassociate_route_table(AssociationId=a)
-        if own['rt']: ec2.delete_route_table(RouteTableId=own['rt'])
-        for g in own['sgs']: ec2.delete_security_group(GroupId=g)
-        for s in own['subnets']: ec2.delete_subnet(SubnetId=s)
-        if own['vpc']: ec2.delete_vpc(VpcId=own['vpc'])
-        for r in own['roles']:
-            for p in iam.list_attached_role_policies(RoleName=r)['AttachedPolicies']: iam.detach_role_policy(RoleName=r, PolicyArn=p['PolicyArn'])
-            for n in iam.list_role_policies(RoleName=r)['PolicyNames']: iam.delete_role_policy(RoleName=r, PolicyName=n)
-            iam.delete_role(RoleName=r)
-        for p in own['policies']: iam.delete_policy(PolicyArn=p)
+            cleanup('scale service ' + sv, ecs.update_service, cluster=own['cluster'], service=sv, desiredCount=0)
+            cleanup('delete service ' + sv, ecs.delete_service, cluster=own['cluster'], service=sv)
+        for td in own['tds']: cleanup('task definition ' + td, ecs.deregister_task_definition, taskDefinition=td)
+        if own['cluster']: cleanup('cluster', ecs.delete_cluster, cluster=own['cluster'])
+        if own['repo']: cleanup('repository', ecr.delete_repository, repositoryName=own['repo'], force=True)
+        cleanup('scan configuration', ecr.put_registry_scanning_configuration, scanType='BASIC', rules=[])
+        for t in own['tgs']: cleanup('target group ' + t, elb.delete_target_group, TargetGroupArn=t)
+        cleanup('endpoints', delete_endpoints, ids=own['eps'][:])
+        for a in own.get('assocs', []): cleanup('route association ' + a, ec2.disassociate_route_table, AssociationId=a)
+        if own['rt']: cleanup('route table', ec2.delete_route_table, RouteTableId=own['rt'])
+        for g in own['sgs']: cleanup('security group ' + g, ec2.delete_security_group, GroupId=g)
+        for s in own['subnets']: cleanup('subnet ' + s, ec2.delete_subnet, SubnetId=s)
+        if own['vpc']: cleanup('VPC', ec2.delete_vpc, VpcId=own['vpc'])
+        for r in own['roles']: cleanup('role ' + r, delete_role, role_name=r)
+        for p in own['policies']: cleanup('policy ' + p, iam.delete_policy, PolicyArn=p)
         left = {'repos': [r for r in ecr.describe_repositories()['repositories'] if r['repositoryName'] == own['repo']],
                 'clusters': [c for c in ecs.describe_clusters(clusters=[name])['clusters'] if c['status'] == 'ACTIVE'],
                 'roles': [r for r in iam.list_roles()['Roles'] if r['RoleName'] in own['roles']],
                 'vpcs': [v for v in ec2.describe_vpcs()['Vpcs'] if v['VpcId'] == own['vpc']],
+                'endpoints': [e for e in ec2.describe_vpc_endpoints()['VpcEndpoints'] if e['VpcEndpointId'] in own['eps']],
                 'scan rules': ecr.get_registry_scanning_configuration()['scanningConfiguration']['rules']}
         check(not any(left.values()), 'own ECR repo/scan rule, ECS cluster/services/task definitions, IAM roles/policies, target groups, endpoints and VPC cleaned')
+        if cleanup_errors: raise RuntimeError('; '.join(label + ': ' + str(error) for label, error in cleanup_errors)) from cleanup_errors[0][1]
+    except Exception as cleanup_error:
+        if primary_error is None: raise
+        primary_error.add_note('Lab25 cleanup also failed: ' + str(cleanup_error) + '; ' + '; '.join(label + ': ' + str(error) for label, error in cleanup_errors))
     finally:
         server.stop(); server._server.server_close()
         try:

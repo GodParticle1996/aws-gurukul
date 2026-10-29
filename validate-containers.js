@@ -112,6 +112,26 @@ alt('MUTABLE_WITH_EXCLUSION locks v*', [`aws ecr put-image-tag-mutability --repo
 alt('ENHANCED continuous scanning', [sol[0], `aws ecr put-registry-scanning-configuration --scan-type ENHANCED --rules '[{"scanFrequency":"CONTINUOUS_SCAN","repositoryFilters":[{"filter":"shopkaro/*","filterType":"WILDCARD"}]}]'`, ...sol.slice(2)]);
 alt('inline 14-day untagged policy', [sol[0], sol[1], `aws ecr put-lifecycle-policy --repository-name ${REPO} --lifecycle-policy-text '{"rules":[{"rulePriority":1,"selection":{"tagStatus":"untagged","countType":"sinceImagePushed","countUnit":"days","countNumber":14},"action":{"type":"expire"}}]}'`, ...sol.slice(3)]);
 alt('preview both drafts first', [sol[0], sol[1], `aws ecr start-lifecycle-policy-preview --repository-name ${REPO} --lifecycle-policy-text file://lifecycle-keep-3.json`, `aws ecr get-lifecycle-policy-preview --repository-name ${REPO}`, `aws ecr start-lifecycle-policy-preview --repository-name ${REPO} --lifecycle-policy-text file://lifecycle-safe.json`, `aws ecr get-lifecycle-policy-preview --repository-name ${REPO}`, ...sol.slice(2)]);
+// Invalid duplicate selectors must not overwrite a policy/preview or unlock the mission.
+const prefixRule = (rulePriority, tagPrefixList, countNumber = 10) => ({rulePriority, selection:{tagStatus:'tagged',tagPrefixList,countType:'imageCountMoreThan',countNumber}, action:{type:'expire'}});
+const policyCommand = (op, policy) => `aws ecr ${op} --repository-name ${REPO} --lifecycle-policy-text '${JSON.stringify(policy)}'`;
+const safePolicy = JSON.parse(mission.files['lifecycle-safe.json'].content);
+for (const rules of [
+  [...safePolicy.rules, prefixRule(3, ['v'], 5)],
+  [prefixRule(1, ['v','prod']), prefixRule(2, ['prod','v'], 5)],
+  [prefixRule(1, ['v']), prefixRule(2, ['v','v'], 5)]
+]) {
+  const policy = {rules}, badCommand = policyCommand('put-lifecycle-policy', policy);
+  check(!run(mission, [sol[0], sol[1], badCommand, ...sol.slice(3)]).done, 'duplicate-prefix policy cannot win');
+  for (const op of ['put-lifecycle-policy', 'start-lifecycle-policy-preview']) {
+    const before = run(never, [sol[2], policyCommand('start-lifecycle-policy-preview', safePolicy)]);
+    const after = run(never, [sol[2], policyCommand('start-lifecycle-policy-preview', safePolicy), policyCommand(op, policy)]);
+    check(after.text.includes('InvalidParameterException') && after.text.includes('unique set'), 'duplicate prefix diagnostic: '+op);
+    check(JSON.stringify(after.state.account) === JSON.stringify(before.state.account), 'invalid policy/preview leaves account unchanged: '+op);
+  }
+}
+alt('distinct prefix sets can overlap', [sol[0], sol[1], policyCommand('put-lifecycle-policy', {rules:[...safePolicy.rules,prefixRule(3,['v','prod'])]}), ...sol.slice(3)]);
+alt('explicit standard storage', [sol[0], sol[1], policyCommand('put-lifecycle-policy', {rules:safePolicy.rules.map(r=>({...r,selection:{...r.selection,storageClass:'standard'}}))}), ...sol.slice(3)]);
 alt('FARGATE capacity provider strategy', [...sol.slice(0, 4), create([['--launch-type FARGATE', '--capacity-provider-strategy capacityProvider=FARGATE,weight=1']]), WAIT, READ]);
 alt('FARGATE base with a zero-weight Spot entry', [...sol.slice(0, 4), create([['--launch-type FARGATE', '--capacity-provider-strategy capacityProvider=FARGATE,base=2,weight=1']]), WAIT, READ]);
 alt('JSON network/load-balancer/deployment forms', [...sol.slice(0, 4), `aws ecs create-service ${CL} --service-name orders --task-definition orders:1 --desired-count 2 --launch-type FARGATE --network-configuration '{"awsvpcConfiguration":{"subnets":["${SUB_B}","${SUB_A}"],"securityGroups":["${SG_ORDERS}"],"assignPublicIp":"DISABLED"}}' --load-balancers '[{"targetGroupArn":"${TG_ORDERS}","containerName":"orders","containerPort":8080}]' --deployment-configuration '{"deploymentCircuitBreaker":{"enable":true,"rollback":true}}'`, WAIT, READ]);
