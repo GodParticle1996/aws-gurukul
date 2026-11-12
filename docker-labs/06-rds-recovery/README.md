@@ -93,7 +93,19 @@ Retention 0 se nonzero change availability ko affect kar sakta hai; production c
 
 ## ex3 — Manual snapshot aur separate reporting replica
 
+⚠️ **Pehle ek asli AWS rule.** Real RDS PostgreSQL (aur MySQL/MariaDB/Oracle) par read replica **nahi banta** jab source ka
+master password RDS khud Secrets Manager mein manage kar raha ho (apvaad: SQL Server aur Db2). Moto yeh rule check nahi karta
+aur replica bana deta hai. Isliye lab asli AWS wala kram follow karta hai: pehle source par managed password **band** karo,
+phir replica banao. Naya password ek shell variable mein rehta hai; command history mein nahi aata.
+
 ```bash
+REPLICA_SOURCE_PW=$(aws secretsmanager get-random-password --exclude-punctuation --password-length 24 \
+  --query RandomPassword --output text)
+aws rds modify-db-instance --db-instance-identifier shopkaro-rds-main \
+  --no-manage-master-user-password --master-user-password "$REPLICA_SOURCE_PW" --apply-immediately \
+  --query 'DBInstance.{Id:DBInstanceIdentifier,ManagedSecret:MasterUserSecret}'
+unset REPLICA_SOURCE_PW
+aws rds wait db-instance-available --db-instance-identifier shopkaro-rds-main
 aws rds create-db-snapshot --db-instance-identifier shopkaro-rds-main \
   --db-snapshot-identifier shopkaro-before-catalog-change \
   --query 'DBSnapshot.{Id:DBSnapshotIdentifier,Source:DBInstanceIdentifier,State:Status,Encrypted:Encrypted}'
@@ -106,6 +118,10 @@ aws rds describe-db-instances --db-instance-identifier shopkaro-rds-main \
 ```
 
 **Asli output:**
+
+```json
+{ "Id": "shopkaro-rds-main", "ManagedSecret": null }
+```
 
 ```json
 {
@@ -128,6 +144,8 @@ aws rds describe-db-instances --db-instance-identifier shopkaro-rds-main \
 }
 ```
 
+👉 `ManagedSecret: null` = ab password RDS manage nahi karta; tumhe use apne secret store mein rakhna aur rotate karna hai.
+Yeh sauda hai: managed password ki suvidha **ya** read replica (PostgreSQL par dono saath nahi).
 👉 Source backups read-replica creation se pehle enable hue. Reporting replica source se alag endpoint use karega.
 Single-standby Multi-AZ instance ka standby reporting endpoint nahi hai. Replica lag aur actual query throughput Moto test nahi karta.
 
@@ -166,7 +184,7 @@ Full delete responses bahut verbose hain; cleanup ke liye response fields memori
 
 - Moto RDS metadata store karta hai; PostgreSQL server, `psql`, SQL correctness, replication, read lag, real failover ya PITR replay nahi chalta.
 - Moto ka default engine-version metadata old ho sakta hai. Real AWS engine version support page se current approved version select karo.
-- **AWS compatibility gap:** Moto accepted a PostgreSQL read replica from the managed-master-password source in ex3. Current real RDS docs do not support that source combination (exceptions: SQL Server/Db2). Treat ex3 as emulator metadata only; for a real PostgreSQL replica lab use a separate source with a supported credential-management design. Do not copy the combined managed-master-secret + read-replica flow into production. [Current RDS limitation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html).
+- **Moto rule gap:** Moto managed-master-password source se bhi PostgreSQL read replica bana deta hai. Real RDS use reject karta hai (apvaad: SQL Server/Db2), isliye ex3 pehle `--no-manage-master-user-password` chalata hai. Yeh step hata kar flow ko production mein copy mat karna. [Current RDS limitation](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-secrets-manager.html).
 - `Secret: active` password-management metadata dikhata hai; actual DB login/rotation integration ka proof nahi.
 - `available` waiter HA drill ya backup-restore data test ka substitute nahi. Managed database ke schema/indexes, connection pools aur application retries customer responsibilities hain.
 - Real AWS practice optional aur billable hai; DB instance(s), storage, backups, Secrets Manager, Proxy aur transfer costs separately estimate karo. Local lab $0 AWS bill hai.

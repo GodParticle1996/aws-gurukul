@@ -554,3 +554,46 @@ engine automatically pick up kar lega.
 ---
 
 **Happy architecting! 🛕** — AWS Gurukul
+
+---
+
+## 11. 🧯 Real labs (`docker-labs/`) — review ke notes (2026-11-11)
+
+Is din saare 27 labs README ke commands se dobara chalaye gaye (Moto 5.2.4, Docker ke bina; Terraform labs 05, 08, 20, 26
+local Terraform 1.17.0 + cached AWS provider 6.70.0 se). Sab chale. Ek design galti mili aur theek hui (11.1).
+Naya lab likhne ya purana badalne se pehle yeh padho.
+
+### 11.1 Emulator "haan" bole aur asli AWS "na" — toh lab asli AWS ka kram follow kare
+
+- **Galti (lab 06):** ex3 ek aise source se read replica banata tha jiska master password RDS khud manage karta hai
+  (`--manage-master-user-password`). Moto replica bana deta hai. Asli RDS PostgreSQL/MySQL/MariaDB/Oracle use **reject**
+  karta hai (apvaad: SQL Server, Db2). Chetavni README ke sabse neeche "limits" mein thi, command ke paas nahi.
+- **Fix:** ex3 ab pehle `modify-db-instance --no-manage-master-user-password --master-user-password "$VAR"` chalata hai
+  (password shell variable mein, history mein nahi), phir replica banata hai. Rule usi step ke upar likha hai.
+- **Niyam:** jab Moto koi aisa call maan le jo asli AWS nahi maanta, toh do mein se ek karo:
+  1. flow ko asli AWS ke valid kram mein badlo (pehli pasand), ya
+  2. usi command ke theek upar ⚠️ likho ki asli AWS par yeh fail hoga aur kyun.
+  Neeche ki "Emulator limits" list sirf un cheezon ke liye hai jo Moto **nahi karta** (packets, SQL, latency).
+  Jo cheez Moto **galat karta hai** woh command ke paas likhi jaati hai.
+
+### 11.2 README ka har command waisa hi chalna chahiye jaisa likha hai
+
+- `docker-labs/run-readme.py <lab> <log>` README ke saare ```bash blocks ek hi shell mein, upar se neeche chalata hai.
+  Naya lab ya README ka badlaav commit karne se pehle ise chalao aur log ko "Asli output" se milao.
+  (`START_DIR=..` un labs ke liye jo "aws-gurukul se" chalte hain — abhi labs 21–27.)
+- Lab ka **shuruaati folder** README ke pehle block mein saaf likho. Abhi teen convention hain: labs 01–04
+  `docker-labs/` se, labs 05–20 `aws-gurukul/` se `cd docker-labs`, labs 21–27 `aws-gurukul/` se `./docker-labs/...`.
+  Naye lab mein inme se ek chuno aur poore README mein wahi rakho; beech mein folder mat badlo.
+- `<placeholder>` sirf wahan jahan learner ko sach mein apni value deni hai. Jo ID pichhle command se nikal sakti hai,
+  use shell variable mein lo (`AMI=$(aws ec2 describe-images ...)`), placeholder mat chhodo.
+- Log mein `An error occurred` dikhna hamesha bug nahi: lab 02 (AccessDenied), lab 12 (versioning ke bina replication),
+  lab 15 (ConditionalCheckFailed) yeh jaan-boojh kar dikhate hain. Aisa error README ke "Asli output" mein likha hona chahiye.
+  Jo error README mein nahi likha, woh bug hai.
+
+### 11.3 Lab ka state
+
+- Jo lab shared emulator (4566/4567) use karta hai, woh sirf apne banaye resources delete kare ya README ke aakhir mein
+  `../reset.sh` bole. Doosre lab ka state mat chhedo.
+- Labs 16 aur 21–27 apna alag Moto random port par chalate aur band karte hain ("OWNED MOTO STOPPED"). Naya scripted lab
+  yahi pattern le: shared reset ki zaroorat nahi, aur do labs ek saath chal sakte hain.
+- Lab ka runtime output `.lab/` ke andar likho (gitignored). Tracked file ko lab run se kabhi mat badlo.
