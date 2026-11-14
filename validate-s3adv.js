@@ -89,5 +89,15 @@ for(let size=0;size<=4;size++)for(let count=0;count<=3;count++)for(let ia=15;ia<
 check(configurations===7200&&wins>0,'all7200 budgets tested');check(planner.check({size:3,count:1,ia:30,glacier:3,reads:10,override:0}),'explicit batch example wins');
 const qs=[...level.stages.flatMap(s=>s.questions||[]),...level.stages.filter(s=>s.observe).map(s=>s.observe),...level.interview.questions.filter(q=>q.choices)],positions=[0,0,0,0],bias=[];
 for(const q of qs){const lengths=q.choices.map(c=>c.replace(/<[^>]*>/g,'').length),n=lengths[q.answer],others=lengths.filter((_,i)=>i!==q.answer);if(others.every(x=>n>=x*1.15)||others.every(x=>n<=x*0.85))bias.push(q.q);positions[q.answer]++;check(!!q.explain,'every MCQ explains choices');}
+/* Suspended versioning: a new upload / plain delete only replaces the "null" version; versions made while Enabled stay. */
+{
+  const sus='demo-suspend',ver=st=>'aws s3api put-bucket-versioning --bucket '+sus+' --versioning-configuration Status='+st,put='aws s3 cp note.txt s3://'+sus+'/note.txt';
+  const r=run(never,['aws s3 mb s3://'+sus,ver('Enabled'),put,put,ver('Suspended'),put,put]),vs=b(r.state,sus).versions['note.txt'];
+  check(vs.length===3&&vs[0].versionId==='null'&&vs.slice(1).every(v=>v.versionId!=='null'&&!v.deleteMarker),'suspended upload replaces only the null version: '+vs.map(v=>v.versionId).join(','));
+  const d=run(never,['aws s3 mb s3://'+sus,ver('Enabled'),put,put,ver('Suspended'),put,'aws s3api delete-object --bucket '+sus+' --key note.txt']),dv=b(d.state,sus).versions['note.txt'];
+  check(dv.length===3&&dv[0].deleteMarker&&dv[0].versionId==='null'&&dv.slice(1).every(v=>!v.deleteMarker),'suspended delete adds a null delete marker and keeps old versions');
+  const rm=run(never,['aws s3 mb s3://'+sus,ver('Enabled'),put,put,ver('Suspended'),'aws s3 rm s3://'+sus+'/note.txt']),rv=b(rm.state,sus).versions['note.txt'];
+  check(rv.length===3&&rv[0].deleteMarker&&rv[0].versionId==='null','suspended s3 rm keeps old versions');
+}
 check(bias.length/qs.length<0.05,'MCQ bias '+bias.length+'/'+qs.length+': '+bias.join('; '));check(Math.max(...positions)-Math.min(...positions)<=1,'positions balanced '+positions);check(!crashes.length,'no simulator crashes across focused runs');
 console.log(`✅ ${checks} S3 Advanced regression checks passed (${configurations} annual-cost settings; retention, markers, replication prerequisites, restore bytes, parser and replay). MCQ bias ${bias.length}/${qs.length}; positions ${positions}.`);

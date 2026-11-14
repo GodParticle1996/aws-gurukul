@@ -10,7 +10,7 @@ a command the emulator rejects). This prints each command, its real output and t
     START_DIR=.. python3 run-readme.py 21-wellarch-risk-scan /tmp/21.log   # labs written "from aws-gurukul"
 
 Notes:
-  * `docker ...` and `cd aws-gurukul/docker-labs` lines are skipped; `<tumhara-naam>` becomes `neha`.
+  * `docker ...`, `cd docker-labs` and `cd aws-gurukul/docker-labs` lines are skipped (the runner already starts there); `<tumhara-naam>` becomes `neha`.
     Any other <placeholder> is left as is, so that command fails loudly — read the log.
   * Terraform labs need terraform on PATH. With the provider already cached in some .terraform/providers folder,
     point TF_CLI_CONFIG_FILE at a file with `provider_installation { filesystem_mirror { path = "..." } }`
@@ -39,7 +39,7 @@ for line in text.split('\n'):
         m = re.match(r'#{2,3} (.*)', line)
         if m: heading = m.group(1)
         continue
-    if re.match(r'\s*(docker |cd aws-gurukul/docker-labs)', line):
+    if re.match(r'\s*(docker |cd (aws-gurukul/)?docker-labs\s*$)', line):
         script.append(': SKIPPED ' + re.sub(r'[^A-Za-z0-9 ._/-]', '', line)); continue
     script.append(line.replace('<tumhara-naam>', 'neha'))
 with open(out + '.sh', 'w', encoding='utf-8') as f:

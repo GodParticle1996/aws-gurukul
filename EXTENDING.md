@@ -580,9 +580,11 @@ Naya lab likhne ya purana badalne se pehle yeh padho.
 
 - `docker-labs/run-readme.py <lab> <log>` README ke saare ```bash blocks ek hi shell mein, upar se neeche chalata hai.
   Naya lab ya README ka badlaav commit karne se pehle ise chalao aur log ko "Asli output" se milao.
-  (`START_DIR=..` un labs ke liye jo "aws-gurukul se" chalte hain — abhi labs 21–27.)
-- Lab ka **shuruaati folder** README ke pehle block mein saaf likho. Abhi teen convention hain: labs 01–04
-  `docker-labs/` se, labs 05–20 `aws-gurukul/` se `cd docker-labs`, labs 21–27 `aws-gurukul/` se `./docker-labs/...`.
+  (`START_DIR=..` un labs ke liye jo `aws-gurukul/` se chalte hain — abhi labs 21–27. Runner khud `docker-labs/` se shuru
+  hota hai aur `cd docker-labs` / `cd aws-gurukul/docker-labs` wali line chhod deta hai.)
+- Lab ka **shuruaati folder** README ke pehle block mein saaf likho. Abhi teen convention hain: labs 01–04 aur 10–20
+  `cd aws-gurukul/docker-labs` (aws-gurukul ke upar wale folder se), labs 05–09 `cd docker-labs` (`aws-gurukul/` se),
+  labs 21–27 mein koi `cd` nahi — woh `aws-gurukul/` se `./docker-labs/...` path chalate hain.
   Naye lab mein inme se ek chuno aur poore README mein wahi rakho; beech mein folder mat badlo.
 - `<placeholder>` sirf wahan jahan learner ko sach mein apni value deni hai. Jo ID pichhle command se nikal sakti hai,
   use shell variable mein lo (`AMI=$(aws ec2 describe-images ...)`), placeholder mat chhodo.
@@ -597,3 +599,21 @@ Naya lab likhne ya purana badalne se pehle yeh padho.
 - Labs 16 aur 21–27 apna alag Moto random port par chalate aur band karte hain ("OWNED MOTO STOPPED"). Naya scripted lab
   yahi pattern le: shared reset ki zaroorat nahi, aur do labs ek saath chal sakte hain.
 - Lab ka runtime output `.lab/` ke andar likho (gitignored). Tracked file ko lab run se kabhi mat badlo.
+
+### 11.4 In-browser simulator (`awscli.js`) — state badalne wale niyam asli AWS se milao
+
+Simulator mein galti aksar "output ka format" mein nahi hoti; galti us **state** mein hoti hai jo command chupke se badal deta hai.
+Review (2026-11-13) mein do mili:
+
+- **S3 versioning Suspended:** purana code naye upload par us key ke saare purane versions mita deta tha, aur plain delete
+  poori key uda deta tha. Asli S3: Suspended bucket mein naya object ya delete marker `versionId = "null"` leta hai aur sirf
+  purane `null` version ki jagah aata hai; Enabled ke dauraan bane versions rehte hain. Ab `replaceNullVersion()` yahi karta hai.
+  Test: `validate-s3adv.js` ("suspended upload replaces only the null version").
+- **IAM group par customer managed policy:** `policyDocsFor()` group ki attached policy ke liye sirf AWS managed list dekhta tha,
+  isliye apni banayi policy group se attach karne par `simulate-principal-policy` use ginta hi nahi tha. Ab user aur group dono
+  ke liye `list('policies')` pehle dekha jaata hai.
+
+Naya command jodte waqt yeh teen sawaal poochho:
+1. Yeh command kis-kis resource ka state badalta hai? Asli AWS mein **kya nahi badalta** (purane versions, doosre resources)?
+2. Teen haalat alag hain kya — "kabhi set nahi hua" (`undefined`), "on" (`true`), "on karke band" (`false`)? Inko ek hi `else` mein mat daalo.
+3. Is niyam ka ek test `validate-*.js` mein hai jo galat state par fail ho? Sirf output text ka test kaafi nahi.

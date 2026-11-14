@@ -366,7 +366,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       const g = list('groups').find(x => x.name === gn);
       if (!g) return;
       Object.entries(g.inline || {}).forEach(([n, d]) => docs.push({ src: `${gn}/${n}`, doc: d }));
-      (g.attachedPolicies || []).forEach(n => { const d = MANAGED_DOCS[n]; if (d) docs.push({ src: `${gn}/${n}`, doc: d }); });
+      (g.attachedPolicies || []).forEach(n => {
+        const p = list('policies').find(x => x.name === n && x.document);   // customer managed policy bhi, sirf AWS managed nahi
+        const d = p ? p.document : MANAGED_DOCS[n];
+        if (d) docs.push({ src: `${gn}/${n}`, doc: d });
+      });
     });
     return docs;
   }
@@ -401,6 +405,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     (b.objects || []).forEach(o => { b.versions[o.key] = [{ ...o, versionId: 'null', deleteMarker: false, size: o.size || 1024, lastModified: o.lastModified || '2026-10-01 10:00:00' }]; });
     return b.versions;
   }
+  /* Versioning SUSPENDED (enable karke band kiya) ya kabhi enable hi nahi: naya object / delete marker hamesha
+     versionId "null" leta hai aur sirf purane "null" version ki jagah aata hai. Enabled ke dauraan bane versions
+     (asli version-id wale) waise hi rehte hain — asli S3 unhe kabhi chupke se nahi mitata. */
+  function replaceNullVersion(vs, key, fresh) {
+    vs[key] = [fresh, ...(Array.isArray(vs[key]) ? vs[key] : []).filter(v => v.versionId !== 'null')];
+  }
   function objectsOf(b) {
     if (!b.versions) return b.objects || [];
     return Object.entries(b.versions)
@@ -414,8 +424,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       const fresh={ versionId: b.versioning === true ? vid() : 'null', deleteMarker: false, size, lastModified: now, ...s3Encryption(b) };
       const retention=b.objectLock&&b.objectLock.Rule&&b.objectLock.Rule.DefaultRetention;
       if(retention){const until=s3Now();if(retention.Years)until.setUTCFullYear(until.getUTCFullYear()+retention.Years);else until.setUTCDate(until.getUTCDate()+retention.Days);fresh.retention={Mode:retention.Mode,RetainUntilDate:until.toISOString()};}
-      (vs[key] = Array.isArray(vs[key])?vs[key]:[]).unshift(fresh);
-      if (b.versioning !== true) vs[key] = vs[key].slice(0, 1);
+      if (b.versioning === true) (vs[key] = Array.isArray(vs[key])?vs[key]:[]).unshift(fresh);
+      else replaceNullVersion(vs, key, fresh);
     } else {
       b.objects = (b.objects || []).filter(o => o.key !== key);
       b.objects.push({ key, size, lastModified: now, ...s3Encryption(b) });
@@ -1393,6 +1403,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if (b.versioning === true) {
             const vs = ensureVersions(b);
             (vs[key] = vs[key] || []).unshift({ versionId: vid(), deleteMarker: true, lastModified: '2026-10-23 ' + new Date().toTimeString().slice(0, 8) });
+          } else if (b.versions && b.versioning === false) {   // Suspended: "null" delete marker; purane versions rehte hain
+            replaceNullVersion(ensureVersions(b), key, { versionId: 'null', deleteMarker: true, lastModified: '2026-10-23 ' + new Date().toTimeString().slice(0, 8) });
           } else if (b.versions) { delete b.versions[key]; }
           else b.objects = (b.objects || []).filter(o => o.key !== key);
           print('ok', `delete: s3://${bname}/${key}`);
@@ -1487,6 +1499,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             const m = vid();
             (vs[key] = vs[key] || []).unshift({ versionId: m, deleteMarker: true, lastModified: '2026-10-23 12:00:00' });
             print('ok', prettyJson({ DeleteMarker: true, VersionId: m }));
+          } else if (b.versions && b.versioning === false) {   // Suspended: "null" delete marker; purane versions rehte hain
+            replaceNullVersion(ensureVersions(b), key, { versionId: 'null', deleteMarker: true, lastModified: '2026-10-23 12:00:00' });
+            print('ok', prettyJson({ DeleteMarker: true, VersionId: 'null' }));
           } else {
             b.objects = (b.objects || []).filter(o => o.key !== key);
             if (b.versions) delete b.versions[key];
