@@ -1,3 +1,11 @@
+# AWS Gurukul deep pass
+
+## Deep job (2026-11)
+
+2026-11-19 ko Phase 1 shuru hua. Branch `codex/aws-deep` ka base `bd0a528` hai. Pehle run mein `node validate.js` pass hua. Simulator ke 66/66 missions chale. Validator ne 27 lab folders jaanche. Lab commands aur browser ki nayi jaanch baaki hai.
+
+**Agla kadam.** Phase 1 mein browser se app kholkar progress save, reload aur level navigation jaancho. Phir simulator aur Labs 01–27 par jao. Is kaam ka report worktree ke bagal mein `aws-deep-run/REPORT.md` hai. Neeche October ke record mein diya Lab 28 is job ke Phase 3 mein aata hai.
+
 # AWS Gurukul overhaul checkpoint — 2026-10-28
 
 **Phase A and B complete; Advanced1–7 (`wellarch`, `orgs`, `dr`, `advnet`, `containers`, `iac`, `cost`) complete.**
