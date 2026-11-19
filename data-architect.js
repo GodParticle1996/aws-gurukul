@@ -2177,7 +2177,7 @@ aws ec2 describe-vpc-endpoints    # gateway endpoint hai ya nahi?
               && s.history.some(h => /aws autoscaling describe-auto-scaling-groups/.test(h))
               && s.history.some(h => /aws ec2 describe-subnets/.test(h))
               && s.history.some(h => /aws elbv2 describe-load-balancers/.test(h)),
-            successText: '🚨 <b>Do serious findings:</b> (1) <code>pixshare-prod</code> ka <code>"MultiAZ": false</code> — <b>prod database single-AZ hai</b>. Us AZ mein problem = poora DB down, aur failover manual restore hoga. (2) ASG ka <code>VPCZoneIdentifier</code> sirf <code>subnet-1a</code> hai — matlab saari 4 instances <b>ek hi AZ</b> mein hain, jabki 1b aur 1c subnets maujood hain! ALB multi-AZ hai par uske peeche sab kuch ek AZ mein. <b>Yeh "multi-AZ dikhta hai par hai nahi" wala classic setup hai — ek AZ event poori app le jaayega.</b> Fix: RDS Multi-AZ on, aur ASG ko teeno subnets par faila do.',
+            successText: '🚨 <b>Do serious findings:</b> (1) <code>pixshare-prod</code> ka <code>"MultiAZ": false</code> — <b>prod database single-AZ hai</b>. Us AZ mein problem = poora DB down, aur failover manual restore hoga. (2) ASG ka <code>VPCZoneIdentifier</code> sirf <code>subnet-1a</code> hai — matlab saari 4 instances <b>ek hi AZ</b> mein hain, jabki 1b aur 1c subnets bhi hain! ALB multi-AZ hai par uske peeche sab kuch ek AZ mein. <b>Yeh "multi-AZ dikhta hai par hai nahi" wala classic setup hai — ek AZ event poori app le jaayega.</b> Fix: RDS Multi-AZ on, aur ASG ko teeno subnets par faila do.',
             hints: [
               'aws rds describe-db-instances',
               'aws autoscaling describe-auto-scaling-groups',
@@ -2508,7 +2508,7 @@ aws dynamodb put-item --table-name processed \\
             },
             success: s => ['lambda list-functions', 'sns list-topics', 'dynamodb list-tables']
               .every(c => s.history.some(h => h.includes(c))) && s.history.some(h => /aws s3 ls\b/.test(h)),
-            successText: '👑 <b>Yehi sahi tarika hai — pehle context, phir design.</b> Account batata hai: media <b>S3</b> par, events <b>SNS fan-out</b> se, feed <b>DynamoDB</b> par, compute <b>Lambda</b> (event-driven). Toh "stories" feature ko <b>usi pattern mein</b> fit karo: media S3+CloudFront, story-metadata DynamoDB (TTL ke saath — stories 24h mein expire hoti hain!), upload event <code>photo-uploaded</code> jaisa SNS topic, processing Lambda. <b>Naya feature naye services nahi maangta — maujooda patterns mein fit hona chahiye, jab tak koi requirement sach mein alag na ho.</b> 🎓',
+            successText: '👑 <b>Yehi sahi tarika hai — pehle context, phir design.</b> Account batata hai: media <b>S3</b> par, events <b>SNS fan-out</b> se, feed <b>DynamoDB</b> par, compute <b>Lambda</b> (event-driven). Toh "stories" feature ko <b>usi pattern mein</b> fit karo: media S3+CloudFront, story-metadata DynamoDB (TTL ke saath — stories 24h mein expire hoti hain!), upload event <code>photo-uploaded</code> jaisa SNS topic, processing Lambda. <b>Naya feature naye services nahi maangta — pehle se chal rahe patterns mein fit hona chahiye, jab tak koi requirement sach mein alag na ho.</b> 🎓',
             hints: [
               'aws lambda list-functions',
               'aws sns list-topics',
@@ -2547,7 +2547,7 @@ aws dynamodb put-item --table-name processed \\
       { front: 'Service selection ka framework?', back: '<b>1) Requirement</b> (latency/scale/ordering/consistency) <b>2) Data/traffic ka shape</b> (spiky vs steady, key vs ad-hoc) <b>3) Cost</b> (idle/per-GB/commit) <b>4) Ops load</b> <b>5) Blast radius</b>. Plus har choice ka "kab NAHI".' },
       { front: 'PixShare stack ek line mein?', back: 'S3+CloudFront (media) · ALB→Fargate/Lambda (traffic shape) · Aurora+DynamoDB+ElastiCache (polyglot) · SNS→SQS+EventBridge+Pipes+SFN (async) · Logs→Firehose→OpenSearch+S3 (observability) · Multi-AZ + DR by RTO/RPO.' },
       { front: 'Teen sabse common architecture anti-patterns?', back: '1) <b>Sab-ek-service</b> ("sab Lambda"/"sab DynamoDB") 2) <b>OLTP par OLAP</b> chalana 3) <b>Single-AZ prod</b> (ya "multi-AZ dikhta hai par ASG ek subnet par").' },
-      { front: 'Naya feature add karte waqt pehla kadam?', back: '<b>Context lo</b> — account mein maujooda patterns dekho (compute, events, data). Naya feature un patterns mein fit hona chahiye, jab tak koi requirement sach mein alag na ho.' },
+      { front: 'Naya feature add karte waqt pehla kadam?', back: '<b>Context lo</b> — account mein pehle se chal rahe patterns dekho (compute, events, data). Naya feature un patterns mein fit hona chahiye, jab tak koi requirement sach mein alag na ho.' },
       { front: 'Poore track ka nichod?', back: '<b>Sahi service woh nahi jo powerful ho — woh jo requirement, cost aur blast-radius ko fit kare.</b> Aur "kab NAHI" jaanna utna hi zaroori hai jitna "kab". 👑' },
     ],
   },
