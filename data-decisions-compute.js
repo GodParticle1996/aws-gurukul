@@ -67,18 +67,18 @@ AG.registerDecisions([
           'Cron jaisa kaam — EventBridge Scheduler har 5 minute Lambda chalaye',
         ],
         avoid: [
-          'Longer than900s in standard on-demand scope; evaluate other supported compute contracts',
+          'Longer than 900s in standard on-demand scope; evaluate other supported compute contracts',
           'Sustained demand without an equal-requirement cost/performance comparison',
           'Strict latency without measured cold/warm distributions and a reviewed SnapStart/PC or alternative plan',
           'Bahut lambi-chaudi connection pools (RDS) — har Lambda copy naya DB connection kholti hai; RDS Proxy lagao',
         ],
         gotchas: [
-          'Common Regional default1,000 concurrency, but new accounts may be lower; reserved cap/isolation differs from provisioned readiness',
+          'Common Regional default 1,000 concurrency, but new accounts may be lower; reserved cap/isolation differs from provisioned readiness',
           'Memory badhane se CPU bhi badhta hai (128 MB – 10,240 MB) — kabhi-kabhi zyada memory = jaldi khatam = sasta',
           'VPC internet path needs correct NAT/supportedIPv6 design; public subnet alone gives no public IP; AWS endpoints cover selected services',
         ],
-        cost: 'Approx US East first-tier x86$0.20/million small-payload requests + $0.0000166667/GB-s; arm rate differs.5million×0.5GB×0.2s =500,000GB-s ≈$8.33+$1 before INIT/other services/free credits. PC allocation/execution separate.',
-        exam: 'Event-driven/least server management → Lambda candidate. Standard job30minutes exceeds900s; evaluate Fargate/Batch/EC2 or a supported newer compute model with its own limits.',
+        cost: 'Approx US East first-tier x86 $0.20/million small-payload requests + $0.0000166667/GB-s; arm rate differs.5million×0.5GB×0.2s =500,000GB-s ≈$8.33+$1 before INIT/other services/free credits. PC allocation/execution separate.',
+        exam: 'Event-driven/least server management → Lambda candidate. Standard job 30 minutes exceeds 900s; evaluate Fargate/Batch/EC2 or a supported newer compute model with its own limits.',
         iac: `resource "aws_lambda_function" "thumb" {
   function_name = "make-thumbnail"
   runtime       = "python3.12"
@@ -206,7 +206,7 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'Kaam beech mein ruk jaaye (instance 2 minute notice par chhin jaaye) toh chalega?',
-        why: 'Spot instances AWS ki spare capacity — up to90% off; stop/terminate warning usually2minutes best effort, hibernation immediately starts.',
+        why: 'Spot instances AWS ki spare capacity — up to 90% off; stop/terminate warning usually 2 minutes best effort, hibernation immediately starts.',
         options: [
           { t: 'Haan — batch, CI builds, stateless workers, retry ho sakta hai', next: 'spot' },
           { t: 'Nahi — production database, user-facing server', next: 'q2' },
@@ -237,11 +237,11 @@ AG.registerDecisions([
       },
       spot: {
         leaf: true, icon: '🎯', pick: 'Spot Instances',
-        one: 'AWS spare capacity — up to90% off, interruptions possible; price/capacity vary.',
+        one: 'AWS spare capacity — up to 90% off, interruptions possible; price/capacity vary.',
         when: ['CI/CD build runners, batch jobs, big data (EMR), stateless web workers ASG mein mix', 'Kaam checkpoint/retry kar sakta hai'],
         avoid: ['Database, single-instance production server', 'Kaam jo beech mein ruk nahi sakta'],
-        gotchas: ['ASG mein multiple instance types + "price-capacity-optimized" allocation rakho — ek type ki capacity khatam ho toh doosra', 'Best-effort notice EventBridge/IMDS se handle; stop/terminate usually2min, hibernation starts immediately; checkpoint/retry bhi chahiye'],
-        cost: 'Up to90% off advertised; actual price, capacity aur retry cost vary.',
+        gotchas: ['ASG mein multiple instance types + "price-capacity-optimized" allocation rakho — ek type ki capacity khatam ho toh doosra', 'Best-effort notice EventBridge/IMDS se handle; stop/terminate usually 2min, hibernation starts immediately; checkpoint/retry bhi chahiye'],
+        cost: 'Up to 90% off advertised; actual price, capacity aur retry cost vary.',
         exam: '"MOST cost-effective" + "can tolerate interruptions" / "fault-tolerant batch" → Spot.',
         level: 'cost',
       },
