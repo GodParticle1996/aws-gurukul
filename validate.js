@@ -130,6 +130,16 @@ if (!visDup.length) ok(`${visKeys.length} VISUALS keys unique`);
 const sb = mkSandbox(false);
 if (!sb) { console.log('\n❌ load failed, abort'); process.exit(1); }
 const { AG, VISUALS } = vm.runInContext('({AG, VISUALS})', sb);
+const keptCard = { front: 'F', back: 'B', box: 0, due: 10 };
+const repaired = AG.readProgress({
+  xp: 42, completed: ['cloud101', 'cloud101'], stars: { cloud101: 3, invalid: 9 },
+  streak: null, dojo: { valid: keptCard, broken: null }, decisions: { malformed: null }
+});
+if (repaired.xp === 42 && repaired.completed.length === 1 && repaired.stars.cloud101 === 3 &&
+    !('invalid' in repaired.stars) && repaired.streak.count === 0 &&
+    repaired.dojo.valid.front === 'F' && !('broken' in repaired.dojo) && !('malformed' in repaired.decisions))
+  ok('damaged progress keeps valid XP, levels, stars and cards');
+else bad('damaged progress lost valid fields or retained broken records');
 const allIds = [];
 AG.tracks.forEach(t => (AG.levelSets[t.id] || []).forEach(l => allIds.push(l.id)));
 const idDup = [...new Set(allIds.filter((k, i) => allIds.indexOf(k) !== i))];

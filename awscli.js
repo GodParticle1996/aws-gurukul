@@ -402,7 +402,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   function ensureVersions(b) {
     if (b.versions) return b.versions=Object.assign(Object.create(null),b.versions);
     b.versions = Object.create(null);
-    (b.objects || []).forEach(o => { b.versions[o.key] = [{ ...o, versionId: 'null', deleteMarker: false, size: o.size || 1024, lastModified: o.lastModified || '2026-10-01 10:00:00' }]; });
+    (b.objects || []).forEach(o => { b.versions[o.key] = [{ ...o, versionId: 'null', deleteMarker: false, size: o.size ?? 1024, lastModified: o.lastModified || '2026-10-01 10:00:00' }]; });
     return b.versions;
   }
   /* Versioning SUSPENDED (enable karke band kiya) ya kabhi enable hi nahi: naya object / delete marker hamesha
@@ -415,20 +415,20 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (!b.versions) return b.objects || [];
     return Object.entries(b.versions)
       .filter(([, vs]) => vs.length && !vs[0].deleteMarker)
-      .map(([key, vs]) => ({ key, size: vs[0].size, lastModified: vs[0].lastModified }));
+      .map(([key, vs]) => ({ ...vs[0], key }));
   }
-  function putObject(b, key, size) {
+  function putObject(b, key, size, body) {
     const now = '2026-10-23 ' + new Date().toTimeString().slice(0, 8);
     if (b.versioning === true || b.versions) {
       const vs = ensureVersions(b);
-      const fresh={ versionId: b.versioning === true ? vid() : 'null', deleteMarker: false, size, lastModified: now, ...s3Encryption(b) };
+      const fresh={ versionId: b.versioning === true ? vid() : 'null', deleteMarker: false, size, body, lastModified: now, ...s3Encryption(b) };
       const retention=b.objectLock&&b.objectLock.Rule&&b.objectLock.Rule.DefaultRetention;
       if(retention){const until=s3Now();if(retention.Years)until.setUTCFullYear(until.getUTCFullYear()+retention.Years);else until.setUTCDate(until.getUTCDate()+retention.Days);fresh.retention={Mode:retention.Mode,RetainUntilDate:until.toISOString()};}
       if (b.versioning === true) (vs[key] = Array.isArray(vs[key])?vs[key]:[]).unshift(fresh);
       else replaceNullVersion(vs, key, fresh);
     } else {
       b.objects = (b.objects || []).filter(o => o.key !== key);
-      b.objects.push({ key, size, lastModified: now, ...s3Encryption(b) });
+      b.objects.push({ key, size, body, lastModified: now, ...s3Encryption(b) });
     }
   }
   function isPublicPolicy(doc) {
@@ -468,7 +468,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       const win = AG.el('div', 'stage-summary pop');
       win.innerHTML = `
         <div class="sum-emoji">🎉</div>
-        <div class="sum-title">Mission complete! +${xp} XP${sim.hintsUsed ? ` (${sim.hintsUsed} hint use hue)` : ' — bina hint ke! 🔥'}</div>
+        <div class="sum-title">Mission complete!${AG.session && AG.session.replay ? '' : ' +' + xp + ' XP'}${sim.hintsUsed ? ` (${sim.hintsUsed} hint use hue)` : ' — bina hint ke! 🔥'}</div>
         <div class="sum-detail" style="text-align:left;line-height:1.6;margin-top:8px">${stage.successText || ''}</div>`;
       arena.appendChild(win);
       win.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -1362,7 +1362,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             if (!b) return print('err', `NoSuchBucket: The specified bucket does not exist (bucket: ${bname})`);
             const objs = objectsOf(b).filter(o => o.key.startsWith(prefix));
             if (!objs.length) return print('ok', '');
-            print('ok', objs.map(o => `${o.lastModified || '2026-10-01 10:00:00'} ${String(o.size || 1024).padStart(10)} ${o.key.slice(prefix.lastIndexOf('/') + 1)}`).join('\n'));
+            print('ok', objs.map(o => `${o.lastModified || '2026-10-01 10:00:00'} ${String(o.size ?? 1024).padStart(10)} ${o.key.slice(prefix.lastIndexOf('/') + 1)}`).join('\n'));
           } else print('err', 'usage: aws s3 ls   |   aws s3 ls s3://bucket');
         } else if (op === 'mb') {
           const arg = toks.find(t => t.startsWith('s3://'));
@@ -1384,6 +1384,16 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             if (!b) return print('err', `upload failed: ${src} to ${dst} An error occurred (NoSuchBucket) when calling the PutObject operation: The specified bucket does not exist`);
             let key = dst.slice(5 + bname.length + 1);
             if (!key || key.endsWith('/')) key += src.split('/').pop();
+            if (src.startsWith('s3://')) {
+              const sourceName = src.slice(5).split('/')[0];
+              const sourceKey = src.slice(6 + sourceName.length);
+              const sourceBucket = find('buckets', sourceName);
+              const object = sourceBucket && objectsOf(sourceBucket).find(o => o.key === sourceKey);
+              if (!object) return print('err', `HeadObject: 404 — source key "${sourceKey}" nahi mili.`);
+              if (sourceBucket === b && sourceKey === key) return print('err', 'CopyObject: source aur destination ek hi object hain.');
+              putObject(b, key, object.size ?? 1024, object.body);
+              return print('ok', `copy: ${src} to s3://${bname}/${key}`);
+            }
             putObject(b, key, 1024 + src.length * 37);
             print('ok', `upload: ./${src.split('/').pop()} to s3://${bname}/${key}`);
           } else if (src.startsWith('s3://')) {
@@ -1477,7 +1487,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             const row = { Key: key, VersionId: v.versionId, IsLatest: i === 0, LastModified: v.lastModified };
             if (v.deleteMarker) D.push(row); else V.push({ ...row, Size: v.size });
           }));
-          if (!b.versions) objectsOf(b).filter(o => o.key.startsWith(prefix)).forEach(o => V.push({ Key: o.key, VersionId: 'null', IsLatest: true, Size: o.size || 1024 }));
+          if (!b.versions) objectsOf(b).filter(o => o.key.startsWith(prefix)).forEach(o => V.push({ Key: o.key, VersionId: 'null', IsLatest: true, Size: o.size ?? 1024 }));
           print('ok', prettyJson({ Versions: V.length ? V : undefined, DeleteMarkers: D.length ? D : undefined }));
         } else if (op === 'delete-object') {
           const b = find('buckets', flag('bucket'));

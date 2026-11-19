@@ -27,6 +27,17 @@ function run(stage, commands) {
 }
 const level=AG.findLevel('s3adv'),mission=level.stages.find(s=>s.type==='terminal'),interview=level.interview.questions.find(q=>q.terminal).terminal;
 const never={...mission,success:()=>false},json=x=>JSON.parse(JSON.stringify(x));
+const copyStage = {
+  ...never, account: { buckets: [
+    { name: 'source', objects: [{ key: 'empty', size: 0, body: '' }] },
+    { name: 'target', versioning: true, objects: [] },
+  ] },
+};
+const missingCopy = run(copyStage, ['aws s3 cp s3://source/missing s3://target/new']);
+check(!missingCopy.state.account.buckets[1].versions && missingCopy.text.includes('404'), 'copy of a missing source leaves the destination untouched');
+const emptyCopy = run(copyStage, ['aws s3 cp s3://source/empty s3://target/folder/', 'aws s3 ls s3://target/folder/']);
+const copyVersion = emptyCopy.state.account.buckets[1].versions['folder/empty'][0];
+check(copyVersion.size === 0 && copyVersion.body === '' && /\b0 +empty/.test(emptyCopy.text), 'S3 copy and listing preserve a zero-byte object');
 const withFile=(name,value,base=never)=>({...base,files:{...base.files,[name]:{content:typeof value==='string'?value:JSON.stringify(value)}}});
 const b=(s,name)=>s.account.buckets.find(b=>b.name===name),invoice=s=>b(s,'shop-invoices').versions['invoices/INV-301.pdf'][0];
 function solved(stage){const r=run(stage,stage.solution);check(r.done===1,'intended solution wins');check(r.trace.slice(0,-1).every(x=>x===0)&&r.trace.at(-1)===1,'won only after final state action');check(stage.tasks.every(t=>t.check(r.state)),'tasks and win agree');return r;}

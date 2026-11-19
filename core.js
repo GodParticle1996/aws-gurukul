@@ -45,15 +45,39 @@ AG.defaultState = function () {
   };
 };
 
+// Purane save mein ek kharab field ho toh baaki progress bacha lo.
+AG.readProgress = function (saved) {
+  const state = AG.defaultState();
+  const record = value => value && typeof value === 'object' && !Array.isArray(value);
+  const count = value => Number.isSafeInteger(value) && value >= 0 ? value : 0;
+  if (!record(saved)) return state;
+  state.xp = count(saved.xp);
+  state.levelStarts = count(saved.levelStarts);
+  if (Array.isArray(saved.completed))
+    state.completed = [...new Set(saved.completed.filter(id => typeof id === 'string' && id))];
+  if (record(saved.stars))
+    state.stars = Object.fromEntries(Object.entries(saved.stars).filter(([, stars]) => count(stars) === stars && stars <= 3));
+  if (record(saved.streak)) {
+    const { last, best } = saved.streak;
+    state.streak.count = count(saved.streak.count);
+    state.streak.best = Math.max(count(best), state.streak.count);
+    state.streak.last = typeof last === 'string' ? last : null;
+  }
+  if (record(saved.dojo)) {
+    state.dojo = Object.fromEntries(Object.entries(saved.dojo).filter(([, card]) =>
+      record(card) && typeof card.front === 'string' && typeof card.back === 'string' &&
+      Number.isFinite(card.due) && Number.isInteger(card.box) && card.box >= 0 && card.box < AG.SRS_INTERVALS.length));
+  }
+  if (record(saved.decisions)) {
+    state.decisions = Object.fromEntries(Object.entries(saved.decisions).filter(([, progress]) =>
+      record(progress) && Array.isArray(progress.seen) && Array.isArray(progress.solved)).map(([id, progress]) =>
+        [id, { seen: progress.seen, solved: progress.solved, best: count(progress.best) }]));
+  }
+  return state;
+};
 AG.loadState = function () {
-  try {
-    const s = JSON.parse(localStorage.getItem(AG.STORE_KEY));
-    if (s && typeof s.xp === 'number' && Array.isArray(s.completed)) {
-      // forward-compat: fill any missing keys added in later versions
-      return Object.assign(AG.defaultState(), s);
-    }
-  } catch (e) { /* corrupted store — start fresh */ }
-  return AG.defaultState();
+  try { return AG.readProgress(JSON.parse(localStorage.getItem(AG.STORE_KEY))); }
+  catch (e) { return AG.defaultState(); }
 };
 AG.saveState = function () {
   // private window / storage full / blocked site data mein setItem throw karta hai —

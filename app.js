@@ -408,7 +408,8 @@ function allStages(level) {
 }
 
 function runStage() {
-  const { level, stageIdx } = AG.session;
+  const session = AG.session;
+  const { level, stageIdx } = session;
   const stages = allStages(level);
   const stage = stages[stageIdx];
   appEl.innerHTML = '';
@@ -442,7 +443,13 @@ function runStage() {
 
   const renderer = isIv ? renderInterview : AG.renderers[stage.type];
   if (!renderer) { console.error('Unknown stage type', stage.type); stageDone({ firstTry: 0, total: 0 }, wrap); return; }
-  renderer(stage, arena, stats => stageDone(stats, wrap));
+  let scored = false;
+  renderer(stage, arena, stats => {
+    // Animation khatam hone se pehle learner doosri screen par ja sakta hai.
+    if (scored || session !== AG.session || stageIdx !== session.stageIdx || wrap.isConnected === false) return;
+    scored = true;
+    stageDone(stats, wrap);
+  });
 }
 
 function stageDone(stats, wrap) {
@@ -455,7 +462,7 @@ function stageDone(stats, wrap) {
   const sum = el('div', 'stage-summary pop');
   sum.innerHTML = `
     <div class="sum-emoji">${perfect ? '🌟' : stats.firstTry / (stats.total || 1) >= 0.6 ? '✅' : '😅'}</div>
-    <div class="sum-title">${perfect ? 'PERFECT! +' + AG.PERFECT_BONUS + ' XP bonus' : 'Challenge complete'}</div>
+    <div class="sum-title">${perfect ? (AG.session.replay ? 'PERFECT!' : 'PERFECT! +' + AG.PERFECT_BONUS + ' XP bonus') : 'Challenge complete'}</div>
     <div class="sum-detail">${stats.firstTry}/${stats.total} first-try sahi</div>`;
   const btn = el('button', 'btn big',
     AG.session.stageIdx + 1 < stages.length ? 'Agla challenge →' : 'Level khatam karo 🏁');

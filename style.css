@@ -185,6 +185,7 @@ pre {
   padding: 16px 20px;
   margin: 14px 0;
   line-height: 1.6;
+  overflow-x: auto;
 }
 .lesson-card h3 { margin-top: 4px; color: var(--accent); }
 .lesson-card .tbl-wrap { overflow-x: auto; }
@@ -442,6 +443,7 @@ pre {
 
 /* ---------- hotspot (click-the-diagram) ---------- */
 .hotspot-wrap .diagram { cursor: default; }
+.hotspot-wrap .question { overflow-wrap: anywhere; }
 .hs-target [data-hs] { cursor: pointer; transition: transform .12s, box-shadow .12s; }
 .hs-target [data-hs]:hover { transform: translateY(-2px); box-shadow: 0 0 0 2px #ff990088; }
 .hs-target [data-hs].hs-good { box-shadow: 0 0 0 3px var(--good) !important; }
@@ -1120,6 +1122,8 @@ pre {
   .dd-q-text { font-size: 1.05rem; }
   .dd-yaml { font-size: .78rem; }
   .dd-scroll-hint { display: block; }
+  .diagram { overflow-x: auto; }
+  .dg-pill { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .dk-cmdrow { flex-direction: column; }
   .dk-cmd { width: 100%; }
   .feat-card { align-items: flex-start; }
