@@ -10,6 +10,8 @@ Policy mein permission nahi = asli AWS jaisa `AccessDenied`. Chaar exercises:
 3. `ex3-deny-wins` — kisi ne galti se `s3:*` de diya; explicit Deny phir bhi prod backups bachata hai
 4. `ex4-role-temp-creds` — role assume karke temporary (`ASIA…`) credentials, jo khud expire hote hain
 
+Setup port 4567 ka purana Moto data mitaata hai. Is lab ke liye apna alag emulator chalao.
+
 ```bash
 cd aws-gurukul/docker-labs
 ./start-moto.sh iam          # ya: docker compose up -d   (dono emulators chalu)
@@ -135,7 +137,11 @@ An error occurred (AccessDenied) when calling the ListObjectsV2 operation: Acces
 👉 AWS ka faisla: (1) shuru mein sab **deny**, (2) kahin **Allow** mila toh allow, (3) par kahin bhi **explicit Deny**
 mila toh **Deny** — chahe kitne bhi Allow hon. Explicit Deny = guardrail jo galat Allow ko bhi rok deta hai.
 
-Saaf karo: `aws iam delete-user-policy --user-name ravi --policy-name oops-s3-full`
+Exercise ki extra permission hatao.
+
+```bash
+aws iam delete-user-policy --user-name ravi --policy-name oops-s3-full
+```
 
 ---
 
@@ -210,4 +216,8 @@ emulator reset ke baad purane cached credentials galat ho jaate hain.)
 
 ---
 
-Saaf karke niklo: `../reset.sh iam`
+Yeh reset is emulator ki sabhi labs ka data mitaata hai. Apne alag lab emulator par chalao.
+
+```bash
+../reset.sh iam
+```

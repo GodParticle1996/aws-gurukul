@@ -2,11 +2,11 @@
 
 ## Deep job (2026-11)
 
-2026-11-19 ko Phase 1 shuru hua. Branch `codex/aws-deep` ka base `bd0a528` hai. Pehle run mein `node validate.js` pass hua. Simulator ke 66/66 missions chale. Validator ne 27 lab folders jaanche. Chromium mein 379 screens har chaudai (360 px aur 1280 px) par khuli. Save, mobile layout aur S3 simulator ki galtiyan theek hui. Lab runs ka hisaab report mein hai.
+2026-11-19 ko Phase 1 ke engine, browser aur Labs 01–27 ke local runs hue. Branch `codex/aws-deep` ka base `bd0a528` hai. Pehle run mein `node validate.js` pass hua. Simulator ke 66/66 missions chale. Validator ne 27 lab folders jaanche. Chromium mein 379 screens har chaudai (360 px aur 1280 px) par khuli. Save, mobile layout aur S3 simulator ki galtiyan theek hui. Lab runs ka hisaab report mein hai.
 
 Docker na chale toh baaki jaanch jaari rakho aur chhoote steps likho. 65-sawaal ka mock exam poore syllabus se banao. User ne dono faisle 2026-11-19 ko diye.
 
-**Agla kadam.** Phase 1 mein Labs 01–27 ke logs milao. Lab 01 ka cleanup aur Lab 15 chalao. Is kaam ka report worktree ke bagal mein `aws-deep-run/REPORT.md` hai. Neeche October ke record mein diya Lab 28 is job ke Phase 3 mein aata hai.
+**Agla kadam.** Phase 2 mein Beginner 1 `cloud101` se shuru karo. Lab 14 ka Docker Lambda, Lab 16 ka Valkey aur Lab 25 ka image/health check abhi baaki hain. Lab 01–27 ke local results report mein hain. Is kaam ka report worktree ke bagal mein `aws-deep-run/REPORT.md` hai. Neeche October ke record mein diya Lab 28 is job ke Phase 3 mein aata hai.
 
 # AWS Gurukul overhaul checkpoint — 2026-10-28
 

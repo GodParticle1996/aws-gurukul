@@ -88,6 +88,7 @@ Generated names/ports vary. Source, IAM and metadata are local fixtures, not dep
 
 Docker was absent during authoring; no image/container/port run is claimed. After installing Docker, verify the official [Valkey container source](https://valkey.io/topics/installation/), then use a disposable local-only container. Proposed follow-up commands below have **not** been run here; there is no captured Docker output.
 
+<!-- run-readme: docker-only -->
 ```bash
 LAB16_CONTAINER="aws-gurukul-valkey-$(date +%s)"
 docker run --rm -d --name "$LAB16_CONTAINER" -p 127.0.0.1:6389:6379 valkey/valkey:8.0

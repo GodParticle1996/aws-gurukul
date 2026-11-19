@@ -169,4 +169,8 @@ adhoore-uploads-saaf	Enabled
 
 ---
 
-Saaf karke niklo: `../reset.sh`
+Yeh reset is emulator ki sabhi labs ka data mitaata hai. Apne alag lab emulator par chalao.
+
+```bash
+../reset.sh
+```

@@ -11,9 +11,8 @@ Existing Moto5.2.4 Python environment, Terraform1.17.0 and AWS provider6.70.0 we
 ```bash
 cd aws-gurukul/docker-labs
 source env.sh
-# If terraform is already on PATH, no extra export is needed.
-# On this reviewed workspace the verified local binary is available at:
-export LAB20_TERRAFORM="$PWD/../.overhaul-evidence/tools/terraform"
+# Terraform pehle install karo. Yeh command uska version dikhaati hai.
+terraform version
 python -I 20-mahasale-terraform/lab.py
 python -I 20-mahasale-terraform/metadata.py
 python -I 20-mahasale-terraform/load.py

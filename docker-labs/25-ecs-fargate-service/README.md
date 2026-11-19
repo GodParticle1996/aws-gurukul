@@ -145,6 +145,7 @@ kabhi stable nahi.
 Is machine par Docker abhi install nahi hai, isliye neeche ke commands **chalaye nahi gaye** aur unka output yahan
 nahi hai. Docker aane par yahi lab poora karo:
 
+<!-- run-readme: docker-only -->
 ```bash
 mkdir -p /tmp/orders-demo && cd /tmp/orders-demo
 printf 'FROM public.ecr.aws/docker/library/python:3.12-slim\nWORKDIR /app\nCOPY app.py .\nUSER 1000\nEXPOSE 8080\nCMD ["python", "app.py"]\n' > Dockerfile

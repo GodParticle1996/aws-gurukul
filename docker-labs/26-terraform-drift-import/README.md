@@ -9,7 +9,7 @@ Python Moto server har run apne ephemeral loopback port par start hota hai. Shar
 Existing Python venv mein Moto 5.2.4/boto3; installed Terraform **1.17.0**, cached `hashicorp/aws` **6.70.0**. Runner tools install/download nahi karta. App root se:
 
 ```bash
-./docker-labs/.venv/bin/python -I docker-labs/26-terraform-drift-import/lab.py --terraform .overhaul-evidence/tools/terraform --plugin-dir docker-labs/08-three-tier-terraform/.terraform/providers
+./docker-labs/.venv/bin/python -I docker-labs/26-terraform-drift-import/lab.py --terraform "$(command -v terraform)" --plugin-dir docker-labs/08-three-tier-terraform/.terraform/providers
 ```
 
 Missing binary/cache par argparse error deta hai. Paths apne installed tools ke hisaab se badal sakte ho. Run directory `.overhaul-evidence/lab26-runs/run-<unique>/`; generated provider.tf mein owned endpoints aur private/versioned/encrypted S3 backend ka `use_lockfile=true` dekho. Current runner AWS provider version pin karta hai. Different versions par same captured output assume mat karo.

@@ -11,7 +11,7 @@ Resource IDs har run mein badlenge. CIDRs, counts aur rule meanings match hone c
 
 ## Setup — ek hi terminal mein commands chalao
 
-Repo root `/home/vibekdutta/VixiApps/aws-gurukul` se:
+Apne `aws-gurukul` folder se shuru karo.
 
 ```bash
 cd docker-labs

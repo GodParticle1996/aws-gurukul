@@ -4,8 +4,8 @@ App ke andar ka simulator commands ko "samajhne" ke liye hai. Yeh labs **asli `a
 chalwati hain — bas AWS ki jagah tumhare laptop par chal raha **Moto** emulator jawab deta hai.
 
 - 💸 **Bill $0.** Koi AWS account nahi chahiye, koi credit card nahi.
-- 💥 **Kuch bhi tod sakte ho.** `./reset.sh` aur sab saaf.
-- ✅ **Commands 100% asli hain.** Wahi command asli AWS par chalegi — sirf `AWS_ENDPOINT_URL` hata do.
+- `./reset.sh` chune hue emulator ki **sabhi labs** ka data mitaata hai. Sirf apni lab hataane ke liye us lab ka cleanup chalao.
+- CLI asli hai. Jawaab Moto deta hai. Har lab ke README mein likha hai ki Moto kaunsa hissa chala paata hai.
 
 ## 1. Emulator chalao (ek baar, dono mein se ek tareeka)
 
@@ -16,7 +16,7 @@ cd aws-gurukul/docker-labs
 docker compose up -d
 ```
 
-**Docker nahi hai** (sirf Python 3.9+ chahiye — pehli baar ~30 second install):
+**Docker nahi hai** (sirf Python 3.10+ aur venv chahiye):
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -28,15 +28,15 @@ cd aws-gurukul/docker-labs
 
 ```bash
 source env.sh              # aws + terraform → http://127.0.0.1:4566 , region ap-south-1 (Mumbai)
-source env.sh iam          # IAM-enforcing emulator (4567)
+
+# Sirf IAM lab ke liye upar wale source ki jagah: source env.sh iam
 aws sts get-caller-identity     # chal gaya? "Account": "123456789012" dikhega
 ```
 
 `env.sh` sirf environment variables set karta hai: `AWS_ENDPOINT_URL`, dummy keys (`test`/`test`),
 `AWS_DEFAULT_REGION=ap-south-1`. Docker ke bina chala rahe ho toh `.venv` ka `aws` CLI bhi PATH mein aa jaata hai.
 
-⚠️ **Asli AWS keys is terminal mein kabhi mat daalna.** Asli AWS par wapas jaana ho toh naya terminal kholo
-(ya `unset AWS_ENDPOINT_URL AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY`).
+⚠️ **Asli AWS keys is terminal mein kabhi mat daalna.** Asli AWS par wapas jaana ho toh naya terminal kholo.
 
 ## 3. Lab chalao
 
@@ -114,6 +114,6 @@ Jahan emulator kuch nahi kar sakta, lab ka README saaf likhta hai — aur app ke
 | Dikha | Matlab | Fix |
 |---|---|---|
 | `Could not connect to the endpoint URL` | emulator band hai | `docker compose up -d` ya `./start-moto.sh` |
-| `InvalidAccessKeyId` (IAM lab mein) | IAM emulator par pehle admin banana tha | lab ka setup step dobara chalao (`../reset.sh` ke baad) |
+| `InvalidAccessKeyId` (IAM lab mein) | IAM emulator par pehle admin banana tha | lab ka setup step dobara chalao (`../reset.sh iam` ke baad) |
 | asli AWS ka bill/resource dikh raha hai | `source env.sh` bhool gaye | naya terminal + `source env.sh` |
 | `aws: command not found` | CLI install nahi | `./start-moto.sh` ek baar chalao (`.venv` mein aws CLI aa jaata hai), phir `source env.sh` |
