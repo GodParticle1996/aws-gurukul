@@ -632,7 +632,7 @@
     },
     success: [
       'Main bucket/key/object/prefix samjhta hoon aur S3 kab use nahi karna (block storage, in-place edits)',
-      'Main durability vs availability aur 11 nines ki seema bata sakta hoon',
+      'Main durability vs availability aur 11 nines ki limit bata sakta hoon',
       'Main bucket ko private rakh ke CloudFront OAC se public content aur presigned URL se private content de sakta hoon',
       'Main versioning se overwrite/delete wapas la sakta hoon aur Object Lock/MFA Delete ka role jaanta hoon',
       'Main encryption (SSE-S3 vs SSE-KMS), HTTPS-only policy, lifecycle aur request/transfer ke bill ke numbers jaanta hoon',

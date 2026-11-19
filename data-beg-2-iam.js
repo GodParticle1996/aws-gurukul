@@ -40,7 +40,7 @@
       text: 'ShopKaro mein 5 log ek hi root login share karte the. Product upload script ke liye root user ki access key banayi gayi thi. Ek freelancer ne website ke CSS ka kaam karte waqt woh key apni <code>.env</code> file mein rakhi aur galti se poora folder public GitHub repo mein push kar diya. 7 minute baad internet par ghoomte bots ne key utha li. Raat 2:07 baje attacker ne N. Virginia mein 40 GPU servers chalaye (crypto mining), 2:09 par apne liye ek naya admin user <code>backup-svc</code> banaya, aur product images ki bucket khaali kar di. Subah 8 baje tak bill $1,360 (~₹1.2 lakh). Neha ka sawal: har insaan aur har program ko sirf utni power kaise doon jitni kaam ki hai — taaki ek key leak ho toh poori dukaan na lute?',
     },
     objectives: [
-      '<b>Root user</b> ka sahi istemaal — MFA, koi access key nahi, roz ka kaam nahi',
+      '<b>Root user</b> ka sahi use — MFA, koi access key nahi, roz ka kaam nahi',
       'AWS har request ka faisla kaise karta hai: <b>default deny → Allow → explicit Deny jeetta hai</b>',
       '<b>Policy JSON</b> ke hisse — Effect, Action, Resource, Condition — aur bucket vs object ARN ka farak',
       '<b>User, Group, Role</b> — kisko kya do, aur apps ko hamesha <b>role</b> kyun',
@@ -93,7 +93,7 @@
       },
       {
         q: 'User, Group, Role — kisko kya do?',
-        body: '<div class="tbl-wrap"><table><tr><th></th><th>Misaal</th><th>Credentials</th><th>Kab</th></tr>' +
+        body: '<div class="tbl-wrap"><table><tr><th></th><th>Example</th><th>Credentials</th><th>Kab</th></tr>' +
           '<tr><td>👤 <b>User</b></td><td>Employee ka apna ID card</td><td>Password (console) / access key (permanent, <code>AKIA…</code>)</td><td>Ek insaan (chhota setup) ya purana tool jo sirf key leta hai</td></tr>' +
           '<tr><td>👥 <b>Group</b></td><td>Department ("Developers")</td><td>Koi nahi — sirf permissions ka dabba</td><td>10 developers ko ek jaisi permission — group par policy, users group mein</td></tr>' +
           '<tr><td>🎭 <b>Role</b></td><td>Visitor badge — reception par milta hai, shaam ko expire</td><td>Temporary (<code>ASIA…</code> + session token), STS deta hai</td><td>EC2/Lambda/ECS app, doosre account ka access, insaan ka temporary elevated access</td></tr></table></div>' +

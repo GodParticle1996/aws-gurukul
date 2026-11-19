@@ -43,7 +43,7 @@
       'EC2 launch ke <b>saare choices</b> — AMI, instance type, network, security group, storage, IAM role, user data',
       'Instance type ka <b>naam padhna</b> (m7g.large) aur <b>Graviton / T-family credits</b> ka paisa',
       '<b>Reboot / stop / hibernate / terminate</b> — kya bachta hai, kya marta hai, kiska bill chalta rehta hai',
-      '<b>Security group</b> ka sahi istemaal, aur SSH ki jagah <b>SSM Session Manager</b>',
+      '<b>Security group</b> ka sahi use, aur SSH ki jagah <b>SSM Session Manager</b>',
       '<b>IMDSv2</b> kyun zaroori hai (Capital One wala raasta band)',
       '<b>EBS</b> — AZ mein bandha disk, snapshots, DeleteOnTermination — aur exam ke <b>placement groups</b>',
     ],
@@ -208,7 +208,7 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
           { from: 'user', to: 'ec2' }, { from: 'r53', to: 'ec2', dashed: true },
           { from: 'ec2', to: 'ebs#root' }, { from: 'ec2', to: 'ebs#data' }, { from: 'ebs#data', to: 's3', dashed: true },
         ],
-        panels: [{ id: 'st', title: 'web-1 ki haalat' }, { id: 'bill', title: 'Bill abhi kis cheez ka chal raha hai' }],
+        panels: [{ id: 'st', title: 'web-1 ka haal' }, { id: 'bill', title: 'Bill abhi kis cheez ka chal raha hai' }],
         steps: [
           {
             say: 'Launch. User data ne nginx install kiya. Instance ko auto public IP mila <code>13.233.40.7</code>. DNS ka A record <code>shopkaro.in → 13.233.40.7</code>. Root disk ka DeleteOnTermination = true, data disk ka = false.',
@@ -263,7 +263,7 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
             panels: { bill: ['EC2 compute ✅', 'EBS ✅', 'Elastic IP ✅', 'Snapshot storage ✅ (sirf badle blocks)'] },
           },
           {
-            say: 'Ab web-1 <b>terminate</b>. Root disk (DeleteOnTermination true) <b>delete</b>. Data disk (false) bachi — "available" haalat mein. Snapshot bacha. Elastic IP instance se alag hua — par account mein allocated hai.',
+            say: 'Ab web-1 <b>terminate</b>. Root disk (DeleteOnTermination true) <b>delete</b>. Data disk (false) bachi — "available" state mein. Snapshot bacha. Elastic IP instance se alag hua — par account mein allocated hai.',
             flows: [],
             nodes: { ec2: { tone: 'bad', badge: 'terminated' }, 'ebs#root': { tone: 'bad', badge: 'DELETE ho gayi' }, 'ebs#data': { tone: 'slow', badge: 'available (bacha)' }, r53: { tone: 'slow', badge: 'EIP kisi se juda nahi' }, user: { tone: 'idle', badge: '' } },
             panels: { st: ['state: terminated'], bill: ['EC2 compute ❌', 'root EBS ❌ (delete)', 'data EBS 50 GB ✅ abhi bhi!', 'Snapshot ✅', 'Elastic IP ✅ abhi bhi!'] },
