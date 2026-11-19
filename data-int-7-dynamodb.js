@@ -66,7 +66,7 @@
       {cue:'"expire sessions"',pick:'TTL + app mein expiry check',why:'Number epoch seconds; delete kai din late ho sakta hai.'},
       {cue:'"react to item changes"',pick:'Review kiye consumer ke saath Streams',why:'24 ghante ka change log, har item ka order; consumer ko retries phir bhi sambhalne hain.'},
       {cue:'"unknown new traffic / measured steady load"',pick:'On-demand / compare provisioned',why:'Units ke aaj ke daam aur peak/scaling ki zaroorat dekho, fixed price ratio nahi.'},
-      {cue:'"recover accidental write in configured last1–35days"',pick:'PITR se nayi table mein restore',why:'Asli earliest/latest restore times check karo; on karna recovery drill nahi hai.'},
+      {cue:'"recover accidental write in configured last 1–35 days"',pick:'PITR se nayi table mein restore',why:'Asli earliest/latest restore times check karo; on karna recovery drill nahi hai.'},
       {cue:'"query by another attribute"',pick:'GSI; LSI tabhi jab HASH same ho aur table banate waqt ka design fit ho',why:'GSI eventual hai aur iska kharcha alag; hot index keys writes ko rok sakti hain.'},
       {cue:'"all-or-nothing stock plus order"',pick:'TransactWriteItems',why:'Ek account/Region mein 100 alag items/4 MB; batch writes mein transaction wala atomic nahi hota.'}
     ],

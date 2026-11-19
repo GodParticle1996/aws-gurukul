@@ -317,7 +317,7 @@
             { text: 'Desired 4, four registered/running targets, max 6/min 2 preserve', check: s => { const a = G(s); return !!a && a.min === 2 && a.max === 6 && a.desired === 4 && a.instances.length === 4 && a.instances.every(id => healthy(s, id)); } },
             { text: 'i-broken terminated/replaced; keep original i-good running', check: s => { const a = G(s), old = I(s, 'i-broken'); return !!a && !!old && old.state === 'terminated' && !a.instances.includes(old.id) && a.instances.includes('i-good') && healthy(s, 'i-good') && (a.activities || []).some(v => v.oldId === old.id && v.newId && a.instances.includes(v.newId)); } },
           ];
-          return { goal: 'ASG <code>shopkaro-web</code> desired capacity 2→4 karo. Broken <code>i-broken</code> ko <code>terminate-instance-in-auto-scaling-group --no-should-decrement-desired-capacity</code> se replace karo. Four healthy targets, min2/max6 aur original i-good preserve hone chahiye. ELB health automatic reconciliation off hai; exercise explicit lifecycle API practice karti hai.',
+          return { goal: 'ASG <code>shopkaro-web</code> desired capacity 2→4 karo. Broken <code>i-broken</code> ko <code>terminate-instance-in-auto-scaling-group --no-should-decrement-desired-capacity</code> se replace karo. Four healthy targets, min 2/max 6 aur original i-good preserve hone chahiye. ELB health automatic reconciliation off hai; exercise explicit lifecycle API practice karti hai.',
             account: a, tasks: TASKS, success: AG.allOf(TASKS), successText: 'Desired capacity 4 preserve hui; broken instance replaced aur modeled targets healthy hain. ASG activity mein replacement ID inspect kar sakte ho; real boot/drain/health timing separately verify karo.',
             hints: ['aws autoscaling set-desired-capacity --auto-scaling-group-name shopkaro-web --desired-capacity 4', 'aws autoscaling terminate-instance-in-auto-scaling-group --instance-id i-broken --no-should-decrement-desired-capacity'],
           };
@@ -332,7 +332,7 @@
       { front: 'All ALB registered targets unhealthy?', back: 'ALB fail open karke unhealthy targets ko route kar sakta hai. Empty/no usable target 503 alag case hai.' },
       { front: 'Target tracking kya karta hai?', back: 'Metric + target choose karo, e.g. ASGAverageCPUUtilization 50%. ASG managed alarms se capacity adjust karta hai; MaxSize/warmup/startup limits remain.' },
       { front: 'Grace, warmup, deregistration delay?', back: 'Grace premature replacement prevent; warmup scaling metrics stabilize; deregistration delay in-flight request drain. Teen alag jobs.' },
-      { front: 'ALB HTTP instance-target defaults?', back: 'Path /, interval30s, timeout5s, unhealthy2, healthy5, matcher200. Newly registered target first successful initial check se healthy ho sakta hai.' },
+      { front: 'ALB HTTP instance-target defaults?', back: 'Path /, interval 30s, timeout 5s, unhealthy 2, healthy 5, matcher 200. Newly registered target first successful initial check se healthy ho sakta hai.' },
       { front: 'ASG terminate without reducing capacity?', back: 'terminate-instance-in-auto-scaling-group --instance-id ID --no-should-decrement-desired-capacity. ASG desired preserve karke replacement launch karta hai.' },
       { front: 'ALB approximate cost model?', back: 'us-east-1 2025–26 approx $0.0225/LB-hour + $0.008/LCU-hour; highest LCU dimension. EC2, IPv4, storage, transfer and taxes separately.' },
     ],
