@@ -10,19 +10,19 @@ source env.sh
 python -I 19-kms-secrets-waf/lab.py
 ```
 
-`lab.py` pehle padho. Script apna ephemeral `127.0.0.1` Moto server start karta hai. Har SDK client explicit generated endpoint, dummy keys aur lab-local config use karta hai; role profiles/session tokens/instance metadata disabled hain. Shared4566 server, real AWS aur `~/.aws` touch nahi hote. Script actual operations aur assertions print karta hai; output mein credentials sirf named `TEST_ONLY` fixtures hain. Kabhi real secret input mat do.
+`lab.py` pehle padho. Script apna thodi der ka `127.0.0.1` Moto server start karta hai. Har SDK client saaf banaya endpoint, dummy keys aur lab ki apni config use karta hai; role profiles/session tokens/instance metadata band hain. Shared 4566 server, asli AWS aur `~/.aws` ko chhoota nahi jaata. Script asli operations aur assertions print karta hai; output mein credentials sirf `TEST_ONLY` naam ke fixtures hain. Kabhi asli secret input mat do.
 
-## ex1 — small KMS payload, phir actual envelope encryption
+## ex1 — chhota KMS payload, phir asli envelope encryption
 
-CreateKey → CreateAlias → EnableKeyRotation(180 days) → GetKeyRotationStatus. Moto5.2.4 returned:
+CreateKey → CreateAlias → EnableKeyRotation(180 days) → GetKeyRotationStatus. Moto 5.2.4 ne yeh diya:
 
 ```json
 ROTATION {"KeyRotationEnabled":true}
 ```
 
-👉 Enabled flag round-trips, lekin response rotation period nahi deta. **180-day scheduling/key-material rotation verify nahi hui.** AWS eligible customer managed symmetric AWS_KMS keys ka automatic period90–2560days hai; rotation old ciphertext rewrite nahi karti.
+👉 Enabled flag wapas aata hai, lekin response rotation period nahi deta. **180 din ki scheduling/key-material rotation check nahi hui.** AWS mein eligible customer managed symmetric AWS_KMS keys ka automatic period 90–2560 din hai; rotation purana ciphertext dobara nahi likhti.
 
-Encrypt/Decrypt16-byte TEST invoice with matching non-secret EncryptionContext. Wrong tenant context returns InvalidCiphertextException. GenerateDataKey AES_256 returns a plaintext key and wrapped key. Host `cryptography` AESGCM encrypts7000bytes; save ciphertext/nonce/wrappedKey/context, discard plaintext key reference, then unwrap and decrypt. Tampering changes authentication tag and fails.
+Matching non-secret EncryptionContext ke saath 16-byte TEST invoice ko Encrypt/Decrypt karo. Galat tenant context InvalidCiphertextException deta hai. GenerateDataKey AES_256 ek plaintext key aur wrapped key deta hai. Host `cryptography` AESGCM 7000 bytes encrypt karta hai; ciphertext/nonce/wrappedKey/context save karo, plaintext key ka reference hatao, phir unwrap karke decrypt karo. Chhed-chhaad karne se authentication tag badalta hai aur decrypt fail hota hai.
 
 Captured assertions:
 
@@ -34,21 +34,21 @@ PASS 5 modified ciphertext fails authentication
 DISABLED_KEY_DECRYPT ACCEPTED (emulator gap)
 ```
 
-👉 AES-GCM roundtrip/tamper check is real host cryptography; KMS wrapping is Moto. Python `del` does not guarantee secure memory erasure. This reference is not a production encryption format or HSM/authorization proof. **Moto accepts decrypt while disabled** in this run; AWS returns DisabledException. Real key policy/IAM/grants/Deny and disabled-key behavior need AWS integration testing. Direct symmetric KMS Encrypt supports up to4096bytes; large payload uses envelope encryption.
+👉 AES-GCM roundtrip/tamper check asli host cryptography hai; KMS wrapping Moto hai. Python `del` memory ka safe mitna pakka nahi karta. Yeh reference production encryption format ya HSM/authorization ka saboot nahi. Is run mein **Moto disabled key par bhi decrypt maan leta hai**; AWS DisabledException deta hai. Asli key policy/IAM/grants/Deny aur disabled-key behaviour ke liye AWS integration testing chahiye. Seedha symmetric KMS Encrypt 4096 bytes tak chalta hai; bada payload envelope encryption use karta hai.
 
-## ex2 — bucket default encryption changes future writes
+## ex2 — bucket ka default encryption sirf aage ke writes badalta hai
 
-Put old.txt before default SSE-KMS/BucketKeyEnabled; then configure the default and put new.txt. HeadObject shows old object unchanged, new object aws:kms and BucketKeyEnabled true:
+Default SSE-KMS/BucketKeyEnabled se pehle old.txt put karo; phir default set karke new.txt put karo. HeadObject dikhata hai ki purana object waisa hi hai, aur naya object aws:kms aur BucketKeyEnabled true:
 
 ```text
 PASS 6 default encryption affects new writes; old object unchanged
 ```
 
-👉 No old-object migration is implied. Bucket Keys can reduce KMS traffic by **up to99%**, depending on requesters/cache/workload. Cached Bucket Key use need not call KMS or recheck key policy per object request; use S3 data-event auditing where required. The demo does not measure savings, real encryption internals or policy enforcement.
+👉 Isse purane objects migrate nahi hote. Bucket Keys KMS traffic ko **99% tak** kam kar sakti hain, requesters/cache/workload ke hisaab se. Cached Bucket Key ke use mein har object request par KMS call ya key policy ka dobara check zaroori nahi; jahan zaroori ho wahan S3 data-event auditing use karo. Demo bachat, asli encryption internals ya policy enforcement nahi naapta.
 
-## ex3 — pending secret is different from a tested credential
+## ex3 — pending secret aur test kiya credential alag hain
 
-Create a dummy secret version `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`; PutSecretValue creates `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` with AWSPENDING. GetSecretValue default still returns old credential. A host **TEST dict** acts as the backend credential: before set, pending password does not match; after set/test, move AWSCURRENT to the new version, inspect AWSPREVIOUS and remove AWSPENDING.
+Ek dummy secret version `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa` banao; PutSecretValue AWSPENDING ke saath `bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb` banata hai. Default GetSecretValue abhi bhi purana credential deta hai. Ek host **TEST dict** backend credential ka kaam karta hai: set se pehle pending password match nahi karta; set/test ke baad AWSCURRENT ko naye version par le jao, AWSPREVIOUS dekho aur AWSPENDING hatao.
 
 ```text
 PASS 7 pending secret does not replace current
@@ -59,32 +59,32 @@ PASS 11 explicit AWSCURRENT credential matches TEST backend
 DEFAULT_SECRET_VERSION_MOTO_GAP {"matchesPromotedVersion":false,"note":"Moto default-version pointer can remain old after label move; explicit AWSCURRENT verified"}
 ```
 
-👉 Real default GetSecretValue follows AWSCURRENT. Moto5.2.4 label move leaves its separate default-version pointer stale, so this lab verifies the explicit stage and reports the mismatch. The host dict is **not PostgreSQL, Lambda rotation or concurrent client recovery**. No secret promotion should replace a real backend validation.
+👉 Asli default GetSecretValue AWSCURRENT ko follow karta hai. Moto 5.2.4 mein label move karne par uska alag default-version pointer purana reh jaata hai, isliye yeh lab saaf stage check karti hai aur mismatch batati hai. Host dict **PostgreSQL, Lambda rotation ya concurrent client recovery nahi**. Koi bhi secret promotion asli backend ke check ki jagah nahi le sakta.
 
-An isolated throwaway probe calls RotateSecret with30-day rules/no immediate rotation and no Lambda. Moto returns RotationEnabled=true, RotationLambdaARN="" and a new AWSCURRENT version. **This is an emulator gap, not working rotation.** Real Lambda-based rotation requires a valid configured function and permissions. `--no-rotate-immediately` still invokes testSecret; it does not mean zero invocation. Docker-dependent Lambda/real DB rotation remains unverified. Managed service/external integrations have their own supported setup; do not assume all rotation uses the same path.
+Ek alag, phenkne layak probe 30 din ke rules ke saath, bina turant rotation aur bina Lambda ke RotateSecret bulata hai. Moto RotationEnabled=true, RotationLambdaARN="" aur ek naya AWSCURRENT version deta hai. **Yeh emulator ki kami hai, chalti hui rotation nahi.** Asli Lambda-based rotation ko sahi set kiya function aur permissions chahiye. `--no-rotate-immediately` phir bhi testSecret chalata hai; iska matlab zero invocation nahi. Docker par chalne wala Lambda/asli DB rotation check nahi hua. Managed service/bahar ke integrations ka apna supported setup hai; yeh mat maano ki har rotation ek hi raaste se chalti hai.
 
-PutParameter SecureString with the own key; GetParameter default returns ciphertext, WithDecryption returns TEST_ONLY_config:
+Apni key ke saath PutParameter SecureString; default GetParameter ciphertext deta hai, WithDecryption TEST_ONLY_config deta hai:
 
 ```text
 PASS 12 SSM ciphertext/default versus requested plaintext
 ```
 
-Parameter Store has no built-in credential rotation. Standard storage/throughput conditions and KMS requests still affect cost and access.
+Parameter Store mein credential rotation built-in nahi. Standard storage/throughput ki shartein aur KMS requests kharche aur access par asar daalti hain.
 
-## ex4 — WAF config/association and optimistic concurrency
+## ex4 — WAF config/association aur optimistic concurrency
 
-Create an owned two-AZ internal ALB (metadata only). Regional web ACL default Allow contains AWSManagedRulesCommonRuleSet plus IP100/60s rate rule scoped exactly to /login. AssociateWebACL, then GetWebACLForResource verifies the exact ALB/ACL relationship. GetWebACL supplies LockToken; one UpdateWebACL succeeds; reusing old token returns WAFOptimisticLockException.
+Apna two-AZ internal ALB banao (sirf metadata). Regional web ACL ka default Allow hai, jisme AWSManagedRulesCommonRuleSet + sirf /login par scoped IP 100/60s rate rule hai. AssociateWebACL, phir GetWebACLForResource exact ALB/ACL rishta check karta hai. GetWebACL LockToken deta hai; ek UpdateWebACL safal hota hai; purana token dobara use karne par WAFOptimisticLockException aata hai.
 
 ```text
 PASS 13 actual Regional ALB association metadata
 STALE_WAF_TOKEN WAFOptimisticLockException
 ```
 
-👉 No listener, HTTP traffic, SQLi/bot/rate enforcement, propagation or false-positive result is claimed. Real WAF estimates rates over configured60/120/300/600s windows, rather than enforcing an exact request quota. COUNT observes; BLOCK enforces. Distributed low-rate bots need additional signals/controls. CloudFront ACLs use CLOUDFRONT scope in us-east-1; this lab uses REGIONAL ALB metadata.
+👉 Listener, HTTP traffic, SQLi/bot/rate enforcement, propagation ya false-positive result ka koi daava nahi. Asli WAF rates ko set ki 60/120/300/600s windows par andaaze se ginta hai, exact request quota laagu nahi karta. COUNT sirf dekhta hai; BLOCK rokta hai. Bikhre, kam-rate bots ke liye extra signals/controls chahiye. CloudFront ACLs us-east-1 mein CLOUDFRONT scope use karte hain; yeh lab REGIONAL ALB metadata use karti hai.
 
-## ex5 — detector enabled is not threat detection
+## ex5 — detector on hona threat detection nahi
 
-CreateDetector/GetDetector returns ENABLED. Current Moto endpoints for CreateSampleFindings and ListFindings return404:
+CreateDetector/GetDetector ENABLED deta hai. Aaj ke Moto mein CreateSampleFindings aur ListFindings ke endpoints 404 dete hain:
 
 ```text
 PASS 14 GuardDuty detector enabled metadata
@@ -93,17 +93,17 @@ GUARDDUTY_LIST_FINDINGS_GAP 404 no live threat detection claimed
 BEHAVIOR CHECKS 14
 ```
 
-👉 In-app findings are explicitly seeded training fixtures. Foundational GuardDuty log analysis and optional Runtime Monitoring/other protection plans have separate setup and billing; Runtime Monitoring uses a security agent. Detector metadata does not prove plan coverage or a prevented incident.
+👉 App ke findings saaf taur par pehle se daale training fixtures hain. Basic GuardDuty log analysis aur optional Runtime Monitoring/doosre protection plans ka setup aur billing alag hai; Runtime Monitoring ek security agent use karta hai. Detector ka metadata plan coverage ya roka hua incident prove nahi karta.
 
 ## Cleanup
 
-Finally deletes only run-owned detector, WAF association/ACL, ALB/subnets/VPC, parameters, secrets and bucket objects/bucket. Key alias deleted and own KMS key scheduled for deletion with7days; a KMS key cannot be immediately deleted on AWS. Cleanup asserts remaining state, then closes the owned disposable server/listener:
+Aakhir mein sirf run ka apna detector, WAF association/ACL, ALB/subnets/VPC, parameters, secrets aur bucket objects/bucket delete hote hain. Key alias delete hota hai aur apni KMS key 7 din mein delete hone ke liye schedule hoti hai; AWS par KMS key turant delete nahi ho sakti. Cleanup bachi state check karta hai, phir apna phenkne layak server/listener band karta hai:
 
 ```text
 PASS 15 owned resources removed; KMS key scheduled7days
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-Fourteen behavior checks plus cleanup15. Ignored `.lab/last-run.json` contains historical IDs and closed-listener evidence, not live AWS resources. No shared server reset or unrelated deletion. Failed preparation probes also ran cleanup; this README reflects the successful exact repository replay.
+Chaudah behaviour checks + cleanup 15. Ignore hone wali `.lab/last-run.json` mein purani IDs aur band listener ka saboot hai, live AWS resources nahi. Shared server reset ya anjaana delete nahi. Fail taiyaari wale probes ne bhi cleanup chalaya; yeh README safal exact repository replay dikhata hai.
 
 Sources: [KMS rotation](https://docs.aws.amazon.com/kms/latest/developerguide/rotate-keys.html), [KMS Decrypt/context/errors](https://docs.aws.amazon.com/kms/latest/APIReference/API_Decrypt.html), [Bucket Keys](https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucket-key.html), [secret rotation](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_RotateSecret.html), [rotation functions](https://docs.aws.amazon.com/secretsmanager/latest/userguide/rotate-secrets_lambda-functions.html), [WAF rate caveats](https://docs.aws.amazon.com/waf/latest/developerguide/waf-rule-statement-type-rate-based-caveats.html), [GuardDuty Runtime Monitoring](https://docs.aws.amazon.com/guardduty/latest/ug/runtime-monitoring.html).
