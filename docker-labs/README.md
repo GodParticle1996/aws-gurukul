@@ -73,6 +73,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `26-terraform-drift-import` | 🏗️ IaC | asli Terraform SG drift/refresh-only/import/stale plan, HCL moved + native JSON ka barabar hona, prevent_destroy, S3 conditional lock ki takkar, asli TEST data + scoped cleanup |
 | `27-cost-waste-hunter` | 💰 Cost | apne asli CLI se EBS/snapshot/EIP/retention/Budget+SNS metadata, billing/subscriber/runtime ki saaf kamiyan, lagbhag EBS+IPv4 model aur baseline bachane wala cleanup |
 | `28-logs-metrics-alarms` | 👁️ Observability | apne Moto par retention (never expire → 30 din, audit 365), JSON metric filter, Logs Insights, p99 + errors alarms, manual state test; Moto ki filter-metric/JSON pattern/stats/p99/evaluation/composite ki kamiyan saaf; average vs p99 aur M-of-N host par |
+| `29-migration-cutover` | 🚚 Migration | SQLite "on-prem" se Moto DynamoDB: full load, triggers wala change log, idempotent CDC replay, checksum validation, cutover runbook; NAS folder ka aws s3 sync (delta); Moto DMS sirf metadata (statistics/modify 500) |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

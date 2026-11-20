@@ -67,6 +67,22 @@ Validation: full `node validate.js` **ALL CHECKS PASSED**, 39 levels/263 stages/
 
 Evidence: `.overhaul-evidence/review-fixes/{FULL-VALIDATE,LAB25-REPLAY,LAB25-CLEANUP-TESTS,CONTAINERS-BROWSER-LOG,IAC-BROWSER-LOG,COST-BROWSER-LOG}.txt`, corresponding browser JSON reports and screenshots. Representative screenshots: `review-fixes/iac-screenshots/terminal-solved-360.png`, `review-fixes/cost-screenshots/terminal-summary-360.png`, `review-fixes/containers-screenshots/terminal-solved-1280.png`. Original read-only report: `/tmp/aws-gurukul-review/REPORT.md`.
 
+## Advanced 9 `migration` loop completed (2026-11-20; master §5.C9)
+
+Same id `migration`, nayi file `data-adv-9-migration.js`; purana block hataya; `observability` ke baad register kiya.
+
+1. Aath cards: 7 Rs (relocate = VMware jaisa hai waisa, jaise Amazon EVS; VM → EC2 rehost), discovery + waves (Migration Hub aur Application Discovery Service 7 Nov 2025 se naye customers ke liye band → AWS Transform), MGN (docs mein "AWS Transform MGN"; 2,160 ghante free per server), DMS Schema Conversion (AWS ki salah; SCT purana raasta) + full load + CDC + validation, files (DataSync ~$0.0125/GB, Transfer Family, Storage Gateway, Snowball naye customers ke liye band), transfer maths, cutover + rollback, migration ke baad.
+2. Naya `migration-cli.js` (`account.dmsMode`): replication instance, endpoints (Secrets Manager settings), test-connection + waiters, tasks (selection/exclude rules), start types, stop/modify, table statistics.
+3. Main mission 12 commands: private dms.r6i.large instance, secret wala Aurora target, dono connections, full-load-and-cdc task (AUDIT_TMP bahar, validation ON), running, aaj ki statistics. Interview: full-load task ko full-load-and-cdc + reload-target.
+4. Flowlab: 30 TB NAS copy, 42 states mein ek hi jeet (1 Gbps, 24 ghante, 40%).
+5. Lab29: SQLite "on-prem" + triggers wala change log → Moto DynamoDB full load (30 rows chhoote) → idempotent CDC replay (0 mismatch) → fingerprint validation → cutover runbook → s3 sync delta; Moto DMS sirf metadata, statistics/modify 500. 10 checks + cleanup.
+6. `validate-migration.js`: 124 checks (omissions, public instance, password, galat DB, AUDIT_TMP mapping, full-load type, bina validation/connection, start order, purana read, interview ke galat raaste, selection engine, flowlab, 18 MCQs 0 flags, positions 4/5/5/4).
+7. Browser walk 389 screens × 2 widths, 0 problems; dry run/flowlab/terminal 1280/360 par dekhe.
+
+Sources (2026-11-20): [Migration Hub availability](https://docs.aws.amazon.com/migrationhub/latest/ug/migrationhub-availability-change.html), [Application Discovery Service availability](https://docs.aws.amazon.com/application-discovery/latest/userguide/application-discovery-service-availability-change.html), [Amazon EVS GA](https://aws.amazon.com/about-aws/whats-new/2025/08/aws-general-availability-amazon-elastic-evs/), [DMS Schema Conversion](https://docs.aws.amazon.com/dms/latest/userguide/CHAP_SchemaConversion.html), [MGN FAQ (free period)](https://aws.amazon.com/application-migration-service/faqs/), [DataSync pricing](https://aws.amazon.com/datasync/pricing/), [Snowball Edge availability](https://docs.aws.amazon.com/snowball/latest/developer-guide/snowball-edge-availability-change.html).
+
+Agla: Advanced 9b `analytics` (§5.C9b), lab30. Push nahi kiya.
+
 ## Advanced 8 `observability` loop completed (2026-11-20; master §5.C8)
 
 Claude ne Codex se kaam sambhalne ke baad yeh level banaya. Same id `observability`, nayi file `data-adv-8-observability.js`; purana block `data-advanced.js` se hataya; `index.html` aur `validate.js` DATA mein `cost` ke baad joda.
