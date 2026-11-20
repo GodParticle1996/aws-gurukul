@@ -1,20 +1,20 @@
 # Lab21 — risky configuration se review evidence tak
 
-**Pain:** `MultiAZ=true`, an alarm name and a logging flag cannot prove a recovered business workload. Review evidence ko configuration, measured runtime aur business outcome mein distinguish karo.
+**Pain:** `MultiAZ=true`, ek alarm ka naam aur ek logging flag yeh prove nahi kar sakte ki business workload wapas chal gaya. Review ke saboot ko config, naape runtime aur business result mein alag karo.
 
-This lab checks **three declared course configuration contracts**, not the complete AWS Well-Architected Framework or an official AWS WA Tool risk rating. All fixtures use TEST data on an owned ephemeral loopback Moto5.2.4 server. No real AWS, SQL, Lambda, packet tests or Docker run.
+Yeh lab **course ke teen bataye config contracts** check karti hai, poora AWS Well-Architected Framework ya official AWS WA Tool ki risk rating nahi. Saare fixtures apne thodi der ke loopback Moto 5.2.4 server par TEST data use karte hain. Asli AWS, SQL, Lambda, packet tests ya Docker nahi chalte.
 
-## Exact setup and run
+## Exact setup aur run
 
-Existing `docker-labs/.venv` is required. From `aws-gurukul`:
+Pehle se bana `docker-labs/.venv` chahiye. `aws-gurukul` se:
 
 ```bash
 ./docker-labs/21-wellarch-risk-scan/seed.sh
 ```
 
-`seed.sh` runs the whole bounded exercise: seed → scan → repair → scan → cleanup. No server is left running for a later terminal. `lab.py` calls the reusable `risk_scan.scan()` helper from `risk_scan.py`; read both before the run. The launcher sources the existing environment, whose banner mentions4566/ap-south-1. Python explicitly overrides **every client** to the new printed `OWNED MOTO http://127.0.0.1:<port>` endpoint/us-east-1 with dummy credentials, disabled profiles/session token/metadata and lab-local config. No shared reset or ~/.aws writes.
+`seed.sh` poori limit wali exercise chalata hai: seed → scan → repair → scan → cleanup. Baad ke terminal ke liye koi server chalta nahi chhoda jaata. `lab.py` `risk_scan.py` ka dobara use hone wala `risk_scan.scan()` helper bulata hai; run se pehle dono padho. Launcher pehle se bana environment source karta hai, jiska banner 4566/ap-south-1 bolta hai. Python saaf taur par **har client** ko naye print hue `OWNED MOTO http://127.0.0.1:<port>` endpoint/us-east-1 par bhejta hai, dummy credentials, band profiles/session token/metadata aur lab ki apni config ke saath. Shared reset ya ~/.aws mein likhna nahi.
 
-## ex1 — seed, inspect the three contracts
+## ex1 — seed karo, teen contracts dekho
 
 Actual repository replay (2026-10-27):
 
@@ -23,41 +23,41 @@ ACTUAL SCAN ... "count": 3, "notAnAWSWAReview": true ...
 PASS 1 scanner finds3declared config risks before repair
 ```
 
-The seed owns a private encrypted PostgreSQL DB metadata fixture, an S3 audit bucket with BPA and original TEST evidence, and later a topic/alarm/trail. Initial gaps:
+Seed ek private encrypted PostgreSQL DB metadata fixture, BPA aur asli TEST saboot wala S3 audit bucket, aur baad mein topic/alarm/trail banata hai. Shuru ki kamiyan:
 
-| Pillar / declared contract | Initial evidence | Reviewed repair |
+| Pillar / bataya contract | Shuru ka saboot | Review kiya repair |
 |---|---|---|
-| Reliability | Single-AZ, backup retention0days | Multi-AZ plus7days retention; preserve source |
-| Operational Excellence | Reviewed target5xx alarm absent | Sum/Count, exact supplied dimension, >5 in2of2×60s, missing, owned SNS target |
-| Security | Scoped multi-Region management trail config absent | Exact S3 SourceArn policy, global/multi-Region/validation flags, All management selector, logging |
+| Reliability | Single-AZ, backup retention 0 din | Multi-AZ + 7 din retention; source bachao |
+| Operational Excellence | Review kiya target 5xx alarm nahi | Sum/Count, exact diya dimension, 2×60s mein se 2 mein >5, missing data, apna SNS target |
+| Security | Scoped multi-Region management trail config nahi | Exact S3 SourceArn policy, global/multi-Region/validation flags, All management selector, logging |
 
-Read `risk_scan.py`: the scanner checks actual field values, not whether a matching resource name merely exists. Alarm dimensions use `TRAINING-NOT-DEPLOYED`: **no actual ALB is deployed**. Threshold5Count is an explicit course diagnostic example, not a recommended customer error-rate SLO.
+`risk_scan.py` padho: scanner asli field values check karta hai, sirf yeh nahi ki milte naam ka resource hai. Alarm dimensions `TRAINING-NOT-DEPLOYED` use karte hain: **koi asli ALB deploy nahi hota**. Threshold 5 Count course ka saaf diagnostic example hai, customer error-rate SLO ki salah nahi.
 
-## ex2 — reproduce and understand emulator gaps
+## ex2 — emulator ki kamiyan dobara dikhao aur samjho
 
-The script first creates/starts a disposable trail **without a bucket policy**, then stops it. Moto accepts logging and even returns a LatestDeliveryTime. Actual bucket inspection later shows only `TEST-preserve.txt`; no CloudTrail files or digests were delivered. This is a captured authorization/delivery gap. Real AWS requires usable destination permissions, and IsLogging alone still does not prove delivery.
+Script pehle ek phenkne layak trail **bina bucket policy ke** banati/start karti hai, phir rok deti hai. Moto logging maan leta hai aur LatestDeliveryTime bhi de deta hai. Baad mein bucket dekhne par sirf `TEST-preserve.txt` milta hai; koi CloudTrail files ya digests nahi pahunche. Yeh pakdi hui authorization/delivery ki kami hai. Asli AWS ko chalne layak destination permissions chahiye, aur sirf IsLogging se delivery prove nahi hoti.
 
-The reviewed policy contains GetBucketAcl plus PutObject to the account AWSLogs path, with exact trail SourceArn and bucket-owner-full-control condition. The simulator checks this bounded documented access path; it does not copy Moto's unconditional acceptance.
+Review ki policy mein GetBucketAcl aur account ke AWSLogs path par PutObject hai, exact trail SourceArn aur bucket-owner-full-control condition ke saath. Simulator yahi limit wala likha access raasta check karta hai; Moto ki bina shart manzoori ki copy nahi karta.
 
-Actual default GetEventSelectors returned `[]`; the script explicitly sets the All-management selector. Real default management-event capture and explicit selector configuration should be checked against current AWS documentation, not inferred from Moto's empty list.
+Asli default GetEventSelectors ne `[]` diya; script saaf taur par All-management selector set karti hai. Asli default management-event capture aur saaf selector config ko aaj ki AWS documentation se check karo, Moto ki khaali list se andaaza mat lagao.
 
-CloudWatch current SDK/provider defaults can use CBOR, which this Moto version cannot decode correctly. A **private in-memory SDK service model** selects its supported Query protocol; no installed package or server response is patched. Put/Describe/DeleteMetricAlarm are actual local API calls. Actual initial state:
+CloudWatch ke aaj ke SDK/provider defaults CBOR use kar sakte hain, jo yeh Moto version theek se decode nahi kar sakta. Ek **private in-memory SDK service model** apna supported Query protocol chunta hai; koi installed package ya server response patch nahi hota. Put/Describe/DeleteMetricAlarm asli local API calls hain. Asli shuru ki state:
 
 ```text
 INITIAL ALARM OK Unchecked: Initial alarm creation
 ```
 
-That is not a fresh5xx observation, successful page or healthy checkout.
+Yeh taaza 5xx observation, safal page ya healthy checkout nahi.
 
-## ex3 — repair and scan again
+## ex3 — repair karo aur dobara scan karo
 
-Read each API block in `lab.py` before the run. The scripted repairs mirror the in-app CLI decisions:
+Run se pehle `lab.py` ka har API block padho. Script ke repairs app ke CLI faislon jaise hi hain:
 
-1. Persist the narrow S3 policy and read it back. Expect exact trail/account path.
-2. Modify DB MultiAZ/BackupRetentionPeriod=7. Expect private DB still present. No SQL restore/failover runs.
-3. Put the fully specified5xx alarm through the supported Query client. Expect the actual fields/topic read back.
-4. Update/start the owned trail with reviewed flags and explicit management selector. Expect IsLogging true **as configuration metadata**.
-5. Re-scan and retrieve original TEST bytes.
+1. Chhoti S3 policy save karo aur wapas padho. Exact trail/account path aana chahiye.
+2. DB ka MultiAZ/BackupRetentionPeriod=7 badlo. Private DB bana rehna chahiye. Koi SQL restore/failover nahi chalta.
+3. Poori tarah likha 5xx alarm supported Query client se put karo. Asli fields/topic wapas padhe jaane chahiye.
+4. Apne trail ko review kiye flags aur saaf management selector ke saath update/start karo. IsLogging true aana chahiye, **sirf config metadata ke roop mein**.
+5. Dobara scan karo aur asli TEST bytes wapas lo.
 
 Actual output:
 
@@ -74,19 +74,19 @@ PASS 7 original TEST evidence preserved
 BEHAVIOR CHECKS 7
 ```
 
-Moto LookupEvents is unimplemented and returns HTTP500/NotImplementedError; the expected gap is printed, not treated as real event evidence. Other unexpected API failures still fail the exercise. In-app lookup results are explicitly seeded course events, not live collected history.
+Moto mein LookupEvents bana hi nahi hai aur HTTP 500/NotImplementedError deta hai; yeh expected kami print hoti hai, asli event ka saboot nahi maani jaati. Baaki anjaane API failures abhi bhi exercise fail karte hain. App ke lookup results course ke pehle se daale events hain, live ikattha history nahi.
 
 ## Cleanup and interpretation
 
-The `finally` block stops/deletes only the own trail, alarm/topic, DB/subnet group/VPC/subnets and bucket TEST objects. Actual successful replay:
+`finally` block sirf apna trail, alarm/topic, DB/subnet group/VPC/subnets aur bucket ke TEST objects rokta/delete karta hai. Asli safal replay:
 
 ```text
 PASS 8 owned fixture resources cleaned
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-Only the own listener is closed. No shared4566reset. `.lab` is ignored local scratch. A failed sandbox-startup capture and the first unsupported-LookupEvents attempt are retained as development evidence; later complete replay passed7behavior checks plus cleanup8.
+Sirf apna listener band hota hai. Shared 4566 reset nahi. `.lab` ignore hone wala local scratch hai. Ek fail sandbox-startup capture aur pehli unsupported-LookupEvents koshish development ke saboot ke roop mein rakhi gayi hain; baad ka poora replay 7 behaviour checks + cleanup 8 ke saath pass hua.
 
-**Remaining review work:** restore and reconcile actual SQL/business IDs, measure real RTO/RPO/tails/errors, verify real metric-triggered notifications, inspect delivered CloudTrail log/digest files and execute validation. Enabling log-file validation permits future digest creation; it does not itself validate files. Also review identity, deployment/runbooks, resource efficiency and the other workload risks. Zero of these3configuration findings is not a security certificate or a full Well-Architected pass.
+**Bacha review ka kaam:** asli SQL/business IDs restore karke milao, asli RTO/RPO/tails/errors naapo, asli metric se chalne wale notifications check karo, pahunchi CloudTrail log/digest files dekho aur validation chalao. Log-file validation on karne se aage digest bante hain; yeh khud files validate nahi karta. Identity, deployment/runbooks, resources ka sahi use aur workload ke baaki risks bhi review karo. In 3 config findings ka zero hona security certificate ya poora Well-Architected pass nahi.
 
 Sources: [review process](https://docs.aws.amazon.com/wellarchitected/latest/framework/the-review-process.html), [improvement plan](https://docs.aws.amazon.com/wellarchitected/latest/userguide/improving-your-workload.html), [CloudTrail bucket policy](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/create-s3-bucket-policy-for-cloudtrail.html), [event history](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/view-cloudtrail-events.html), [digest validation](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-log-file-validation-intro.html).
