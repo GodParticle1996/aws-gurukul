@@ -1,12 +1,12 @@
 # Lab11 — CloudFront JSON, OAC policy aur invalidation metadata
 
-**Pain:** private S3 bucket ke saath CDN403; old object same URL par stale. Actual CLI se config/ETag read karo, OAC attachment request aur scoped S3 policy submit karo, invalidation metadata inspect karo. In-app mission actual OAC link and fresh fixture state enforce karti hai.
+**Pain:** private S3 bucket ke saath CDN 403 deta hai; purana object usi URL par purana dikhta hai. Asli CLI se config/ETag padho, OAC attachment ki request aur scoped S3 policy bhejo, invalidation ka metadata dekho. App ka mission asli OAC link aur taaza fixture state laagu karta hai.
 
-**Honest boundary:** current Moto5.2.4 OAC object create karta hai, but distribution readback **OriginAccessControlId=null** deta hai; OAC attachment field retained nahi. Stale ETag update bhi accepted, ETag unchanged. No working private CDN claim. Cache policies list404; no actual edge/cache/TLS/signed requests. Invalidation status uppercase COMPLETED hai, AWS waiter expects Completed; invalidation waiter Moto par use mat karo. Distribution-deployed waiter passed.
+**Imaandar limit:** aaj ka Moto 5.2.4 OAC object banata hai, par distribution readback **OriginAccessControlId=null** deta hai; OAC attachment field bachta nahi. Purane ETag ke saath update bhi maan liya jaata hai, ETag badalta nahi. Chalte private CDN ka daava nahi. Cache policies ki list 404 deti hai; koi asli edge/cache/TLS/signed requests nahi. Invalidation status bade akshar mein COMPLETED hai, jabki AWS waiter Completed expect karta hai; Moto par invalidation waiter mat chalao. Distribution-deployed waiter pass hua.
 
 ## Setup
 
-Existing Moto available ho toh start command skip karo. Shared emulator reset nahi.
+Moto pehle se available ho toh start command skip karo. Shared emulator reset nahi.
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -20,9 +20,9 @@ export AWS_EC2_METADATA_DISABLED=true
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SESSION_TOKEN
 ```
 
-Loopback4566 + dummy test keys required. No `~/.aws` writes. Previous `.lab/resources.sh` ho toh cleanup first. Scripts task-local IDs save karte hain; generated bucket suffix/IDs vary.
+Loopback 4566 + dummy test keys chahiye. `~/.aws` mein kuch nahi likha jaata. Pichhla `.lab/resources.sh` ho toh pehle cleanup. Scripts is task ki IDs save karti hain; bane bucket suffix/IDs badalte rehte hain.
 
-## ex1 — private bucket/object and initial distribution
+## ex1 — private bucket/object aur pehla distribution
 
 ```bash
 bash setup.sh
@@ -30,15 +30,15 @@ source .lab/resources.sh
 cat .lab/distribution.json
 ```
 
-Asli captured output excerpt (2026-10-26UTC):
+Asli pakde output ka hissa (2026-10-26 UTC):
 
 ```json
 {"ETag":"B27SOVYNAPMUY","Enabled":true,"Origin":"shopkaro-lab11-1792978623.s3.ap-south-1.amazonaws.com"}
 ```
 
-👉 S3 REST endpoint, default managed CachingOptimized ID and redirect-to-https requested. Object has `public,max-age=86400` metadata; bucket retains all four Block Public Access flags. Distribution metadata does not mean OAC authorized or content delivered.
+👉 S3 REST endpoint, default managed CachingOptimized ID aur redirect-to-https maange gaye. Object par `public,max-age=86400` metadata hai; bucket ke chaaron Block Public Access flags bane rehte hain. Distribution ke metadata ka matlab yeh nahi ki OAC allowed hai ya content deliver hua.
 
-## ex2 — OAC request, read ETag, update config and inspect bucket policy
+## ex2 — OAC request, ETag padho, config update karo aur bucket policy dekho
 
 ```bash
 bash exercises.sh
@@ -50,7 +50,7 @@ aws cloudfront get-origin-access-control --id "$OAC"
 aws cloudfront get-distribution-config --id "$DIST"
 ```
 
-Script uses actual operations:
+Script asli operations use karti hai:
 
 ```bash
 ETAG=$(aws cloudfront get-distribution-config --id "$DIST" --query ETag --output text)
@@ -65,11 +65,11 @@ Asli `exercises.sh` readback:
 {"PublicAccessBlockConfiguration":{"BlockPublicAcls":true,"IgnorePublicAcls":true,"BlockPublicPolicy":true,"RestrictPublicBuckets":true}}
 ```
 
-Policy persisted with service Principal `cloudfront.amazonaws.com`, Action `s3:GetObject`, lab bucket object Resource and exact `AWS:SourceArn` distribution ARN. OAC object stores SigningProtocol=sigv4/SigningBehavior=always, but distribution link readback is null in Moto.
+Policy service Principal `cloudfront.amazonaws.com`, Action `s3:GetObject`, lab bucket object Resource aur exact `AWS:SourceArn` distribution ARN ke saath save hui. OAC object SigningProtocol=sigv4/SigningBehavior=always rakhta hai, par Moto mein distribution link ka readback null hai.
 
-👉 On real AWS, OAC must exist **and attach** to REST origin, policy must authorize that distribution, and deployment must finish. Current Moto does not certify attachment/auth enforcement. Do not disable BPA to hide an emulator403. SSE-KMS objects additionally need reviewed KMS key permission; this lab uses AES256/SSE-S3.
+👉 Asli AWS par OAC bana hona **aur** REST origin se juda hona chahiye, policy ko us distribution ko allow karna chahiye, aur deployment poora hona chahiye. Aaj ka Moto attachment/auth enforcement ka certificate nahi deta. Emulator ka 403 chhupane ke liye BPA band mat karo. SSE-KMS objects ko review ki KMS key permission bhi chahiye; yeh lab AES256/SSE-S3 use karti hai.
 
-## ex3 — inspect invalidation (no real cache)
+## ex3 — invalidation dekho (asli cache nahi)
 
 ```bash
 aws cloudfront get-invalidation --distribution-id "$DIST" --id "$INVALIDATION" --query 'Invalidation.{Id:Id,Status:Status,Paths:InvalidationBatch.Paths.Items}'
@@ -81,11 +81,11 @@ Asli output:
 {"Id":"VZ1QS14YC19DI","Status":"COMPLETED","Paths":["/img/kurta-red.jpg"]}
 ```
 
-👉 Metadata accepted; no real cached bytes evicted. On real AWS, create-invalidation then get-invalidation/wait invalidation-completed observes InProgress→Completed. Current Moto capitalizes COMPLETED; waiter would keep waiting. One probe-owned waiter was stopped; shared emulator remained running.
+👉 Metadata maana gaya; koi asli cached bytes nahi hate. Asli AWS par create-invalidation ke baad get-invalidation/wait invalidation-completed InProgress→Completed dikhata hai. Aaj ka Moto COMPLETED bade akshar mein deta hai; waiter wait karta hi rahega. Probe ka ek apna waiter roka gaya; shared emulator chalta raha.
 
-For planned frequent releases, versioned filenames plus promptly refreshed HTML/manifests usually avoid routine invalidations. Invalidation does not flush a browser/corporate cache. Pay-as-you-go first1,000 paths/tags/month free, then approx $0.005/path/tag; a wildcard path counts as one path. Check current plan/pricing.
+Baar-baar ki planned releases ke liye versioned filenames + jaldi refresh hone wale HTML/manifests aam taur par roz ki invalidations se bachate hain. Invalidation browser/office ka cache saaf nahi karti. Pay-as-you-go mein har mahine pehle 1,000 paths/tags free, phir lagbhag $0.005/path/tag; wildcard path ek hi path gina jaata hai. Aaj ka plan/pricing check karo.
 
-## ex4 — understand ETag/cache-policy limits
+## ex4 — ETag/cache-policy ki limits samjho
 
 Captured capability probes:
 
@@ -94,7 +94,7 @@ update-distribution --if-match STALE: accepted (exit0), ETag unchanged
 list-cache-policies --type managed: An error occurred (404) when calling the ListCachePolicies operation: Not Found
 ```
 
-👉 Real AWS stale ETag should return PreconditionFailed; re-read config, merge edits and retry with current ETag. In-app regression enforces the real precondition. Managed policy IDs in lab are actual documented IDs; current Moto does not validate/cache according to those policies. No latency/hit-ratio/cost measured.
+👉 Asli AWS mein purana ETag PreconditionFailed dena chahiye; config dobara padho, edits milao aur aaj ke ETag ke saath dobara try karo. App ka regression asli precondition laagu karta hai. Lab ke managed policy IDs asli likhe hue IDs hain; aaj ka Moto un policies ke hisaab se validate/cache nahi karta. Latency/hit-ratio/kharcha nahi naapa gaya.
 
 ## ex5 — scoped cleanup
 
@@ -111,6 +111,6 @@ false
 0
 ```
 
-👉 Enabled=false readback, then zero matching distribution, OAC and bucket. Cleanup gets current config/ETag, disables and detaches OAC, waits deployed, re-reads ETag, deletes distribution and OAC, deletes exact lab object/bucket. Other labs untouched; IDs archived in `.lab/last-cleaned-resources.sh`.
+👉 Enabled=false readback, phir match karne wala koi distribution, OAC ya bucket nahi. Cleanup aaj ka config/ETag leta hai, disable karke OAC alag karta hai, deployed ka wait karta hai, ETag dobara padhta hai, distribution aur OAC delete karta hai, exact lab object/bucket delete karta hai. Baaki labs ko chhoota nahi; IDs `.lab/last-cleaned-resources.sh` mein archive hoti hain.
 
-Real AWS optional sandbox work is billable and separate. Approve region/traffic/budget first; do not simply remove AWS_ENDPOINT_URL while dummy-lab commands are prepared. Related S3/WAF/log/plan features may have costs; no invented ordinary disabled-distribution reservation fee.
+Asli AWS ka optional sandbox kaam bill hone wala aur alag hai. Pehle region/traffic/budget ki manzoori lo; dummy-lab ke commands taiyaar hote hue sirf AWS_ENDPOINT_URL mat hatao. Jude S3/WAF/log/plan features ka kharcha ho sakta hai; band distribution par koi banayi hui reservation fee nahi.
