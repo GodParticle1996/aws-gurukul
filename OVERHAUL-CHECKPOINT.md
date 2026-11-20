@@ -67,6 +67,22 @@ Validation: full `node validate.js` **ALL CHECKS PASSED**, 39 levels/263 stages/
 
 Evidence: `.overhaul-evidence/review-fixes/{FULL-VALIDATE,LAB25-REPLAY,LAB25-CLEANUP-TESTS,CONTAINERS-BROWSER-LOG,IAC-BROWSER-LOG,COST-BROWSER-LOG}.txt`, corresponding browser JSON reports and screenshots. Representative screenshots: `review-fixes/iac-screenshots/terminal-solved-360.png`, `review-fixes/cost-screenshots/terminal-summary-360.png`, `review-fixes/containers-screenshots/terminal-solved-1280.png`. Original read-only report: `/tmp/aws-gurukul-review/REPORT.md`.
 
+## Advanced 8 `observability` loop completed (2026-11-20; master §5.C8)
+
+Claude ne Codex se kaam sambhalne ke baad yeh level banaya. Same id `observability`, nayi file `data-adv-8-observability.js`; purana block `data-advanced.js` se hataya; `index.html` aur `validate.js` DATA mein `cost` ke baad joda.
+
+1. Aath cards: metrics/logs/traces/SLI, metric namespace/dimension/agent, alarm states/M of N/missing data/p99/composite, log retention/metric filter (sirf aage ke events, defaultValue 0)/Insights/subscription/IA class, traces + X-Ray SDK maintenance, CloudTrail management vs data events + Config + CloudTrail Lake band, Flow Logs ke andhe hisse/Synthetics/RUM, observability ka kharcha.
+2. Naya `observability-cli.js` (`account.obsMode`): filter pattern engine (term + JSON), put/describe/delete/test-metric-filter, tay retention values (31 reject), Logs Insights ka chhota subset (fields/filter/stats/sort/limit), composite alarm rule parser + state. Metric alarms `capacity-cli.js` se hi.
+3. Main mission 11 commands: JSON pattern wala ERROR filter (INFO trap line nahi gini jaati), payment TIMEOUT query (pichhla 1 ghanta), app logs 30 din (audit 365 bacha), p99 alarm 3 of 5 (ALARM), errors alarm notBreaching, composite OR on-call topic ko, aakhir mein dono types ka read. Interview: heartbeat alarm ko breaching par theek karna.
+4. Flowlab: ek hafte ka fixed data, 4,000 knob states mein 708 jeet; Average kabhi nahi jeetta; 1-minute + breaching kabhi nahi jeetta.
+5. Lab28 asli Moto 5.2.4 par: 11 behaviour checks + cleanup. Moto ki kamiyan pakdi: retention 31 maan leta hai, metric filter se metric nahi, JSON pattern ignore, Insights stats nahi, p99 value nahi, alarm evaluate nahi, composite/alarm history 500. Average vs p99 aur M-of-N host par Python se.
+6. `validate-observability.js`: 4,082 checks (omissions, galat pattern/statistic/actions/AND rule/window/retention, manual state, purana read, parser errors, flowlab, 19 MCQs 0 length flags, positions 5/5/5/4).
+7. Browser walk 384 screens × 2 widths, 0 problems; intro/dry run/flowlab/terminal ki photo 1280/360 par dekhi.
+
+Sources (2026-11-20): [X-Ray SDK/Daemon timeline](https://docs.aws.amazon.com/xray/latest/devguide/xray-sdk-daemon-timeline.html), [CloudTrail Lake availability](https://docs.aws.amazon.com/awscloudtrail/latest/userguide/cloudtrail-lake-service-availability-change.html), [retention values](https://docs.aws.amazon.com/AmazonCloudWatchLogs/latest/APIReference/API_PutRetentionPolicy.html), [filter patterns](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/FilterAndPatternSyntax.html), [composite alarms](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Create_Composite_Alarm.html).
+
+Agla: Advanced 9 `migration` (§5.C9), lab29. Push nahi kiya.
+
 ## Advanced 7 `cost` loop completed (2026-10-28; master§5.C7)
 
 Predecessor IaC **83599cc**. User said Continue during cost audit. Same `cost` ID moved to `data-adv-7-cost.js`; legacy block removed and index/DATA registered. Local completion commit is the latest Cost commit in git log; no push/deployment.

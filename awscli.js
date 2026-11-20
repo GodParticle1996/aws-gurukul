@@ -508,6 +508,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.obsMode) {
+      print('sys', 'Observability fixture: aws logs describe-log-groups / put-retention-policy / delete-retention-policy / put-metric-filter / describe-metric-filters / delete-metric-filter / test-metric-filter / filter-log-events / start-query / get-query-results; aws cloudwatch put-metric-alarm / describe-alarms [--alarm-types MetricAlarm CompositeAlarm] / put-composite-alarm / delete-alarms / set-alarm-state / get-metric-statistics. ls/cat se files padho. Seeded TEST logs aur metrics; koi live ingestion ya notification delivery nahi.');
+      return;
+    }
     if (norm === 'help' && sim.account.iacMode) {
       print('sys', 'Terraform native-JSON fixture: init, validate, plan [-out=FILE] [-refresh-only] [-detailed-exitcode], apply FILE, apply -auto-approve, import ADDRESS ID, state list/show/pull/mv/rm, destroy -auto-approve.\nls; cat FILE; cp TEMPLATE main.tf.json; rm main.tf.json. Full HCL/provider process runs in lab26. State/plan/backend files are managed by the fixture; shell reset/force-unlock is not modeled.');
       return;
@@ -669,6 +673,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     // Scoped container fixture owns ecr/ecs plus its read-only iam/elbv2 views (its target groups are not the ALB lab's).
     if (sim.account.containerMode && AG.containerCLI && AG.containerCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.costMode && AG.costCLI && AG.costCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
+    if (sim.account.obsMode && AG.obsCLI && AG.obsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Fail before mutation on misspelled flags or stray positional values.
     if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {
       const specs = {

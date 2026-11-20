@@ -72,6 +72,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `25-ecs-fargate-service` | 📦 Containers | ECR immutable tags (latest bahar) + scan rule + lifecycle, execution vs task role, bina NAT private pull raasta, Fargate task definitions + circuit-breaker service; asli metadata par likha start contract; Moto preview/validation/no-task ki kamiyan saaf; Docker wala hissa Docker ka wait kar raha hai |
 | `26-terraform-drift-import` | 🏗️ IaC | asli Terraform SG drift/refresh-only/import/stale plan, HCL moved + native JSON ka barabar hona, prevent_destroy, S3 conditional lock ki takkar, asli TEST data + scoped cleanup |
 | `27-cost-waste-hunter` | 💰 Cost | apne asli CLI se EBS/snapshot/EIP/retention/Budget+SNS metadata, billing/subscriber/runtime ki saaf kamiyan, lagbhag EBS+IPv4 model aur baseline bachane wala cleanup |
+| `28-logs-metrics-alarms` | 👁️ Observability | apne Moto par retention (never expire → 30 din, audit 365), JSON metric filter, Logs Insights, p99 + errors alarms, manual state test; Moto ki filter-metric/JSON pattern/stats/p99/evaluation/composite ki kamiyan saaf; average vs p99 aur M-of-N host par |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 
