@@ -1,12 +1,12 @@
-# Lab12 — lifecycle, Object Lock, replication and archive restore
+# Lab12 — lifecycle, Object Lock, replication aur archive restore
 
-**Pain:** millions of tiny logs ka transition bill storage saving ko beat kar sakta hai. Default retention existing invoice versions retroactively lock nahi karti. Replication configuration is not proof of a DR copy. Actual CLI state inspect karo.
+**Pain:** lakhon chhote logs ka transition bill storage ki bachat se zyada ho sakta hai. Default retention purane invoice versions ko peeche jaa kar lock nahi karti. Replication ka config DR copy ka saboot nahi. Asli CLI state dekho.
 
-**Scope:** local Moto5.2.4 only. Three lab-owned buckets + one IAM role. Source Mumbai, destination us-east-1 metadata, separate lock bucket. Retention intentionally **GOVERNANCE1day**, so cleanup has an authorized bypass. Seven-year COMPLIANCE is taught/tested in-app; no long irreversible retention resource created here. No real AWS, shared reset or waiting days for lifecycle.
+**Scope:** sirf local Moto 5.2.4. Lab ke apne teen buckets + ek IAM role. Source Mumbai, destination us-east-1 metadata, alag lock bucket. Retention jaan-boojh kar **GOVERNANCE 1 day**, taaki cleanup ke paas allowed bypass ho. Saat saal ka COMPLIANCE app mein sikhaya/test kiya jaata hai; yahan koi lambi, wapas na ho sakne wali retention resource nahi banti. Asli AWS, shared reset ya lifecycle ke liye dino ka wait nahi.
 
-## Setup — isolated dummy environment
+## Setup — alag dummy environment
 
-Existing Moto ho toh start command skip karo.
+Moto pehle se chal raha ho toh start command skip karo.
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -22,9 +22,9 @@ bash setup.sh
 source .lab/resources.sh
 ```
 
-Loopback4566 + dummy test keys required; no `~/.aws` writes. Setup tracks only successfully created resources, saves IDs on partial failure. Existing `.lab/resources.sh` means clean previous run first. Scripts are readable; generated names/UUIDs vary.
+Loopback 4566 + dummy test keys chahiye; `~/.aws` mein kuch nahi likha jaata. Setup sirf safal bane resources track karta hai, beech mein fail ho toh IDs save karta hai. `.lab/resources.sh` pehle se ho toh pehle pichhla run saaf karo. Scripts padhne layak hain; bane naam/UUIDs badalte rehte hain.
 
-## ex1 — why replication needs versioning
+## ex1 — replication ko versioning kyun chahiye
 
 Before `exercises.sh`, run:
 
@@ -34,15 +34,15 @@ cat .lab/replication.json
 aws s3api put-bucket-replication --bucket "$SRC" --replication-configuration file://.lab/replication.json
 ```
 
-Asli capability probe before versioning:
+Versioning se pehle asli capability probe:
 
 ```text
 An error occurred (InvalidRequest) when calling the PutBucketReplication operation: Versioning must be 'Enabled' on the bucket to apply a replication configuration
 ```
 
-👉 Source and destination must be versioned. Source Object Lock enabled ho toh destination lock enabled and role needs GetObjectRetention/GetObjectLegalHold too. Setup creates service trust and scoped role policy; normal Moto does not certify complete IAM enforcement. SSE-KMS/cross-account designs need additional reviewed permissions.
+👉 Source aur destination dono versioned hone chahiye. Source par Object Lock on ho toh destination par bhi lock on chahiye, aur role ko GetObjectRetention/GetObjectLegalHold bhi chahiye. Setup service trust aur scoped role policy banata hai; normal Moto poore IAM enforcement ka certificate nahi deta. SSE-KMS/cross-account designs ko extra review ki permissions chahiye.
 
-## ex2 — apply metadata, read back the limits
+## ex2 — metadata lagao, limits wapas padho
 
 ```bash
 cat lifecycle.json
@@ -50,7 +50,7 @@ bash exercises.sh
 source .lab/resources.sh
 ```
 
-Script enables versioning; source/DR Object Lock with no blanket default; separate lock bucket uses1day governance. Lifecycle has separate large-log transitions, noncurrent cleanup and abort-multipart rules. Replication filters invoices/; existing objects still need Batch Replication on real AWS.
+Script versioning on karti hai; source/DR par Object Lock bina blanket default ke; alag lock bucket 1 din ka governance use karta hai. Lifecycle mein bade logs ke alag transitions, noncurrent cleanup aur abort-multipart rules hain. Replication invoices/ ko filter karta hai; asli AWS par purane objects ke liye Batch Replication phir bhi chahiye.
 
 Asli output excerpts:
 
@@ -62,9 +62,9 @@ Asli output excerpts:
 ]}
 ```
 
-👉 Current Moto drops `ObjectSizeGreaterThan` from the submitted And filter. Default-size header and remaining rule metadata persist; full size-filter enforcement and age-driven transitions are **unverified**. Compare input lifecycle.json against readback; do not claim the emulator ran180days of aging.
+👉 Aaj ka Moto bheje gaye And filter se `ObjectSizeGreaterThan` gira deta hai. Default-size header aur baaki rule metadata bache rehte hain; poora size-filter enforcement aur umar se chalne wale transitions **check nahi hue**. Bheje lifecycle.json ko readback se compare karo; yeh daava mat karo ki emulator ne 180 din ki umar chalayi.
 
-Intelligent-Tiering probe result:
+Intelligent-Tiering probe ka result:
 
 ```text
 An error occurred (IllegalLocationConstraintException) when calling the PutBucketIntelligentTieringConfiguration operation: The unspecified location constraint is incompatible for the region specific endpoint this request was sent to.
@@ -75,44 +75,44 @@ Known current Moto Intelligent-Tiering API gap; no tiering behavior claimed.
 {"IntelligentTieringConfiguration":{}}
 ```
 
-👉 Current installed Moto lacks this configuration handler. Empty get response is not a valid saved tiering rule. Script recognizes only the observed failure; unexpected errors stop the exercise. Real AWS class selection vs optional archive-tier configuration are separate decisions; bucket configuration alone does not convert Standard objects.
+👉 Aaj ke installed Moto mein yeh config handler nahi hai. Khaali get response sahi save hua tiering rule nahi. Script sirf dekhi hui failure pehchanti hai; anjaane errors exercise rok dete hain. Asli AWS mein class chunna aur optional archive-tier config alag faisle hain; sirf bucket config Standard objects ko badalta nahi.
 
-After upload, DR `list-object-versions --prefix invoices/` returned no versions (Prefix only). Config persisted, asynchronous replication worker/copies did not run. No measured RTC/RPO guarantee.
+Upload ke baad DR `list-object-versions --prefix invoices/` ne koi version nahi diya (sirf Prefix). Config bacha raha, par async replication worker/copies nahi chale. Koi naapi RTC/RPO guarantee nahi.
 
 ## ex3 — locked version vs delete marker vs legal hold
 
-`exercises.sh` performs these operations with the saved version:
+`exercises.sh` save kiye version ke saath yeh operations karta hai:
 
 ```bash
 aws s3api head-object --bucket "$LOCK" --key invoices/locked.txt --version-id "$LOCK_VERSION" --query '{Mode:ObjectLockMode,Until:ObjectLockRetainUntilDate}'
 aws s3api delete-object --bucket "$LOCK" --key invoices/locked.txt --version-id "$LOCK_VERSION"
 ```
 
-Asli outcomes: Mode=GOVERNANCE with retain-until timestamp1day ahead, then:
+Asli results: Mode=GOVERNANCE, retain-until timestamp 1 din aage, phir:
 
 ```text
 An error occurred (AccessDenied) when calling the DeleteObject operation: Access Denied
 ```
 
-Script adds legal hold ON, reads `{"LegalHold":{"Status":"ON"}}`, then a version delete **with** `--bypass-governance-retention` still gets AccessDenied. Legal hold independent hai. Hold OFF ke baad script simple delete without version adds a marker:
+Script legal hold ON karti hai, `{"LegalHold":{"Status":"ON"}}` padhti hai, phir `--bypass-governance-retention` **ke saath** version delete karne par bhi AccessDenied aata hai. Legal hold alag cheez hai. Hold OFF ke baad script bina version ke simple delete karti hai, jo ek marker jodta hai:
 
 ```json
 {"Versions":1,"Markers":1}
 ```
 
-👉 Protected version still exists; newest marker can hide the key from ordinary latest-version GET. Lock prevents permanent protected-version deletion, not all visibility changes. In real AWS governance bypass requires permission **and** request flag; COMPLIANCE cannot be bypassed/shortened even by root during retention.
+👉 Protected version abhi bhi hai; sabse naya marker aam latest-version GET se key chhupa sakta hai. Lock protected version ka hamesha ke liye delete rokta hai, har tarah ka dikhna badalna nahi. Asli AWS mein governance bypass ke liye permission **aur** request flag dono chahiye; retention ke dauran COMPLIANCE ko root bhi bypass/chhota nahi kar sakta.
 
-Current `get-object-retention` capability probe returned500. Use the successful HeadObject lock metadata in this lab; do not retry that unsupported call repeatedly. In-app engine implements correct get-retention behavior.
+Aaj ke `get-object-retention` capability probe ne 500 diya. Is lab mein safal HeadObject lock metadata use karo; woh unsupported call baar-baar retry mat karo. App ka engine sahi get-retention behaviour chalata hai.
 
-## ex4 — restore archived bytes, not a new permanent storage class
+## ex4 — archive hue bytes restore karo, naya permanent storage class nahi
 
-Script creates GLACIER object; GET before restore fails:
+Script GLACIER object banati hai; restore se pehle GET fail hota hai:
 
 ```text
 An error occurred (InvalidObjectState) when calling the GetObject operation: The operation is not valid for the object's storage class
 ```
 
-Actual command sequence (script already executed it):
+Asli command sequence (script pehle hi chala chuki hai):
 
 ```bash
 aws s3api restore-object --bucket "$SRC" --key archive/history.txt --version-id "$ARCHIVE_VERSION" --restore-request 'Days=2,GlacierJobParameters={Tier=Standard}'
@@ -121,29 +121,29 @@ aws s3api get-object --bucket "$SRC" --key archive/history.txt --version-id "$AR
 cmp .lab/invoice.txt .lab/restored.txt
 ```
 
-Asli head: StorageClass remains GLACIER, Restore contains `ongoing-request="false"` and a two-day expiry. `cmp` passes:
+Asli head: StorageClass GLACIER hi rehta hai, Restore mein `ongoing-request="false"` aur do din ki expiry hai. `cmp` pass hota hai:
 
 ```text
 Restored Moto object bytes match original; no real archive delay measured.
 ```
 
-👉 Moto restores immediately. Real Flexible/Deep archive restore takes selected-tier time; temporary readable copy does not reclassify original archive. Poll Restore metadata until complete, then verify bytes/version. No fake `restore-completed` S3 waiter exists in this course.
+👉 Moto turant restore kar deta hai. Asli Flexible/Deep archive restore chune tier ka time leta hai; thodi der ki padhne layak copy asli archive ki class nahi badalti. Restore metadata poll karo jab tak complete na ho, phir bytes/version check karo. Is course mein koi nakli `restore-completed` S3 waiter nahi.
 
-## ex5 — cleanup only saved resources
+## ex5 — sirf save hue resources ka cleanup
 
 ```bash
 bash cleanup.sh
 ```
 
-Asli output ends with two empty lists:
+Asli output do khaali lists ke saath khatam hota hai:
 
 ```text
 []
 []
 ```
 
-👉 Saved bucket names and role absent. Script enumerates exact versions/markers, bypasses only lab governance retention after exercise removed legal hold, deletes owned buckets then inline policy/role. No shared emulator reset. IDs/creation flags archive in `.lab/last-cleaned-resources.sh`.
+👉 Save hue bucket naam aur role ab nahi hain. Script exact versions/markers ginti hai, exercise ke legal hold hatane ke baad sirf lab ki governance retention bypass karti hai, apne buckets delete karti hai, phir inline policy/role. Shared emulator reset nahi. IDs/creation flags `.lab/last-cleaned-resources.sh` mein archive hote hain.
 
-If interrupted with legal hold ON, inspect and explicitly remove only the lab version's hold before cleanup; hold bypass is intentionally unavailable. Run the same put-object-legal-hold command with Status=OFF and saved version. Existing datasets/policies remain untouched.
+Legal hold ON ke saath beech mein ruk jaaye toh cleanup se pehle dekh kar sirf lab version ka hold saaf taur par hatao; hold ka bypass jaan-boojh kar nahi diya gaya. Wahi put-object-legal-hold command Status=OFF aur save hue version ke saath chalao. Pehle se bane datasets/policies ko chhoota nahi jaata.
 
-Real AWS work is optional, billable and separate. Never test seven-year COMPLIANCE on a resource you expect to delete today. Storage class is a cost/retrieval choice; WORM requires retention settings and protected encryption-key access too.
+Asli AWS ka kaam optional, bill hone wala aur alag hai. Jis resource ko aaj delete karna hai, us par kabhi saat saal ka COMPLIANCE test mat karo. Storage class kharche/retrieval ka chunav hai; WORM ke liye retention settings aur protected encryption-key access bhi chahiye.
