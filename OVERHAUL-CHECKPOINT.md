@@ -67,6 +67,21 @@ Validation: full `node validate.js` **ALL CHECKS PASSED**, 39 levels/263 stages/
 
 Evidence: `.overhaul-evidence/review-fixes/{FULL-VALIDATE,LAB25-REPLAY,LAB25-CLEANUP-TESTS,CONTAINERS-BROWSER-LOG,IAC-BROWSER-LOG,COST-BROWSER-LOG}.txt`, corresponding browser JSON reports and screenshots. Representative screenshots: `review-fixes/iac-screenshots/terminal-solved-360.png`, `review-fixes/cost-screenshots/terminal-summary-360.png`, `review-fixes/containers-screenshots/terminal-solved-1280.png`. Original read-only report: `/tmp/aws-gurukul-review/REPORT.md`.
 
+## Advanced 9b `analytics` loop completed (2026-11-20; master §5.C9b, naya level)
+
+Naya level id `analytics` (user ne Round 1 mein chuna tha), file `data-adv-10-analytics.js`, `migration` aur `finalboss` ke beech. Naya hero diagram `VISUALS.analytics`, naya Decision Dojo tree `analytics` (Athena / zero-ETL Redshift / Redshift / EMR / OpenSearch / Quick Sight; 5 scenarios), aur `stream` tree ke levels mein `analytics` joda. Certificate levels khud ginta hai (ab 40 levels).
+
+1. Aath cards: OLTP vs OLAP, lake zones + formats (Iceberg/S3 Tables), partition + columnar, Glue crawler/Catalog/ETL + partition projection, Athena bill ($5/TB, 10 MB min, DDL/fail free) + workgroup limit, Lake Formation, streaming ingest (Firehose/KDS/MSK), warehouse aur tools (Redshift, zero-ETL, EMR, QuickSight ab AWS Quick Sight, OpenSearch).
+2. Naya `analytics-cli.js` (`account.lakeMode`): Glue database/crawler/tables/partitions, Athena workgroups (enforce + BytesScannedCutoffPerQuery), chhota SQL subset (SELECT/WHERE dt/GROUP BY/ORDER BY/LIMIT, MSCK REPAIR, SHOW PARTITIONS), scan bytes ka model (CSV poora, Parquet sirf columns), limit par CANCELLED.
+3. Main mission 9 commands: shop_lake, crawler, analysts workgroup, 7 din ki state+SKU report ≈210 MB. Interview: gayab partition MSCK REPAIR se.
+4. Flowlab: 8 states mein ek jeet (Parquet + dt partition + 3 columns ≈ ₹554/mahina).
+5. Lab30: Firehose → raw, host ETL → dt= CSV partitions (pyarrow nahi), Glue catalog + batch-create-partition, Athena workgroup; Moto ki Firehose prefix/crawler/Athena SQL kamiyan; jawaab aur pruning host par. 6 checks + cleanup.
+6. `validate-analytics.js`: 69 checks; browser walk 399 screens × 2 widths, 0 problems.
+
+Sources (2026-11-20): [Athena pricing](https://aws.amazon.com/athena/pricing/), [Redshift zero-ETL](https://docs.aws.amazon.com/redshift/latest/mgmt/zero-etl-using.html), [AWS Quick (QuickSight)](https://docs.aws.amazon.com/quick/latest/userguide/what-is.html), [Athena partitions](https://docs.aws.amazon.com/athena/latest/ug/partitions.html), [workgroup limits](https://docs.aws.amazon.com/athena/latest/ug/workgroups-setting-control-limits-cloudwatch.html).
+
+Agla: Advanced 9c `appai` (§5.C9c), lab31. Push nahi kiya.
+
 ## Advanced 9 `migration` loop completed (2026-11-20; master §5.C9)
 
 Same id `migration`, nayi file `data-adv-9-migration.js`; purana block hataya; `observability` ke baad register kiya.

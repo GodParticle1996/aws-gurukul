@@ -284,7 +284,7 @@ resource "aws_sqs_queue" "orders" {
     title: 'Streaming data — Kinesis Data Streams, Firehose ya MSK (Kafka)?',
     short: 'Streaming chuno',
     tldr: 'Data ko bas S3/Redshift/OpenSearch/Splunk tak pahunchana hai → Firehose (no shards, near real-time). Custom real-time consumers + replay → Kinesis Data Streams. Kafka API/ecosystem chahiye → MSK.',
-    levels: ['sqssns', 'logsetl'],
+    levels: ['sqssns', 'logsetl', 'analytics'],
     start: 'q1',
     nodes: {
       q1: {

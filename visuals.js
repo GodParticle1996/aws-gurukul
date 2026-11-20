@@ -405,6 +405,29 @@ const VISUALS = {
     html: `<div class="dg-ladder"><div class="dg-rung g"><span class="lv">1</span><span class="cmd">Measure</span><span class="q">Usage quantity × rate; cost per successful order</span></div><div class="dg-rung a"><span class="lv">2</span><span class="cmd">Preserve</span><span class="q">Data, recovery, HA, performance, retention</span></div><div class="dg-rung g"><span class="lv">3</span><span class="cmd">Reduce waste</span><span class="q">Approved idle inventory, gp3, network paths, dev schedules</span></div><div class="dg-rung a"><span class="lv">4</span><span class="cmd">Commit baseline</span><span class="q">Hourly eligibility + downturn + unused minimum</span></div><div class="dg-rung g"><span class="lv">5</span><span class="cmd">Govern</span><span class="q">Activated tags, Budget receiver, delayed billing review</span></div></div><div class="dg-cap">Compute SP up to66%; EC2 Instance SP up to72%; eligible Database SP up to35%. Advertised ceilings are not guaranteed savings. Spot needs fault tolerance. Budget is delayed tracking, not a universal real-time spend cap.</div>`,
   },
 
+  analytics: {
+    t: 'Analytics — OLTP se alag data lake, sahi layout, sahi tool',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-node" data-hs="oltp"><span class="ni">🗄️</span><span class="nl">Orders RDS</span><span class="ns">OLTP, checkout</span></div>
+          <div class="dg-node is-gold" data-hs="stream"><span class="ni">🚒</span><span class="nl">Firehose / Kinesis</span><span class="ns">streaming ingest</span></div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">copy</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node is-accent" data-hs="raw"><span class="ni">🪣</span><span class="nl">S3 raw</span><span class="ns">jaisa aaya</span></div>
+          <div class="dg-node is-good" data-hs="curated"><span class="ni">🧱</span><span class="nl">S3 curated</span><span class="ns">Parquet, dt=</span></div>
+          <div class="dg-node" data-hs="catalog"><span class="ni">📚</span><span class="nl">Glue Catalog</span><span class="ns">tables, partitions</span></div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">query</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node is-good" data-hs="athena"><span class="ni">🔎</span><span class="nl">Athena</span><span class="ns">$ per TB scanned</span></div>
+          <div class="dg-node" data-hs="redshift"><span class="ni">🏭</span><span class="nl">Redshift</span><span class="ns">BI warehouse</span></div>
+          <div class="dg-node is-gold" data-hs="quick"><span class="ni">📈</span><span class="nl">Quick Sight</span><span class="ns">dashboards</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>OLTP</b> (checkout DB) par report mat chalao. Copy S3 lake mein: <b>raw</b> bachao, <b>curated</b> Parquet + <b>dt</b> partitions. <b>Glue Catalog</b> batata hai data kahan hai. <b>Athena</b> scan par bill karta hai, isliye layout hi bachat hai. Lagatar BI ke liye <b>Redshift</b>, access ke liye <b>Lake Formation</b>.</div>`,
+  },
   observability: {
     t: 'Observability — metrics, logs, traces, audit',
     html: `

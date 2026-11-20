@@ -417,4 +417,52 @@ AG.registerDecisions([
       { s: 'API Gateway REST API ka GET /exchange-rates har request par Lambda chalata hai; rate 5 minute mein ek baar badalta hai.', answer: 'apigwc', explain: 'Same response baar-baar → API Gateway stage cache (TTL 300 s).' },
     ],
   },
+  /* ------------------------------------------------------------------ */
+  {
+    id: 'analytics',
+    icon: '📊',
+    title: 'Data ka sawaal kahan chalaun? — Athena, Redshift (zero-ETL), EMR, OpenSearch, Quick Sight',
+    short: 'Analytics tool',
+    tldr: 'Kabhi-kabhi S3 par SQL → Athena. Lagatar BI, bahut users, bade joins → Redshift (DBs se bina pipeline → zero-ETL). Bade custom Spark/Hadoop jobs → EMR. Text search ya log search → OpenSearch. Business dashboards → QuickSight (ab AWS Quick Sight). Checkout DB (OLTP) par reports mat chalao.',
+    levels: ['analytics', 'logsetl', 'datastore'],
+    start: 'q1',
+    nodes: {
+      q1: {
+        q: 'Sabse pehle kya chahiye?',
+        options: [
+          { t: 'SQL reports / sawaal ke jawaab (GROUP BY, joins)', next: 'q2' },
+          { t: 'Bade custom data jobs (Spark, ML ke liye data taiyaar karna)', next: 'emr' },
+          { t: 'Text search ya logs mein dhoondhna', next: 'search' },
+          { t: 'Business users ke liye dashboards', next: 'quick' },
+        ],
+      },
+      q2: {
+        q: 'Query kitni baar aur kitne log chalate hain?',
+        options: [
+          { t: 'Kabhi-kabhi, data S3 mein hai, server manage nahi karna', next: 'athena' },
+          { t: 'Din bhar, bahut users, bade joins aur tez dashboards', next: 'q3' },
+        ],
+      },
+      q3: {
+        q: 'Data mostly kahan se aata hai?',
+        options: [
+          { t: 'Aurora / RDS / DynamoDB, aur pipeline nahi banani', next: 'zeroetl' },
+          { t: 'S3 lake aur kai sources, ETL ke saath', next: 'redshift' },
+        ],
+      },
+      athena: { leaf: true, icon: '🔎', pick: 'Amazon Athena', one: 'Serverless SQL seedha S3 par; Glue Data Catalog se tables; bill scan hue data par.', why: 'Kabhi-kabhi ki queries ke liye koi cluster chalu nahi rakhna padta.', when: ['Logs/exports par ad-hoc SQL', 'Data lake ki weekly reports', 'CloudTrail/ALB logs ki jaanch'], avoid: ['Din bhar sainkdon users ki BI (Redshift)', 'Chhoti latency wale app queries (OLTP DB)'], gotchas: ['Partition + Parquet + sirf zaroori columns, warna poora scan', 'Workgroup mein per-query scan limit lagao', 'Naye partitions catalog mein (crawler/MSCK/projection)'], cost: 'Lagbhag $5 per TB scanned, har query kam se kam 10 MB.', exam: '"query data in S3 with SQL", "serverless", "pay per query" → Athena.', level: 'analytics' },
+      zeroetl: { leaf: true, icon: '🔁', pick: 'Redshift + zero-ETL integration', one: 'Aurora, RDS aur DynamoDB ka data Redshift mein lagbhag real-time, bina ETL pipeline ke.', why: 'Pipeline banana aur sambhalna khatam; warehouse taaza rehta hai.', when: ['Orders DB par lagatar BI', 'Operational analytics, kuch second purana data chalega'], avoid: ['Source jo supported nahi (docs mein list dekho)', 'Kabhi-kabhi ki query (Athena sasta)'], gotchas: ['Supported engines/versions aur Regions dekho', 'Redshift ka compute bill alag'], cost: 'Integration ke saath Redshift (Serverless RPU ya provisioned) ka bill.', exam: '"near real-time analytics on Aurora/RDS data", "no ETL" → zero-ETL to Redshift.', level: 'analytics' },
+      redshift: { leaf: true, icon: '🏭', pick: 'Amazon Redshift (Serverless / provisioned) + Spectrum', one: 'Columnar data warehouse: bade joins, bahut users, BI; Spectrum S3 lake bhi padhta hai.', why: 'Lagatar, bhaari BI ke liye warehouse tez aur predictable hai.', when: ['Din bhar dashboards, bahut analysts', 'Petabyte tak ka warehouse'], avoid: ['Kabhi-kabhi ki ek query', 'Transactions/checkout DB'], gotchas: ['Distribution/sort keys (provisioned) ya Serverless capacity socho', 'Data lane ka tareeka: COPY, zero-ETL, Spectrum'], cost: 'Serverless: RPU-hours; provisioned: node-hours.', exam: '"data warehouse", "complex joins", "BI at scale" → Redshift.', level: 'analytics' },
+      emr: { leaf: true, icon: '⚙️', pick: 'Amazon EMR (ya EMR Serverless)', one: 'Managed Spark/Hadoop/Hive/Presto clusters bade custom data jobs ke liye.', why: 'Apna Spark code, libraries aur cluster ka control chahiye.', when: ['Bada Spark ETL, ML features banana', 'Hadoop ecosystem se migration'], avoid: ['Simple SQL report (Athena)', 'Chhota ETL (Glue job kaafi)'], gotchas: ['Cluster band karna mat bhoolo (ya Serverless)', 'Spot instances task nodes ke liye'], cost: 'EC2 + EMR fee per instance-hour, ya Serverless per vCPU/GB-hour.', exam: '"Hadoop", "Spark cluster", "big data processing framework" → EMR.', level: 'analytics' },
+      search: { leaf: true, icon: '🔍', pick: 'Amazon OpenSearch Service', one: 'Full-text search, log analytics aur dashboards (OpenSearch Dashboards).', why: 'Text search aur log search ke liye index bana hua hai.', when: ['Product search box', 'Logs mein turant dhoondhna'], avoid: ['Bade SQL joins/BI (Redshift/Athena)', 'System of record (asli data kahin aur rakho)'], gotchas: ['Shards/storage ki planning', 'Logs ke liye retention aur UltraWarm/cold tiers'], cost: 'Instance-hours + storage (ya Serverless OCU).', exam: '"full-text search", "log analytics with dashboards" → OpenSearch.', level: 'logsetl' },
+      quick: { leaf: true, icon: '📈', pick: 'Amazon QuickSight (ab AWS Quick Sight)', one: 'Business dashboards aur reports; Athena, Redshift, RDS waghera se jodta hai.', why: 'Business users ko bina SQL ke charts aur dashboards.', when: ['Har hafte ki sales dashboard', 'Management reports'], avoid: ['Data ka transform/ETL (Glue)', 'Bina saaf data source ke dashboard'], gotchas: ['Naam badla: QuickSight → AWS Quick Sight (AWS Quick ka hissa); exam purana naam le sakta hai', 'SPICE ya direct query, data ke size ke hisaab se'], cost: 'Per user/reader pricing (aaj ka plan dekho).', exam: '"BI dashboards", "visualize data for business users" → QuickSight.', level: 'analytics' },
+    },
+    scenarios: [
+      { s: 'S3 mein pade ALB logs par mahine mein 3–4 baar SQL chalani hai, koi cluster nahi chahiye.', answer: 'athena', explain: 'Kabhi-kabhi ki S3 SQL → Athena (per TB scanned).' },
+      { s: 'Aurora orders data par din bhar 50 analysts dashboards chalate hain; ETL pipeline nahi banani.', answer: 'zeroetl', explain: 'Aurora → Redshift zero-ETL, bina pipeline ke taaza warehouse.' },
+      { s: 'Har raat 5 TB raw data par custom Spark job ML features banata hai.', answer: 'emr', explain: 'Custom Spark ke liye EMR (ya EMR Serverless).' },
+      { s: 'Product catalog mein typo ke saath bhi search chahiye.', answer: 'search', explain: 'Full-text search → OpenSearch.' },
+      { s: 'Management ko har Monday sales ka chart chahiye, bina SQL likhe.', answer: 'quick', explain: 'Business dashboards → QuickSight (ab AWS Quick Sight).' },
+    ],
+  },
 ]);

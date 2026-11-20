@@ -74,6 +74,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `27-cost-waste-hunter` | 💰 Cost | apne asli CLI se EBS/snapshot/EIP/retention/Budget+SNS metadata, billing/subscriber/runtime ki saaf kamiyan, lagbhag EBS+IPv4 model aur baseline bachane wala cleanup |
 | `28-logs-metrics-alarms` | 👁️ Observability | apne Moto par retention (never expire → 30 din, audit 365), JSON metric filter, Logs Insights, p99 + errors alarms, manual state test; Moto ki filter-metric/JSON pattern/stats/p99/evaluation/composite ki kamiyan saaf; average vs p99 aur M-of-N host par |
 | `29-migration-cutover` | 🚚 Migration | SQLite "on-prem" se Moto DynamoDB: full load, triggers wala change log, idempotent CDC replay, checksum validation, cutover runbook; NAS folder ka aws s3 sync (delta); Moto DMS sirf metadata (statistics/modify 500) |
+| `30-data-lake-athena` | 📊 Analytics | Firehose se raw zone, host ETL se dt= partitions (CSV; pyarrow nahi), Glue catalog + batch-create-partition, Athena workgroup scan limit; Moto ki Firehose prefix/crawler/Athena SQL kamiyan saaf, jawaab aur pruning host par |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 
