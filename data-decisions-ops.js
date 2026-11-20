@@ -20,7 +20,7 @@ AG.registerDecisions([
       q1: {
         q: 'Business kitni der downtime bardasht kar sakta hai (RTO)?',
         why: 'RTO = disaster ke baad app wapas chalne tak ka time. RPO = disaster se kitna pehle tak ka data bachna chahiye. Example: RPO 1 ghanta = last 1 ghante ka data kho bhi gaya toh chalega.',
-        hint: 'Misaal: dukaan jal gayi. RTO = nayi dukaan kitne din mein khulni chahiye. RPO = bahi-khata kitne din purana mile toh chalega.',
+        hint: 'Example: dukaan jal gayi. RTO = nayi dukaan kitne din mein khulni chahiye. RPO = bahi-khata kitne din purana mile toh chalega.',
         options: [
           { t: 'Ghante se din (internal tools, reports)', next: 'q2' },
           { t: '10 minute se 1 ghanta', next: 'pilot' },
