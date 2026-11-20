@@ -1,10 +1,10 @@
 # 08 — ShopKaro ka first three-tier review, Terraform se
 
 **Problem:** demo ke diagram mein ALB, EC2 aur RDS boxes hain. Diagram redundancy, scoped access aur egress prove nahi karta.
-**Goal:** two-AZ network + ALB + ASG + private encrypted RDS + private S3 + instance role banao. API state review karo; phir same state se destroy karo.
+**Goal:** do AZ ka network + ALB + ASG + private encrypted RDS + private S3 + instance role banao. API state review karo; phir usi state se destroy karo.
 
 Moto **5.2.4**, Terraform **1.17.0**, AWS provider **6.70.0** par 2026-10-25 ko commands run hue.
-Terraform ka basic workflow: `plan` proposed changes dikhata hai; `apply` resources banata hai; state resource IDs track karti hai; `destroy` tracked resources delete karta hai. Advanced IaC level workflow detail cover karega.
+Terraform ka basic workflow: `plan` hone wale changes dikhata hai; `apply` resources banata hai; state resource IDs track karti hai; `destroy` track kiye resources delete karta hai. Advanced IaC level is workflow ki details sikhayega.
 
 ## Setup — ek hi terminal
 
@@ -23,9 +23,9 @@ unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SESSION_TOKEN
 export TF_VAR_moto_ami_id=$(aws ec2 describe-images --query 'Images[0].ImageId' --output text)
 ```
 
-Terraform already installed hona chahiye. `main.tf` provider **loopback 127.0.0.1:4566** aur dummy `test` keys par pinned hai.
-Real AWS ke liye endpoint/key lines remove karke configuration blindly deploy mat karo. AMI Moto metadata hai; production AMI selection alag hai.
-No `~/.aws` writes ya role profiles. Fixed lab names ke existing resources milen toh pehle original lab state se cleanup karo; shared emulator reset mat karo.
+Terraform pehle se installed hona chahiye. `main.tf` ka provider **loopback 127.0.0.1:4566** aur dummy `test` keys par pinned hai.
+Asli AWS ke liye endpoint/key lines hata kar config bina soche deploy mat karo. AMI Moto ka metadata hai; production AMI chunna alag kaam hai.
+`~/.aws` mein kuch nahi likha jaata, na role profiles use hote hain. Lab ke fixed naamon wale resources pehle se milen toh pehle purane lab state se cleanup karo; shared emulator reset mat karo.
 
 ## ex1 — Init, format aur validation
 
@@ -35,13 +35,13 @@ terraform fmt -check
 terraform validate
 ```
 
-**Asli output** (format successful hone par output nahi):
+**Asli output** (format safal ho toh koi output nahi):
 
 ```text
 Success! The configuration is valid.
 ```
 
-👉 Six subnets: two public ALB/NAT, two private app, two isolated DB. Public subnet ka route IGW tak hai; `MapPublicIpOnLaunch=false` routing ko private nahi banata. DB subnets main local-only table inherit karte hain.
+👉 Chhe subnets: do public ALB/NAT, do private app, do alag DB. Public subnet ka route IGW tak hai; `MapPublicIpOnLaunch=false` routing ko private nahi banata. DB subnets main local-only table inherit karte hain.
 
 ## ex2 — Plan dekho, phir apply karo
 
@@ -50,18 +50,18 @@ terraform plan -out=.lab/plan
 terraform apply .lab/plan
 ```
 
-**Asli output excerpts** (capture used noninteractive apply of the reviewed saved plan):
+**Asli output ke hisse** (capture mein review kiye saved plan ka noninteractive apply use hua):
 
 ```text
 Plan: 39 to add, 0 to change, 0 to destroy.
 Apply complete! Resources: 39 added, 0 changed, 0 destroyed.
 ```
 
-ALB listener HTTP/80 **metadata exercise** hai. Real customer traffic ke liye ACM certificate + HTTPS/443 listener aur HTTP redirect chahiye. Moto EC2 par app install/run nahi hota; ALB DNS ko working storefront mat samjho.
-SG chain: ALB80 from internet → app8080 from ALB SG → PostgreSQL5432 from app SG. App HTTPS egress NAT se hai. DB ko internet default route nahi diya.
-Instance role `catalog/*` objects ka GetObject deta hai; DB master secret app ko nahi diya. Real application ko separate least-privilege DB user/secret do.
+ALB listener HTTP/80 ek **metadata exercise** hai. Asli customer traffic ke liye ACM certificate + HTTPS/443 listener aur HTTP redirect chahiye. Moto EC2 par app install/run nahi hota; ALB DNS ko chalta hua storefront mat samjho.
+SG chain: internet se ALB 80 → ALB SG se app 8080 → app SG se PostgreSQL 5432. App ka HTTPS egress NAT se jaata hai. DB ko internet ka default route nahi diya.
+Instance role `catalog/*` objects par GetObject deta hai; DB master secret app ko nahi diya. Asli application ko alag least-privilege DB user/secret do.
 
-## ex3 — Five rules ko actual API state par review karo
+## ex3 — Paanch rules ko asli API state par review karo
 
 ```bash
 python3 -I review.py
@@ -81,7 +81,7 @@ python3 -I review.py
 }
 ```
 
-👉 Review script Terraform output IDs se scoped CLI queries chalata hai. Script SSH exposure, DB SG source, Multi-AZ, ASG private subnet AZs, four BPA flags, app routes aur seven-day backups assert karta hai. Failed check actual values print karke nonzero exit deta hai. API configuration packet delivery, SQL correctness ya a working checkout prove nahi karti.
+👉 Review script Terraform output IDs se scoped CLI queries chalati hai. Script SSH exposure, DB SG ka source, Multi-AZ, ASG ke private subnet AZs, chaar BPA flags, app routes aur saat din ke backups assert karti hai. Fail check asli values print karke nonzero exit deta hai. API config packet delivery, SQL ka sahi hona ya chalta checkout prove nahi karta.
 
 ## ex4 — Repeat plan mein drift dekho
 
@@ -95,7 +95,7 @@ terraform plan -detailed-exitcode
 No changes. Your infrastructure matches the configuration.
 ```
 
-Exit 0 = no changes; 2 = proposed changes; 1 = error. Console se resource edit karoge toh plan drift show kar sakta hai. State file delete karna recovery/cleanup strategy nahi hai.
+Exit 0 = koi change nahi; 2 = changes aane wale hain; 1 = error. Console se resource edit karoge toh plan drift dikha sakta hai. State file delete karna recovery/cleanup ka tareeka nahi.
 
 ## ex5 — Apne tracked resources destroy karo
 
@@ -107,7 +107,7 @@ aws autoscaling describe-auto-scaling-groups --auto-scaling-group-names shopkaro
 aws rds describe-db-instances --query 'DBInstances[?DBInstanceIdentifier==`shopkaro-lab08`].DBInstanceIdentifier'
 ```
 
-**Asli output** (capture used `terraform destroy -auto-approve` after reviewing the plan):
+**Asli output** (capture mein plan review karne ke baad `terraform destroy -auto-approve` use hua):
 
 ```text
 Destroy complete! Resources: 39 destroyed.
@@ -116,13 +116,13 @@ Destroy complete! Resources: 39 destroyed.
 []
 ```
 
-Empty describe results verified hue after successful destruction. `skip_final_snapshot=true` aur deletion protection off **disposable emulator cleanup choices** hain. Production mein backup retention/final snapshot policy explicitly decide karo. Terraform state secret metadata contain kar sakti hai; state/cache/plan files commit mat karo.
+Safal destruction ke baad khaali describe results check hue. `skip_final_snapshot=true` aur deletion protection off **phenkne layak emulator cleanup ke chunav** hain. Production mein backup retention/final snapshot policy saaf taur par tay karo. Terraform state mein secret metadata ho sakta hai; state/cache/plan files commit mat karo.
 
 ## Emulator limits
 
-- No EC2 OS, real app, PostgreSQL/SQL, HTTP health probe, traffic balancing, IAM role delivery, CPU-driven scaling, packet routing, NAT internet connectivity or timed AZ failover.
-- AWS-managed `AmazonSSMManagedInstanceCore` policy current Moto process mein preloaded nahi thi: AttachRolePolicy returned NoSuchEntity. Lab minimal inline SSM-channel permission metadata use karta hai. Real Session Manager ke agent, managed-node permissions aur outbound network prerequisites separate hain; connection verified nahi.
-- RDS managed master password creates secret metadata; secret rotation/runtime SQL authentication verified nahi. Application master DB credentials use nahi karti.
-- S3 Block Public Access flags persist, enforcement Moto mein reliable security proof nahi. CloudFront OAC and scoped bucket policy are the production image-delivery path; CloudFront deployment later CDN level mein hoga. Signed viewer URLs are an additional per-user restriction, not a public-origin repair.
-- Zonal NAT per AZ explicitly modeled; Regional NAT is a different current AWS option, with per-AZ billing/availability considerations. Moto lab regional expansion test nahi karta.
-- Provider waiters ko ALB/RDS metadata ke liye about 1–2 minutes lage; timings production provisioning benchmarks nahi hain.
+- EC2 OS, asli app, PostgreSQL/SQL, HTTP health probe, traffic balancing, IAM role delivery, CPU se scaling, packet routing, NAT se internet ya timed AZ failover nahi.
+- AWS-managed `AmazonSSMManagedInstanceCore` policy aaj ke Moto process mein pehle se loaded nahi thi: AttachRolePolicy ne NoSuchEntity diya. Lab chhoti inline SSM-channel permission metadata use karti hai. Asli Session Manager ke agent, managed-node permissions aur outbound network ki zarooratein alag hain; connection check nahi hua.
+- RDS managed master password secret metadata banata hai; secret rotation/runtime SQL authentication check nahi hua. Application master DB credentials use nahi karti.
+- S3 Block Public Access flags bane rehte hain, par Moto mein unka laagu hona pakka security saboot nahi. Production mein images dene ka raasta CloudFront OAC aur scoped bucket policy hai; CloudFront deployment baad ke CDN level mein hoga. Signed viewer URLs har user par extra rok hain, public origin ka ilaaj nahi.
+- Har AZ mein zonal NAT saaf taur par model kiya gaya; Regional NAT aaj ka ek alag AWS option hai, jisme har AZ ki billing/availability ka dhyaan rakhna padta hai. Moto lab regional expansion test nahi karti.
+- Provider waiters ko ALB/RDS metadata ke liye lagbhag 1–2 minute lage; yeh timings production provisioning ke benchmarks nahi.
