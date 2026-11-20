@@ -1,12 +1,12 @@
-# Lab20 — Mahasale readiness: configuration, channel test aur bounded work
+# Lab20 — Mahasale readiness: config, channel test aur limit wala kaam
 
-**Pain:** architecture diagram traffic readiness prove nahi karta. Scheduled capacity, replica availability, consumer caps, alarm configuration aur actual work identity ko separate evidence chahiye.
+**Pain:** architecture diagram traffic ke liye taiyaari prove nahi karta. Scheduled capacity, replica availability, consumer caps, alarm config aur asli kaam ki pehchaan, sabko alag saboot chahiye.
 
-Three scripts have distinct scopes. Terraform creates local control-plane objects; metadata.py checks capacity APIs; load.py checks durable TEST handoff under a bounded workload. **No working storefront, real PostgreSQL, Lambda runtime, actual WAF filtering, metric-triggered paging or AWS throughput is claimed.**
+Teen scripts ke scope alag hain. Terraform local control-plane objects banata hai; metadata.py capacity APIs check karta hai; load.py limit wale workload mein durable TEST handoff check karta hai. **Chalta hua storefront, asli PostgreSQL, Lambda runtime, asli WAF filtering, metric se chalne wali paging ya AWS throughput ka koi daava nahi.**
 
-## Setup and exact order
+## Setup aur exact order
 
-Existing Moto5.2.4 Python environment, Terraform1.17.0 and AWS provider6.70.0 were used. Terraform is a separate tool; Docker is not required.
+Pehle se bana Moto 5.2.4 Python environment, Terraform 1.17.0 aur AWS provider 6.70.0 use hue. Terraform ek alag tool hai; Docker nahi chahiye.
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -18,17 +18,17 @@ python -I 20-mahasale-terraform/metadata.py
 python -I 20-mahasale-terraform/load.py
 ```
 
-A fresh clone needs an installed/verified Terraform binary; set LAB20_TERRAFORM to its absolute path if needed. [Official Terraform downloads](https://developer.hashicorp.com/terraform/install) provide release/checksum guidance. Current workspace binary1.17.0 was verified against the official SHA256SUMS. The cached provider from lab08 is reused when present; LAB20_PLUGIN_DIR can select another existing provider mirror. Otherwise Terraform init fetches the pinned public provider into the lab's own data directory. No system package installation is performed by these scripts.
+Naye clone mein installed aur check kiya Terraform binary chahiye; zaroorat ho toh LAB20_TERRAFORM ko uske absolute path par set karo. [Official Terraform downloads](https://developer.hashicorp.com/terraform/install) release/checksum ki guidance dete hain. Aaj ka workspace binary 1.17.0 official SHA256SUMS se check kiya gaya. lab08 ka cached provider ho toh wahi dobara use hota hai; LAB20_PLUGIN_DIR se koi doosra pehle se bana provider mirror chun sakte ho. Warna Terraform init pinned public provider ko lab ki apni data directory mein laata hai. Yeh scripts koi system package install nahi karti.
 
-**Do not start/reset shared Moto for this lab.** lab.py and metadata.py each start a separate ephemeral127.0.0.1 server and close the owned listener. Every SDK/provider endpoint is explicit, with dummy keys, disabled profiles/session token/instance metadata and lab-local config. load.py instead uses in-process Moto interception with all DNS/socket connects forbidden; service URLs in that script are virtual identities, not outbound requests. No script accesses real AWS or writes ~/.aws.
+**Is lab ke liye shared Moto start/reset mat karo.** lab.py aur metadata.py dono apna alag, thodi der ka 127.0.0.1 server start karte hain aur apna listener band karte hain. Har SDK/provider endpoint saaf likha hai, dummy keys, band profiles/session token/instance metadata aur lab ki apni config ke saath. load.py iski jagah in-process Moto interception use karta hai, jisme saare DNS/socket connects mana hain; us script ke service URLs virtual pehchaan hain, bahar jaane wali requests nahi. Koi script asli AWS tak nahi jaati, na ~/.aws mein likhti hai.
 
-Read scripts before running. Only TEST data is used; external emails/payments remain0. Historical IDs, state, ledgers and captures live under ignored .lab. Preserve nonempty state after a failed run; deleting state is not cleanup.
+Chalane se pehle scripts padho. Sirf TEST data use hota hai; bahar ke emails/payments 0 rehte hain. Purani IDs, state, ledgers aur captures ignore hone wale .lab mein hain. Fail run ke baad khaali na ho toh state bachao; state delete karna cleanup nahi.
 
-## ex1 — Terraform18 scoped resources, then inspect drift
+## ex1 — Terraform ke 18 scoped resources, phir drift dekho
 
-lab.py performs format check → init → validate → saved plan → same saved-plan apply → actual outputs → repeat plan → API review/test → scoped destroy. The explicit local backend is .lab/state.tfstate; a custom plan -state flag alone is not relied on to choose saved-plan apply output.
+lab.py yeh karta hai: format check → init → validate → saved plan → usi saved plan ka apply → asli outputs → dobara plan → API review/test → scoped destroy. Saaf local backend .lab/state.tfstate hai; saved-plan apply ka output chunne ke liye sirf custom plan -state flag par bharosa nahi kiya.
 
-Actual successful preparation capture:
+Asli safal taiyaari ka capture:
 
 ```text
 Success! The configuration is valid.
@@ -37,20 +37,20 @@ Apply complete! Resources: 18 added, 0 changed, 0 destroyed.
 REPEAT PLAN EXIT 2 known Moto OAC/default/JSON readback gaps; not a zero-drift claim
 ```
 
-Resources: an isolated internal ALB/two subnets/VPC; private S3 bucket/BPA/OAC/CloudFront and exact distribution policy; Regional CommonRuleSet/login-rate WAF association; Standard DLQ/two work queues; SNS alert topic/SQS alert sink/scoped queue policy/raw subscription. No application/listener is deployed. This configuration is an isolated extension exercise, not a deployable production commerce stack.
+Resources: ek alag internal ALB/do subnets/VPC; private S3 bucket/BPA/OAC/CloudFront aur exact distribution policy; Regional CommonRuleSet/login-rate WAF association; Standard DLQ/do work queues; SNS alert topic/SQS alert sink/scoped queue policy/raw subscription. Koi application/listener deploy nahi hota. Yeh config ek alag practice exercise hai, deploy karne layak production commerce stack nahi.
 
-👉 Repeat plan exit2 is deliberately visible. Moto drops the requested OriginAccessControlId, adds legacy forwarded/default viewer fields and normalizes SQS redrive JSON differently. Critical OAC drift is **not ignored to manufacture a clean plan**. OAC object and exact SourceArn bucket policy persist, but the missing origin attachment means no working private CDN claim. The same gap is documented in lab11. Real AWS needs the OAC attached, deployed config and actual signed-access tests.
+👉 Dobara plan ka exit 2 jaan-boojh kar dikhaya gaya hai. Moto maanga OriginAccessControlId gira deta hai, purane forwarded/default viewer fields jod deta hai aur SQS redrive JSON ko alag tarah normalize karta hai. Zaroori OAC drift ko **saaf plan dikhane ke liye ignore nahi kiya**. OAC object aur exact SourceArn bucket policy bane rehte hain, par origin attachment missing hai, isliye chalte private CDN ka daava nahi. Yahi kami lab11 mein bhi likhi hai. Asli AWS mein OAC attach, deployed config aur asli signed-access tests chahiye.
 
-## ex2 — CloudWatch protocol boundary and manual notification channel
+## ex2 — CloudWatch protocol ki limit aur haath se notification channel
 
-Current provider6.70.0 CloudWatch CBOR requests/responses are incompatible with installed Moto5.2.4. Native alarm resource examples remain in main.tf behind native_alarms=false. Enabling the flag on this emulator does not become a supported path merely because the HCL validates.
+Aaj ke provider 6.70.0 ke CloudWatch CBOR requests/responses installed Moto 5.2.4 ke saath nahi chalte. Native alarm resource ke examples main.tf mein native_alarms=false ke peeche rakhe hain. Is emulator par flag on karne se raasta supported nahi ban jaata, sirf isliye ki HCL validate ho gaya.
 
-The local script selects AWS-supported Query protocol **only in a private SDK client's in-memory service metadata**, without modifying packages or emulating a successful response. Actual PutMetricAlarm/DescribeAlarms/DeleteAlarms operations run through Moto's supported Query endpoint. Two alarm records use:
+Local script AWS ka supported Query protocol **sirf ek private SDK client ke in-memory service metadata mein** chunti hai, bina packages badle ya nakli safal response banaye. Asli PutMetricAlarm/DescribeAlarms/DeleteAlarms operations Moto ke supported Query endpoint se chalte hain. Do alarm records yeh use karte hain:
 
-- ALB TargetResponseTime, p95, Seconds, threshold0.4,60s periods,2of3, missing data=missing, low sample count=ignore, exact ALB dimension.
-- SQS ApproximateAgeOfOldestMessage, Maximum,120s threshold,2of2 periods, empty/inactive queue missing data=notBreaching. An active-workflow telemetry liveness check is separate.
+- ALB TargetResponseTime, p95, Seconds, threshold 0.4, 60s periods, 3 mein se 2, missing data=missing, kam sample count=ignore, exact ALB dimension.
+- SQS ApproximateAgeOfOldestMessage, Maximum, 120s threshold, 2 mein se 2 periods, khaali/band queue par missing data=notBreaching. Chalte workflow ki telemetry liveness ka check alag hai.
 
-Both action lists target the actual owned SNS topic. Moto returns StateValue OK with StateReason `Unchecked: Initial alarm creation`, despite no real samples. **That is not evidence of healthy latency.** Native Terraform alarm lifecycle, automatic evaluations, production percentile behavior and metric-triggered notification remain unverified in this environment.
+Dono action lists asli apne SNS topic ko target karti hain. Moto StateValue OK deta hai, StateReason `Unchecked: Initial alarm creation` ke saath, jabki koi asli sample nahi. **Yeh healthy latency ka saboot nahi.** Native Terraform alarm lifecycle, apne aap evaluations, production percentile behaviour aur metric se chalne wala notification is environment mein check nahi hue.
 
 Actual route check:
 
@@ -59,11 +59,11 @@ CLOUDWATCH COMPATIBILITY PROTOCOL query; Terraform native alarms disabled due ca
 MANUAL NOTIFICATION ROUTE VERIFIED SNS -> SQS TEST body; not metric-triggered paging
 ```
 
-👉 A manually published READINESS_TEST body reaches the own raw SQS alert sink and is received/acknowledged. This proves that tested notification route, not that a latency breach triggered CloudWatch or paged a human. Moto resource-policy enforcement gaps still apply; policies are explicitly scoped, but no IAM enforcement certification is claimed.
+👉 Haath se publish ki READINESS_TEST body apne raw SQS alert sink tak pahunchti hai aur receive/acknowledge hoti hai. Isse sirf woh test kiya notification raasta prove hota hai, yeh nahi ki latency breach ne CloudWatch chalaya ya kisi insaan ko page kiya. Moto ki resource-policy enforcement ki kamiyan abhi bhi hain; policies saaf scoped hain, par IAM enforcement ka certificate ka daava nahi.
 
-## ex3 — pre-scaling, read-replica and consumer budgets
+## ex3 — pehle se scaling, read replica aur consumer budgets
 
-metadata.py owns a separate loopback server and disposable capacity fixtures. Captured assertions:
+metadata.py ka apna alag loopback server aur phenkne layak capacity fixtures hain. Pakde gaye assertions:
 
 ```text
 PASS 1 current ASG scale metadata12instances; no boot/runtime timing
@@ -78,21 +78,21 @@ PASS 7 owned function/DB/group/queues cleaned
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-👉 Current ASG12instances is separate from two future scheduled actions. Recurring ASG uses a **five-field** cron and explicit Asia/Kolkata timezone; EventBridge Scheduler's six-field cron is a different API. Stored actions do not demonstrate timer firing, app boot, cache warmup or healthy requests.
+👉 Aaj ke ASG ke 12 instances, aage ke do scheduled actions se alag hain. Recurring ASG **paanch field** wala cron aur saaf Asia/Kolkata timezone use karta hai; EventBridge Scheduler ka chhe field wala cron alag API hai. Save hue actions timer chalna, app boot, cache warmup ya healthy requests nahi dikhate.
 
-The Postgres source uses ordinary disposable TEST master credentials, with private/Multi-AZ/seven-day-backup metadata. It does not use the unsupported PostgreSQL managed-master-secret/read-replica combination. Replica availability is Moto metadata, not SQL read routing/replication/lag measurement. Replica provisioning has real lead time on AWS.
+Postgres source aam, phenkne layak TEST master credentials use karta hai, private/Multi-AZ/saat din backup ke metadata ke saath. Yeh unsupported PostgreSQL managed-master-secret/read-replica combination use nahi karta. Replica availability Moto ka metadata hai, SQL read routing/replication/lag ka naap nahi. AWS par replica banne mein asli time lagta hai.
 
-Function reserved concurrency20 and SQS mapping MaximumConcurrency20 are independent limits. No Lambda is invoked; the queue remains empty. Reserved concurrency does not pre-warm environments. Production needs regional/function/downstream budgets, actual mapping state, partial-batch behavior, throttle/queue-age monitoring and measured runtime. Provisioned SQS poller mode has separate rules/cost and is not enabled here.
+Function ki reserved concurrency 20 aur SQS mapping ki MaximumConcurrency 20 alag-alag limits hain. Koi Lambda nahi chalta; queue khaali rehti hai. Reserved concurrency environments ko pehle se garam nahi karti. Production ko regional/function/downstream budgets, asli mapping state, partial-batch behaviour, throttle/queue-age monitoring aur naapa runtime chahiye. Provisioned SQS poller mode ke niyam/kharcha alag hain aur yahan on nahi.
 
-## ex4 — actual10,000 unique TEST intents,1vs5 business workers
+## ex4 — asli 10,000 unique TEST intents, 1 vs 5 business workers
 
-load.py runs10windows of1000unique messages plus10deliberate duplicates per window for each scenario. Total per scenario:10,000unique event IDs,100deliberate duplicate copies. The SQLite ledger remains durable across windows; all expected IDs are checked exactly. Message acknowledgement occurs after durable PENDING_DISPATCH intent creation, **not after a real email send**.
+load.py har scenario ke liye 10 windows chalata hai, har window mein 1000 unique messages + 10 jaan-boojh kar duplicates. Har scenario ka total: 10,000 unique event IDs, 100 jaan-boojh kar duplicate copies. SQLite ledger windows ke paar durable rehta hai; saari expected IDs exact check hoti hain. Message acknowledgement durable PENDING_DISPATCH intent banne ke baad hota hai, **asli email bhejne ke baad nahi**.
 
-The run declares2ms synthetic business work/message. Socket/DNS connects are forbidden, and Moto intercepts SDK operations in-process. Only emulator API calls are serialized to avoid Moto's observed concurrent pending-set iteration crash; business work remains concurrent. Actual Standard-queue redelivery is permitted: receives can exceed publishes, but unique intents cannot exceed or lose expected IDs. The script verifies acknowledgement counts, duplicate conservation, exact durable IDs and controlled local visible/inflight empty state. Production SQS approximate counters alone are not a proof of business completeness.
+Run har message par 2ms ka nakli business kaam bataata hai. Socket/DNS connects mana hain, aur Moto SDK operations ko in-process pakadta hai. Sirf emulator API calls ek-ek karke chalti hain, taaki Moto ka dekha gaya concurrent pending-set iteration crash na ho; business kaam concurrent hi rehta hai. Asli Standard-queue redelivery allowed hai: receives publishes se zyada ho sakte hain, par unique intents expected IDs se na zyada ho sakte, na kam. Script acknowledgement counts, duplicates ka hisaab, exact durable IDs aur control kiya local visible/inflight khaali state check karti hai. Production mein sirf SQS ke approximate counters business ke poore hone ka saboot nahi.
 
-Measured exact repository replay (2026-10-27), using this guarded method:
+Naapa hua exact repository replay (2026-10-27), isi guarded tareeke se:
 
-| Business workers | Unique intents | Published copies | Received/acknowledged copies | Summed drain windows | Unique intents/drain-second |
+| Business workers | Unique intents | Publish hui copies | Receive/acknowledge hui copies | Drain windows ka jod | Unique intents/drain-second |
 |---|---:|---:|---:|---:|---:|
 | 1 | 10000 | 10100 | 10100 | 173.523 s | 57.63 |
 | 5 | 10000 | 10100 | 10100 | 162.705 s | 61.46 |
@@ -102,13 +102,13 @@ MEASURED WORKLOAD COMPLETE
 IN-PROCESS OWNED QUEUES EMPTY / NETWORK FORBIDDEN
 ```
 
-👉 Both scenarios persisted10,000unique TEST intents and suppressed100duplicate intents; externalEmails0. Measured times vary with host load. Five workers gave about1.07× throughput in this capture, **not5×**. Emulator API serialization, Python/SQLite overhead and the declared work delay limit this test. These are host/Moto measurements, not EC2/Lambda/SQS production capacity ratings. Summed drain windows exclude publishing and are not end-to-end wall time.
+👉 Dono scenarios ne 10,000 unique TEST intents save kiye aur 100 duplicate intents roke; bahar ke emails 0. Naapa time host ke load ke saath badalta hai. Is capture mein paanch workers ne lagbhag 1.07× throughput diya, **5× nahi**. Emulator API ka ek-ek karke chalna, Python/SQLite ka overhead aur bataya kaam ka delay is test ko limit karte hain. Yeh host/Moto ke naap hain, EC2/Lambda/SQS production capacity ki rating nahi. Drain windows ke jod mein publishing ka time nahi gina gaya, aur yeh end-to-end wall time nahi.
 
-**Scope correction:** an earlier full10k HTTP-server burst published10100copies but hit the180s drain deadline after770durable intents. The final bounded-window test does not claim to have completed that initial10kburst. Increasing a timeout or consumer count must not hide missing work. Failed receive-equality and concurrent-set probes are retained as preparation evidence; the final test accepts valid redelivery and protects the emulator boundary.
+**Scope correction:** pehle ke poore 10k HTTP-server burst ne 10100 copies publish ki, par 770 durable intents ke baad 180s drain deadline par atak gaya. Aakhri limit-window test us pehle 10k burst ko poora karne ka daava nahi karta. Timeout ya consumers badha kar missing kaam chhupana nahi chahiye. Fail receive-equality aur concurrent-set probes taiyaari ke saboot ke roop mein rakhe gaye hain; aakhri test sahi redelivery maanta hai aur emulator ki limit bachata hai.
 
 ## Cleanup and recovery
 
-Terraform script deletes the two own Query alarm records, then destroys exactly its own tracked18resources. Successful capture:
+Terraform script apne do Query alarm records delete karti hai, phir sirf apne track kiye 18 resources destroy karti hai. Safal capture:
 
 ```text
 Destroy complete! Resources: 18 destroyed.
@@ -116,8 +116,8 @@ OWNED TERRAFORM STATE EMPTY True
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-metadata.py deletes only its own function/mapping/queue/role, replica/source/subnet group, ASG/template/subnets/VPC, then closes the listener. load.py deletes both own virtual queues before leaving the mock/network-forbidden context; historical SQLite evidence remains local. No shared server reset, unrelated deletion, real AWS, Docker or system install.
+metadata.py sirf apna function/mapping/queue/role, replica/source/subnet group, ASG/template/subnets/VPC delete karta hai, phir listener band karta hai. load.py mock/network-mana context chhodne se pehle apni dono virtual queues delete karta hai; purana SQLite saboot local rehta hai. Shared server reset, anjaana delete, asli AWS, Docker ya system install nahi.
 
-If an owned server/script fails, preserve .lab and inspect printed error/state/endpoint before recovery. The owned ephemeral listener is closed in finally. Do not redirect a saved state to another endpoint/account or use a shared reset. A failed preparation state-path probe was archived; later explicit-backend runs verified actual18-resource destruction rather than merely checking an unrelated empty pathname.
+Apna server/script fail ho toh .lab bachao aur recovery se pehle print hua error/state/endpoint dekho. Apna thodi der ka listener finally mein band hota hai. Saved state ko doosre endpoint/account par mat bhejo, na shared reset use karo. Ek fail taiyaari wala state-path probe archive kiya gaya; baad ke saaf-backend runs ne asli 18-resource destruction check kiya, sirf kisi anjaane khaali path ko nahi.
 
 Primary references: [ASG schedules](https://docs.aws.amazon.com/autoscaling/ec2/userguide/scheduled-scaling-create-scheduled-action.html), [warmup](https://docs.aws.amazon.com/autoscaling/ec2/userguide/ec2-auto-scaling-default-instance-warmup.html), [RDS read replicas](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_ReadRepl.html), [SQS mapping concurrency](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-scaling.html), [percentile low samples](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/percentiles-with-low-samples.html), [missing data](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/alarms-and-missing-data.html), [AWS protocol support](https://github.com/aws/aws-sdk-js-v3/blob/main/supplemental-docs/CLIENTS.md).
