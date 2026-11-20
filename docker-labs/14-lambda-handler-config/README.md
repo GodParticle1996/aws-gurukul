@@ -1,8 +1,8 @@
 # Lab14 — handler bytes, duplicate events aur Lambda configuration
 
-**Pain:** S3 event dobara aa sakta hai; source key overwrite ho sakti hai; batch mein ek invalid message ho sakta hai. StatusCode200 bhi function error rakh sakta hai. Correctness ka proof actual output aur failed IDs se lo.
+**Pain:** S3 event dobara aa sakta hai; source key overwrite ho sakti hai; batch mein ek galat message ho sakta hai. StatusCode 200 mein bhi function error ho sakta hai. Sahi hone ka saboot asli output aur fail IDs se lo.
 
-**Scope:** trusted SVG fixture only, host Python + existing loopback Moto5.2.4. Three derivative sizes64/128/256; source VersionId preserved; conditional output creation with byte verification. This is not a JPEG/PNG codec, untrusted-image security pipeline or AWS runtime benchmark. No extra package installation needed: existing lab venv includes boto3.
+**Scope:** sirf bharose wala SVG fixture, host Python + pehle se bana loopback Moto 5.2.4. Teen derivative sizes 64/128/256; source VersionId bacha rehta hai; byte check ke saath conditional output banta hai. Yeh JPEG/PNG codec, anjaani images ki security pipeline ya AWS runtime benchmark nahi. Extra package install nahi chahiye: pehle se bane lab venv mein boto3 hai.
 
 ## Setup environment
 
@@ -14,15 +14,15 @@ source env.sh
 cd 14-lambda-handler-config
 ```
 
-Both scripts force dummy test/test, lab-local credential/config paths and loopback endpoints. `lab.py` passes explicit `--endpoint-url http://127.0.0.1:4566 --region ap-south-1` on **every CLI service**. Profiles/session tokens unset, metadata disabled. Scripts do not touch `~/.aws`.
+Dono scripts dummy test/test, lab ki apni credential/config paths aur loopback endpoints zaroori karti hain. `lab.py` **har CLI service** par saaf `--endpoint-url http://127.0.0.1:4566 --region ap-south-1` deta hai. Profiles/session tokens unset, metadata band. Scripts `~/.aws` ko nahi chhooti.
 
-## ex1 — run actual handler on host, then verify real S3 objects
+## ex1 — host par asli handler chalao, phir asli S3 objects check karo
 
 ```bash
 ../.venv/bin/python -I test_handler.py
 ```
 
-Test imports `app.py` by explicit path (`-I` isolates import paths), creates two uniquely named owned buckets, enables source versioning and uploads a trusted SVG with a URL-encoded space/plus in the key. Handler reads the event's exact VersionId, generates actual SVG bytes and writes derivatives into the separate output bucket. Keys are derived from source bucket/key/version identity. Original source is preserved.
+Test `app.py` ko saaf path se import karta hai (`-I` import paths alag rakhta hai), do unique naam wale apne buckets banata hai, source versioning on karta hai aur key mein URL-encoded space/plus wala bharose ka SVG upload karta hai. Handler event ki exact VersionId padhta hai, asli SVG bytes banata hai aur derivatives alag output bucket mein likhta hai. Keys source bucket/key/version ki pehchaan se banti hain. Asli source bacha rehta hai.
 
 Asli captured output:
 
@@ -37,17 +37,17 @@ Asli captured output:
 }
 ```
 
-Generated bucket names vary. Test verifies all three actual dimensions, original bytes, duplicate writes, four concurrent deliveries of a new source version, stale-event reads of the old version, invalid nested events and a corrupt existing derivative. Both test buckets and exact versions are cleaned in `finally`.
+Bane bucket naam badalte rehte hain. Test teeno asli dimensions, asli bytes, duplicate writes, naye source version ki chaar ek saath deliveries, purane version ke purane events, galat nested events aur ek kharab pehle se bana derivative check karta hai. Dono test buckets aur exact versions `finally` mein saaf hote hain.
 
-👉 **Asli baat:** deterministic output keys plus `IfNoneMatch='*'` avoid duplicate creation. On412, compare existing bytes before acknowledging. Other failures propagate for retry; real S3 conditional409/network behavior still needs retry policy. This is per-output idempotency, not a distributed transaction or a blanket exactly-once promise. An interrupted first invocation may leave a partial set; retry fills missing derivatives.
+👉 **Asli baat:** tay output keys + `IfNoneMatch='*'` duplicate banne se rokte hain. 412 aane par acknowledge karne se pehle purane bytes compare karo. Baaki failures retry ke liye aage jaate hain; asli S3 conditional 409/network behaviour ke liye retry policy chahiye. Yeh har output ki idempotency hai, distributed transaction ya har jagah exactly-once ka vaada nahi. Beech mein rukha pehla invocation adhoora set chhod sakta hai; retry missing derivatives bhar deta hai.
 
-## ex2 — Standard SQS partial-batch contract
+## ex2 — Standard SQS partial-batch ka contract
 
-Read `handler()` and the `partial` test in `test_handler.py`. The good message wraps the same S3 event. The bad message contains invalid JSON. Handler returns only `bad-1` in `batchItemFailures` and preserves already-correct outputs.
+`test_handler.py` mein `handler()` aur `partial` test padho. Achha message wahi S3 event lapet kar rakhta hai. Kharab message mein galat JSON hai. Handler `batchItemFailures` mein sirf `bad-1` lautata hai aur pehle se sahi outputs bachata hai.
 
-A real Lambda SQS mapping must enable `ReportBatchItemFailures` **and** handler must return the failed message IDs. Function async retry/destination settings are a different mechanism from SQS visibility/redrive. This fixture uses Standard SQS semantics; FIFO requires preserving ordering and reporting unprocessed records after a failure.
+Asli Lambda SQS mapping mein `ReportBatchItemFailures` on hona chahiye **aur** handler ko fail message IDs lautane chahiye. Function ki async retry/destination settings, SQS visibility/redrive se alag mechanism hain. Yeh fixture Standard SQS ke niyam use karta hai; FIFO mein order bachana aur failure ke baad bache records report karna zaroori hai.
 
-## ex3 — actual AWS CLI configuration requests on Moto
+## ex3 — Moto par asli AWS CLI config requests
 
 Read `lab.py`, then:
 
@@ -56,15 +56,15 @@ Read `lab.py`, then:
 ../.venv/bin/python -I lab.py exercises
 ```
 
-Controller prints every actual CLI command. Setup creates only owned empty source/output buckets, empty jobs/failures queues, a scoped Lambda-trusted IAM role/policy and a Python3.12 function ZIP. No source-bucket notifications or queue messages are installed/sent; automatic runtime execution is not claimed.
+Controller har asli CLI command print karta hai. Setup sirf apne khaali source/output buckets, khaali jobs/failures queues, ek scoped Lambda-trusted IAM role/policy aur Python 3.12 function ZIP banata hai. Koi source-bucket notification ya queue message install/send nahi hota; apne aap runtime execution ka daava nahi.
 
 Exercises run:
 
-- `update-function-configuration` to memory1024MB/timeout15s, then real `wait function-updated-v2` and configuration read.
-- Reserved concurrency10; function async retry2/age3600s with OnFailure SQS destination.
-- Standard SQS event source mapping with `ReportBatchItemFailures` and actual list readback.
-- Scoped S3 resource permission using source bucket ARN and source account; `get-policy` readback.
-- One manual `invoke`, inspect both response metadata and body; publish a version and probe provisioned concurrency API.
+- `update-function-configuration` se memory 1024MB/timeout 15s, phir asli `wait function-updated-v2` aur config read.
+- Reserved concurrency 10; function async retry 2/age 3600s, OnFailure SQS destination ke saath.
+- `ReportBatchItemFailures` ke saath Standard SQS event source mapping, aur asli list readback.
+- Source bucket ARN aur source account se scoped S3 resource permission; `get-policy` readback.
+- Ek haath se `invoke`, response metadata aur body dono dekho; ek version publish karo aur provisioned concurrency API try karo.
 
 Captured configuration excerpt:
 
@@ -72,32 +72,32 @@ Captured configuration excerpt:
 {"Memory":1024,"Timeout":15,"Update":"Successful"}
 ```
 
-Captured async config excerpt:
+Pakda hua async config ka hissa:
 
 ```json
 {"MaximumRetryAttempts":2,"MaximumEventAgeInSeconds":3600,
  "DestinationConfig":{"OnFailure":{"Destination":"arn:aws:sqs:ap-south-1:123456789012:lab14-...-failures"}}}
 ```
 
-The ARN above is a shortened excerpt; actual generated ARN is printed by the controller and recorded in `.lab/resources.json`. Captured mapping response includes `State:"Enabled"`, `BatchSize:10`, `FunctionResponseTypes:["ReportBatchItemFailures"]`. These are metadata, not a proof that Moto consumed a queue or delivered a failure destination.
+Upar ka ARN chhota kiya hua hissa hai; asli bana ARN controller print karta hai aur `.lab/resources.json` mein likhta hai. Pakde mapping response mein `State:"Enabled"`, `BatchSize:10`, `FunctionResponseTypes:["ReportBatchItemFailures"]` hain. Yeh metadata hai, iska saboot nahi ki Moto ne queue padhi ya failure destination tak deliver kiya.
 
-## ex4 — HTTP status is not handler success; Docker boundary
+## ex4 — HTTP status handler ki safalta nahi; Docker ki limit
 
-Docker is currently absent. Actual Moto invoke result:
+Abhi Docker nahi hai. Asli Moto invoke result:
 
 ```json
 {"StatusCode":200,"FunctionError":"Handled"}
 ```
 
-Actual response-body excerpt:
+Asli response body ka hissa:
 
 ```text
 error running docker: Error while fetching server API version: ('Connection aborted.', FileNotFoundError(2, 'No such file or directory'))
 ```
 
-`PutProvisionedConcurrencyConfig` returned404 on installed Moto. Publishing a version succeeded; warm runtime allocation was not verified. Neither CLI success status nor metadata proves executed code, initialization latency or request delivery.
+Installed Moto par `PutProvisionedConcurrencyConfig` ne 404 diya. Version publish safal hua; warm runtime allocation check nahi hua. Na CLI ka success status, na metadata, chala hua code, initialization latency ya request delivery prove karta hai.
 
-**Docker runtime section pending user installation:** no Docker was installed or started by this lab. Host handler test above is verified independently. A future Docker run must first review container-to-Moto endpoint routing (container127.0.0.1 is not host127.0.0.1), runtime dependencies, trigger delivery, logs and cleanup; do not treat current function environment as tested container networking. No invented successful Docker output is included.
+**Docker runtime wala hissa user ke install karne tak baaki:** is lab ne koi Docker install ya start nahi kiya. Upar ka host handler test alag se check hua hai. Aage Docker run se pehle container-se-Moto endpoint routing review karo (container ka 127.0.0.1 host ka 127.0.0.1 nahi), runtime dependencies, trigger delivery, logs aur cleanup bhi; aaj ke function environment ko test kiya container networking mat samjho. Koi banaya hua safal Docker output isme nahi.
 
 ## Cleanup
 
@@ -105,13 +105,13 @@ error running docker: Error while fetching server API version: ('Connection abor
 ../.venv/bin/python -I lab.py cleanup
 ```
 
-Only IDs recorded after successful creation are eligible for cleanup. Order: mapping, any accepted PC config, function/owned log group, queues, empty buckets, role policy/role. Setup failure attempts its own scoped cleanup; after an exercise failure run cleanup explicitly. Successful cleanup archives the resource manifest.
+Sirf safal creation ke baad likhi IDs cleanup ke layak hain. Order: mapping, koi maana gaya PC config, function/apna log group, queues, khaali buckets, role policy/role. Setup fail ho toh woh apna scoped cleanup try karta hai; exercise fail hone ke baad cleanup saaf taur par chalao. Safal cleanup resource manifest ko archive karta hai.
 
-Actual final lookup output:
+Asli final lookup output:
 
 ```json
 []
 []
 ```
 
-Source/output metadata buckets remain empty; host handler tests own separate buckets with their own version cleanup. Shared emulator is never reset. No real AWS or Docker runtime results claimed.
+Source/output metadata buckets khaali rehte hain; host handler tests ke apne alag buckets hain, apne version cleanup ke saath. Shared emulator kabhi reset nahi hota. Asli AWS ya Docker runtime ke results ka daava nahi.
