@@ -1,12 +1,12 @@
 # Lab10 — Route53 records: Alias, weighted aur failover health association
 
-**Pain:** public domain ka apex CNAME reject hota hai; canary percentage ko exact shoppers samajhna aur unlinked health check automatic DR break karte hain. Real AWS CLI se JSON metadata edit karo, phir missing primary health association repair karo.
+**Pain:** public domain par apex CNAME reject hota hai; canary percentage ko exact shoppers samajhna aur bina jude health check apne aap DR tod dete hain. Asli AWS CLI se JSON metadata edit karo, phir primary ka missing health link theek karo.
 
-**Boundary:** local Moto metadata only. No real domain registration, public delegation, recursive DNS, HTTP probes, ALB traffic, DB replication or timed failover. Documentation IPs203.0.113.x are dummy targets. Current Moto `test-dns-answer` returns404; canned health status HTTP200 is not a network test. In-app dry run explains selection/cache behavior.
+**Limit:** sirf local Moto metadata. Asli domain registration, public delegation, recursive DNS, HTTP probes, ALB traffic, DB replication ya timed failover nahi. Documentation IPs 203.0.113.x dummy targets hain. Aaj ka Moto `test-dns-answer` par 404 deta hai; pehle se bana health status HTTP 200 network test nahi. App ka dry run selection/cache behaviour samjhata hai.
 
-## Setup — isolated dummy credentials
+## Setup — alag dummy credentials
 
-Existing local emulator available ho toh start command skip karo. Docker install/run required nahi.
+Local emulator pehle se available ho toh start command skip karo. Docker install/run nahi chahiye.
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -20,7 +20,7 @@ export AWS_EC2_METADATA_DISABLED=true
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SESSION_TOKEN
 ```
 
-Scripts require `http://127.0.0.1:4566` and dummy `test` keys. No `~/.aws` writes. Shared Moto reset mat karo. Existing `.lab/resources.sh` ho toh previous lab cleanup pehle karo. Scripts read karke run karo; setup resource IDs partial failure par bhi save karta hai.
+Scripts ko `http://127.0.0.1:4566` aur dummy `test` keys chahiye. `~/.aws` mein kuch nahi likha jaata. Shared Moto reset mat karo. `.lab/resources.sh` pehle se ho toh pichhle lab ka cleanup pehle karo. Scripts padh kar chalao; setup beech mein fail ho tab bhi resource IDs save karta hai.
 
 ## ex1 — scoped ALB/zone create karo; authority metadata dekho
 
@@ -29,7 +29,7 @@ bash setup.sh
 source .lab/resources.sh
 ```
 
-Asli output, captured2026-10-26UTC:
+Asli output, 2026-10-26 UTC ko pakda:
 
 ```text
 [
@@ -39,9 +39,9 @@ Asli output, captured2026-10-26UTC:
 ALB canonical zone: Z2P70J7EXAMPLE (read returned metadata; do not hard-code Moto IDs on AWS)
 ```
 
-👉 Public zone default NS/SOA has authority metadata. `.test` name does not create internet delegation. Script uses ALB DNSName and CanonicalHostedZoneId returned by describe-load-balancers; current Moto placeholder `Z2P70J7EXAMPLE` is not AWS Mumbai canonical zone ID. ALB contains no app/listener in this metadata exercise.
+👉 Public zone ke default NS/SOA mein authority ka metadata hota hai. `.test` naam internet delegation nahi banata. Script describe-load-balancers se mile ALB DNSName aur CanonicalHostedZoneId use karti hai; aaj ka Moto placeholder `Z2P70J7EXAMPLE` AWS Mumbai ka asli canonical zone ID nahi. Is metadata exercise mein ALB par koi app/listener nahi.
 
-## ex2 — inspect JSON, create health check and three routing groups
+## ex2 — JSON dekho, health check aur teen routing groups banao
 
 ```bash
 bash exercises.sh
@@ -51,9 +51,9 @@ cat .lab/routing.json
 aws route53 list-resource-record-sets --hosted-zone-id "$ZONE"
 ```
 
-`make-records.py` writes ordinary files; AWS CLI reads `file://.lab/routing.json`. Alias omits TTL/ResourceRecords. Weighted pair has unique SetIdentifier and equal TTL60seconds. Primary failover record links created health check. Script uses UPSERT; repeated exercises reuse the saved health check.
+`make-records.py` aam files likhta hai; AWS CLI `file://.lab/routing.json` padhta hai. Alias mein TTL/ResourceRecords nahi hote. Weighted jodi ka har SetIdentifier unique hai aur TTL barabar 60 second. Primary failover record bane health check se juda hai. Script UPSERT use karti hai; exercises dobara chalane par save hua health check dobara use hota hai.
 
-Asli output excerpts from `exercises.sh` (generated IDs vary):
+`exercises.sh` ke asli output ke hisse (bani IDs badalti hain):
 
 ```json
 "INSYNC"
@@ -65,9 +65,9 @@ Asli output excerpts from `exercises.sh` (generated IDs vary):
 ]
 ```
 
-👉 Weighted90/10 controls authoritative answer proportions, not exact users/HTTP requests. Moto stores weights; Moto does not measure a canary. Waiter/get-change reports authoritative metadata synchronization. Real recursive caches are separate.
+👉 Weighted 90/10 authoritative answers ka hissa tay karta hai, exact users/HTTP requests nahi. Moto weights save karta hai; Moto canary nahi naapta. Waiter/get-change authoritative metadata ka sync batata hai. Asli recursive caches alag hain.
 
-## ex3 — remove primary signal, inspect, repair
+## ex3 — primary ka signal hatao, dekho, theek karo
 
 ```bash
 aws route53 change-resource-record-sets --hosted-zone-id "$ZONE" --change-batch file://.lab/missing-health.json
@@ -76,25 +76,25 @@ aws route53 change-resource-record-sets --hosted-zone-id "$ZONE" --change-batch 
 aws route53 list-resource-record-sets --hosted-zone-id "$ZONE" --query 'ResourceRecordSets[?SetIdentifier==`primary`].{Failover:Failover,Check:HealthCheckId}'
 ```
 
-Asli output query before/after:
+Asli output, query pehle/baad mein:
 
 ```json
 [{"Failover":"PRIMARY","Check":null}]
 [{"Failover":"PRIMARY","Check":"a4b86561-0b2e-412e-a1a7-b1843f5571d4"}]
 ```
 
-Both change calls returned `ChangeInfo.Status="INSYNC"` immediately in current Moto.
+Aaj ke Moto mein dono change calls ne turant `ChangeInfo.Status="INSYNC"` diya.
 
-👉 Ordinary primary record without HealthCheckId is treated healthy by Route53. Merely creating a check does not associate the check. Restoring HealthCheckId repairs configuration; actual DNS/probe recovery remains untested here. Alias EvaluateTargetHealth is a separate inherited-health mechanism.
+👉 Bina HealthCheckId ka aam primary record Route53 healthy maanta hai. Sirf check bana dene se woh record se nahi judta. HealthCheckId wapas lagane se config theek hota hai; asli DNS/probe recovery yahan test nahi hui. Alias EvaluateTargetHealth target ki health lene ka alag mechanism hai.
 
-## ex4 — probe emulator capabilities without overclaiming
+## ex4 — emulator ki capabilities jaancho, bina badha-chadha kar bole
 
 ```bash
 aws route53 get-health-check-status --health-check-id "$HEALTH"
 aws route53 test-dns-answer --hosted-zone-id "$ZONE" --record-name status.shopkaro-lab10.test --record-type A
 ```
 
-Asli current Moto result for dummy endpoint:
+Dummy endpoint ke liye aaj ke Moto ka asli result:
 
 ```json
 {"HealthCheckObservations":[{"Region":"us-east-1","IPAddress":"127.0.13.37","StatusReport":{"Status":"Success: HTTP Status Code: 200. Resolved IP: 127.0.13.37. OK","CheckedTime":"2026-10-26T01:12:03.773672Z"}}]}
@@ -104,9 +104,9 @@ Asli current Moto result for dummy endpoint:
 An error occurred (404) when calling the TestDNSAnswer operation: Not Found
 ```
 
-👉 Canned200 is not203.0.113.10 readiness proof.404 is this emulator capability limit; `test-dns-answer` is a valid AWS operation. Do not retry against real AWS credentials. Run cleanup as a separate command even after the expected404. No command here tests real TTL expiration or internet delegation.
+👉 Pehle se bana 200 203.0.113.10 ki readiness ka saboot nahi. 404 is emulator ki capability ki limit hai; `test-dns-answer` sahi AWS operation hai. Asli AWS credentials ke saath retry mat karo. Expected 404 ke baad bhi cleanup alag command ki tarah chalao. Yahan koi command asli TTL expiry ya internet delegation test nahi karta.
 
-## ex5 — delete only lab-owned resources, verify four empty lists
+## ex5 — sirf lab ke apne resources delete karo, chaar khaali lists check karo
 
 ```bash
 bash cleanup.sh
@@ -123,12 +123,12 @@ Deleting lab non-default records: 5
 []
 ```
 
-👉 Cleanup reads exact current lab records into DELETE JSON, preserves NS/SOA until zone deletion, removes saved health check, ALB, two subnets and VPC. Four final lists check saved zone/check/ALB/VPC IDs absent. Another lab's zone/health checks remain untouched. IDs archive in `.lab/last-cleaned-resources.sh`; shared emulator reset never needed.
+👉 Cleanup aaj ke exact lab records ko DELETE JSON mein padhta hai, zone delete hone tak NS/SOA rakhta hai, save hua health check, ALB, do subnets aur VPC hataata hai. Aakhri chaar lists check karti hain ki save hui zone/check/ALB/VPC IDs nahi bachi. Doosre lab ki zone/health checks ko chhoota nahi. IDs `.lab/last-cleaned-resources.sh` mein archive hoti hain; shared emulator reset kabhi nahi chahiye.
 
 ## AWS vs emulator limits
 
-- Current Moto returns INSYNC immediately and reuses a static change ID; app simulator deliberately models PENDING→waiter→INSYNC with deterministic distinct IDs. Neither measures real propagation time.
-- Current Moto SOA output contains a serialized dictionary-looking Value; do not copy the emulator SOA value into AWS. Setup NS/SOA are retained as returned.
-- Current Moto health response is canned. App uses explicit healthy/unhealthy fixtures; no real checker runs.
-- Apex CNAME/type errors and atomic record validation are tested in the in-app engine; emulator metadata acceptance does not certify all AWS constraints.
-- Real failover needs public health reachability or supported alarm/inherited health, lower TTL ahead of cutover, tested standby app/data readiness and actual client observations. Real AWS work is optional, separately approved and billable.
+- Aaj ka Moto turant INSYNC deta hai aur ek hi static change ID dobara use karta hai; app ka simulator jaan-boojh kar PENDING→waiter→INSYNC ko tay, alag IDs ke saath dikhata hai. Dono mein se koi asli propagation time nahi naapta.
+- Aaj ke Moto ke SOA output mein dictionary jaisa dikhne wala Value hai; emulator ki SOA value AWS mein copy mat karo. Setup ke NS/SOA jaise mile waise hi rakhe gaye.
+- Aaj ke Moto ka health response pehle se bana hai. App saaf healthy/unhealthy fixtures use karta hai; koi asli checker nahi chalta.
+- Apex CNAME/type errors aur atomic record validation app ke engine mein test hote hain; emulator ka metadata maan lena saari AWS shartein ka certificate nahi.
+- Asli failover ke liye public health reachability ya supported alarm/inherited health, cutover se pehle kam TTL, test kiya standby app/data aur asli client observations chahiye. Asli AWS ka kaam optional, alag manzoori wala aur bill hone wala hai.
