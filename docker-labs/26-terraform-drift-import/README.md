@@ -17,7 +17,7 @@ Binary/cache missing ho toh argparse error deta hai. Paths apne installed tools 
 ## Samjho aur replay padho
 
 1. Runner SDK se backend bucket/VPC banata hai; Terraform 2 resources (SG + app bucket) create karta hai. `terraform state pull` se bindings aur serial read hote hain.
-2. SDK original TEST order likhta hai aur SG par TCP22/0.0.0.0/0 add karta hai. `terraform plan -refresh-only -out=refresh.tfplan` → `terraform apply refresh.tfplan`: state record badalta hai, live SSH open rehta hai. **Refresh repair nahi hai.**
+2. SDK original TEST order likhta hai aur SG par TCP 22/0.0.0.0/0 add karta hai. `terraform plan -refresh-only -out=refresh.tfplan` → `terraform apply refresh.tfplan`: state record badalta hai, live SSH open rehta hai. **Refresh repair nahi hai.**
 3. SDK pehle se bana archive bucket + asli TEST invoice banata hai. Config jodne ke baad saved stale.tfplan banta hai. `terraform import aws_s3_bucket.archive <generated-archive-name>` binding jodta hai. Purana saved plan apply karne par reject hota hai, kyunki state serial badal gaya.
 4. Taaza `terraform plan -out=repair.tfplan` → apply: 0 add, 1 change, 0 destroy. API readback mein wahi SG ID, sirf internal 443. Dono asli TEST payloads ka byte comparison pass hota hai.
 5. HCL `moved { from = aws_s3_bucket.archive to = aws_s3_bucket.invoices }` address badalta hai; 0 add/change/destroy, physical bucket ID wahi. Native `.tf.json` literal config wahi resources dikhata hai; validate + normal plan exit 0 se barabar hona prove hota hai. SG ingress ke JSON attributes ka poora object set chahiye, isliye HCL nested block ke defaults jaise fields saaf likhe hain.

@@ -67,7 +67,7 @@ Origin errors kaam ke messages ke saath aage jaate hain; error cache nahi hota, 
 
 Script sirf phenkne layak apne VPC/subnets/SGs, ek subnet-group record, ek Valkey 8.0 replication-group metadata fixture aur catalogue-table read policy wala DAX-trusted IAM role banati hai. Ports 6379/9111 app SG tak scoped hain. Har poora CLI command print hota hai. Koi application traffic AWS jaise cache endpoint se nahi judta. Metadata probe cache RBAC nahi banata, na authorization prove karta hai; app ka mission ek alag pehle se bane RBAC fixture se shuru hota hai.
 
-Actual Moto5.2.4 observations:
+Asli Moto 5.2.4 observations:
 
 - `create-replication-group --num-cache-clusters 2` ne available, MultiAZ enabled, automatic failover enabled, transit/at-rest flags true diye, **par sirf ek MemberCluster/primary node**. `describe-cache-clusters` ne [] diya. Boolean flags asli HA prove nahi karte.
 - Modify-replication-group ka description/failover metadata aur replication-group-available waiter chale.
