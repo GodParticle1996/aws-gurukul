@@ -1,9 +1,9 @@
 # 09 — Outbound path, S3 shortcut aur analytics VPC
 
 **Problem:** ShopKaro private app ko payment verification/package downloads chahiye. S3 images NAT processing bill badha rahi hain. Analytics VPC ko orders subnet tak private path chahiye.
-**Goal:** two zonal NATs + same-AZ app routes, S3 gateway endpoint, Secrets Manager interface endpoint, active peering + both routes aur flow-log subscription metadata inspect karo; own resources cleanup karo.
+**Goal:** do zonal NATs + same-AZ app routes, S3 gateway endpoint, Secrets Manager interface endpoint, active peering + dono routes aur flow-log subscription ka metadata dekho; apne resources ka cleanup karo.
 
-Moto **5.2.4**, existing AWS CLI venv, **2026-10-25** actual capture. Random resource IDs change honge. Region ap-south-1; cost examples lesson mein separate approx US East estimates hain. No real AWS resources or OS/app/SQL traffic.
+Moto **5.2.4**, pehle se bana AWS CLI venv, **2026-10-25** ka asli capture. Random resource IDs badlenge. Region ap-south-1; kharche ke examples lesson mein alag, lagbhag US East ke andaaze hain. Koi asli AWS resources ya OS/app/SQL traffic nahi.
 
 ## Setup — ek terminal, repo root aws-gurukul se
 
@@ -19,7 +19,7 @@ export AWS_EC2_METADATA_DISABLED=true
 unset AWS_PROFILE AWS_DEFAULT_PROFILE AWS_SESSION_TOKEN
 ```
 
-Scripts require loopback Moto and dummy test keys. Credentials/config lab-local hain; `~/.aws` ya role profile use nahi hota. Shared emulator ko reset mat karo. Existing `.lab/resources.sh` mile toh previous lab ka cleanup pehle karo.
+Scripts ko loopback Moto aur dummy test keys chahiye. Credentials/config lab ki apni hain; `~/.aws` ya role profile use nahi hota. Shared emulator ko reset mat karo. `.lab/resources.sh` pehle se mile toh pichhle lab ka cleanup pehle karo.
 
 ## ex1 — Starting network banao, route gap dekho
 
@@ -35,11 +35,11 @@ aws ec2 describe-route-tables --route-table-ids "$APP_RT_A" --query 'RouteTables
 [{"DestinationCidrBlock":"10.9.0.0/16","GatewayId":"local","Origin":"CreateRouteTable","State":"active"}]
 ```
 
-Setup two VPCs, six subnets, public IGW routes and explicit app/data/analytics route associations banata hai. App route local-only hai; subnet ka private label outbound path create nahi karta.
+Setup do VPCs, chhe subnets, public IGW routes aur saaf app/data/analytics route associations banata hai. App route sirf local hai; subnet par private label lagane se bahar jaane ka raasta nahi banta.
 
 ## ex2 — Commands read karo, phir connected paths build karo
 
-`exercises.sh` kholo: real CLI commands NAT/EIP → default routes → gateway endpoint → interface endpoint → peer/accept/routes → flow-log subscription order mein hain. Script save trap resource IDs record karta hai, taaki partial failure ke baad cleanup possible ho.
+`exercises.sh` kholo: asli CLI commands is order mein hain: NAT/EIP → default routes → gateway endpoint → interface endpoint → peer/accept/routes → flow-log subscription. Script ka save trap resource IDs likhta hai, taaki beech mein fail hone ke baad bhi cleanup ho sake.
 
 ```bash
 bash exercises.sh
@@ -68,9 +68,9 @@ source .lab/resources.sh
 "active"
 ```
 
-👉 NAT waiter success par no output. Public NAT ka placement + IGW route inspect karo; `available` metadata alone internet reachability prove nahi karta. Interface ENI SG inbound443 only app CIDRs allow karta hai. Private DNS flags VPC DNS support/hostnames par depend karte hain.
+👉 NAT waiter safal ho toh koi output nahi aata. Public NAT ki jagah + IGW route dekho; sirf `available` metadata internet tak pahunch prove nahi karta. Interface ENI ka SG inbound 443 sirf app CIDRs ko allow karta hai. Private DNS flags VPC ke DNS support/hostnames par depend karte hain.
 
-## ex3 — S3 endpoint ka actual route aur association repair
+## ex3 — S3 endpoint ka asli route aur association repair
 
 ```bash
 aws ec2 describe-route-tables --route-table-ids "$APP_RT_A" --query 'RouteTables[0].Routes'
@@ -81,7 +81,7 @@ aws ec2 modify-vpc-endpoint --vpc-endpoint-id "$ENDPOINT" --add-route-table-ids 
 aws ec2 describe-vpc-endpoints --vpc-endpoint-ids "$ENDPOINT" --query 'length(VpcEndpoints[0].RouteTableIds)'
 ```
 
-**Asli output excerpts:** NAT default route ke saath endpoint-managed prefix-list route automatically add hua:
+**Asli output ke hisse:** NAT default route ke saath endpoint ka managed prefix-list route apne aap jud gaya:
 
 ```json
 {"DestinationPrefixListId":"pl-8870eb04a720f66d2","GatewayId":"vpce-f5a817d704e55632e","Origin":"CreateRoute","State":"active"}
@@ -98,7 +98,7 @@ Association counts:
 2
 ```
 
-👉 Matching same-region S3 destination ke liye service prefix route `0.0.0.0/0` se more specific hai. AWS endpoint association route manage karti hai; S3 gateway route ko fake `create-route --vpc-endpoint-id` command se manually install mat karo. Current Moto prefix-list CIDRs null dikhata hai; output live AWS IP inventory nahi.
+👉 Match karne wali same-region S3 destination ke liye service prefix route `0.0.0.0/0` se zyada specific hai. AWS endpoint association route sambhalti hai; S3 gateway route ko nakli `create-route --vpc-endpoint-id` command se haath se mat lagao. Aaj ka Moto prefix-list CIDRs null dikhata hai; output live AWS IPs ki list nahi.
 
 ## ex4 — Peering aur logging ke evidence ki limit samjho
 
@@ -108,13 +108,13 @@ aws ec2 describe-route-tables --route-table-ids "$ORDERS_RT" "$ANALYTICS_RT" --q
 aws ec2 describe-flow-logs --flow-log-ids "$FLOW" --query 'FlowLogs[0].{State:FlowLogStatus,Traffic:TrafficType,Destination:LogDestinationType}'
 ```
 
-**Asli output**: peer active; orders table has `10.10.0.0/16 → pcx-…`; analytics table has `10.9.0.0/16 → same pcx-…`.
+**Asli output**: peer active; orders table mein `10.10.0.0/16 → pcx-…` hai; analytics table mein `10.9.0.0/16 → same pcx-…` hai.
 
 ```json
 {"State":"ACTIVE","Traffic":"ALL","Destination":"s3"}
 ```
 
-👉 Active peer ke baad two-sided routes plus SG/NACL/application permissions chahiye. Flow-log configuration ACTIVE actual delivered packets/log objects prove nahi karta. Lab no EC2 OS run karta hai; `curl`, DB read or S3 throughput verified nahi.
+👉 Active peer ke baad dono taraf routes + SG/NACL/application permissions chahiye. Flow-log config ACTIVE hona asli pahunche packets/log objects prove nahi karta. Lab koi EC2 OS nahi chalati; `curl`, DB read ya S3 throughput check nahi hua.
 
 ## ex5 — Scoped cleanup
 
@@ -122,7 +122,7 @@ aws ec2 describe-flow-logs --flow-log-ids "$FLOW" --query 'FlowLogs[0].{State:Fl
 bash cleanup.sh
 ```
 
-**Asli cleanup output:** final live VPCs, live endpoints and allocated EIPs:
+**Asli cleanup output:** aakhri live VPCs, live endpoints aur allocated EIPs:
 
 ```text
 []
@@ -130,15 +130,15 @@ bash cleanup.sh
 []
 ```
 
-Moto deleted endpoints ko `State=deleted` tombstones ke roop mein retain karta hai; final endpoint query deleted metadata exclude karti hai.
+Moto delete hue endpoints ko `State=deleted` nishaan (tombstones) ke roop mein rakhta hai; aakhri endpoint query delete hua metadata nahi dikhati.
 
-Cleanup IDs `.lab/resources.sh` se aate hain: flow subscription, both endpoints, peering routes/connection, NATs + waiters, EIPs, endpoint SG, explicit route associations/tables, subnets, IGW, two VPCs, empty log bucket. Cleanup deletes only lab-owned IDs; no shared reset.
+Cleanup IDs `.lab/resources.sh` se aate hain: flow subscription, dono endpoints, peering routes/connection, NATs + waiters, EIPs, endpoint SG, saaf route associations/tables, subnets, IGW, do VPCs, khaali log bucket. Cleanup sirf lab ki apni IDs delete karta hai; shared reset nahi.
 
 ## Emulator limits
 
-- API metadata only: no packet translation, internet downloads, DNS requests, SQL, Flow Log delivery, measured AZ recovery or NAT throughput.
-- Gateway endpoint creates the managed prefix-list route; route association remove/add works. Prefix-list CIDRs in Moto were null, so use current AWS managed-prefix APIs for a real IP inventory.
-- Interface endpoint has two ENIs and PrivateDNS=true metadata; working SDK calls require actual DNS/network/IAM/service permissions, separately tested on AWS.
-- Endpoint policy is an extra permission boundary, not an IAM grant; default full endpoint policy does not make private S3 public. Real least-privilege policy + application role/bucket policy remain required.
-- Zonal public NAT is exercised. Regional NAT, NAT64/DNS64, IPv6 egress-only gateway, TGW and Reachability Analyzer are lesson decisions, not runtime-tested lab services.
-- AWS is billable: NAT hours/GB, public IPv4, interface endpoints, traffic and log storage. Deleting NAT does not release the Elastic IP; cleanup explicitly releases both EIPs.
+- Sirf API metadata: packet translation, internet downloads, DNS requests, SQL, Flow Log delivery, naapi AZ recovery ya NAT throughput nahi.
+- Gateway endpoint managed prefix-list route banata hai; route association hatana/jodna chalta hai. Moto mein prefix-list CIDRs null the, isliye asli IPs ki list ke liye aaj ke AWS managed-prefix APIs use karo.
+- Interface endpoint mein do ENIs aur PrivateDNS=true metadata hai; chalti SDK calls ke liye asli DNS/network/IAM/service permissions chahiye, jo AWS par alag se test hoti hain.
+- Endpoint policy ek extra permission boundary hai, IAM grant nahi; default full endpoint policy private S3 ko public nahi banati. Asli least-privilege policy + application role/bucket policy phir bhi chahiye.
+- Zonal public NAT chalaya gaya. Regional NAT, NAT64/DNS64, IPv6 egress-only gateway, TGW aur Reachability Analyzer lesson ke faisle hain, lab mein runtime test hui services nahi.
+- AWS ka bill lagta hai: NAT ghante/GB, public IPv4, interface endpoints, traffic aur log storage. NAT delete karne se Elastic IP release nahi hota; cleanup dono EIPs saaf taur par release karta hai.
