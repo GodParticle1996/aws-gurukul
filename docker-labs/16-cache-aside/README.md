@@ -1,10 +1,10 @@
 # Lab16 — cache-aside, invalidation aur thundering herd
 
-**Pain:** ShopKaro public catalogue repeated reads DB ko busy rakhti hain. Wrong key har request ko miss banata hai; a price update can leave stale cache; concurrent expiry can send all requests to the DB together.
+**Pain:** ShopKaro ke public catalogue ke baar-baar reads DB ko busy rakhte hain. Galat key har request ko miss bana deti hai; price update ke baad cache purana reh sakta hai; ek saath expiry saari requests ko ek saath DB par bhej sakti hai.
 
-**Verified scope:** host Python reference cache in front of actual local Moto DynamoDB calls. Tests cover data and request counts, not Valkey/DAX runtime, TLS/network enforcement or AWS latency. No Docker installation required for the core lab.
+**Check hua scope:** host Python reference cache, asli local Moto DynamoDB calls ke aage. Tests data aur request counts cover karte hain, Valkey/DAX runtime, TLS/network enforcement ya AWS latency nahi. Core lab ke liye Docker install nahi chahiye.
 
-## Setup — existing venv, isolated emulator
+## Setup — pehle se bana venv, alag emulator
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -12,19 +12,19 @@ source env.sh
 cd 16-cache-aside
 ```
 
-Do **not** start/reset the shared emulator for this lab. Each script starts its own `ThreadedMotoServer` on127.0.0.1 and an OS-assigned free port. Each CLI/SDK request explicitly uses that loopback endpoint, dummy test/test keys, ap-south-1 and lab-local credential/config paths. Profiles/session tokens unset; metadata lookup disabled. Scripts stop only their own server in `finally`. Existing `moto[server]` venv supplies boto3; no packages are installed.
+Is lab ke liye shared emulator start/reset **mat** karo. Har script apna `ThreadedMotoServer` 127.0.0.1 aur OS ke diye free port par start karti hai. Har CLI/SDK request saaf taur par wahi loopback endpoint, dummy test/test keys, ap-south-1 aur lab ki apni credential/config paths use karti hai. Profiles/session tokens unset; metadata lookup band. Scripts `finally` mein sirf apna server rokti hain. Pehle se bana `moto[server]` venv boto3 deta hai; koi package install nahi hota.
 
-Isolated process lifetime matters: Moto5.2.4 lacks some delete APIs and leaves cache/DAX metadata tombstones. Stopping this lab's own disposable server/process discards only this run's metadata, without a shared reset or leaving records in another learner's emulator.
+Alag process ki life maayne rakhti hai: Moto 5.2.4 mein kuch delete APIs nahi hain aur woh cache/DAX metadata ke nishaan (tombstones) chhod deta hai. Is lab ka apna phenkne layak server/process rokne se sirf is run ka metadata hatta hai, bina shared reset ke aur bina kisi doosre learner ke emulator mein records chhode.
 
-## ex1 — actual origin reads versus cache hits
+## ex1 — asli origin reads vs cache hits
 
-Read `cache.py` and `fetch()` in `test_cache.py`, then run:
+`cache.py` aur `test_cache.py` ka `fetch()` padho, phir chalao:
 
 ```bash
 ../.venv/bin/python -I test_cache.py
 ```
 
-Test creates a table keyed by tenant + product and actual versioned catalogue rows. Source adapter uses GetItem ConsistentRead; cached responses still have a stale window and are **not** end-to-end strongly consistent.
+Test tenant + product key wali table aur asli versioned catalogue rows banata hai. Source adapter GetItem ConsistentRead use karta hai; cached responses mein phir bhi purane data ki window hai aur yeh end-to-end strongly consistent **nahi**.
 
 Asli captured selection:
 
@@ -39,41 +39,41 @@ Asli captured selection:
 OWNED TABLES [] / OWNED SERVER STOPPED
 ```
 
-34 behavior checks precede the separate owned-table cleanup assertion. No measured throughput or p99 result is claimed.
+Alag apni-table cleanup assertion se pehle 34 behaviour checks hain. Koi naapa throughput ya p99 result ka daava nahi.
 
-👉 Ten repeated reads need one actual GetItem; nine reads return copied cached data. Tenant and product are part of the key. A session/request timestamp is absent because this fixture caches the same catalogue response across requests. Include every dimension that changes a real response: tenant, product, locale, currency, authorization/price scope and schema version as applicable. A caller-supplied tenant name is not authentication; production derives authorized scope separately.
+👉 Das baar ke reads ko sirf ek asli GetItem chahiye; nau reads copy kiya cached data dete hain. Tenant aur product key ka hissa hain. Session/request timestamp nahi hai, kyunki yeh fixture requests ke paar wahi catalogue response cache karta hai. Har woh cheez key mein daalo jo asli response badalti hai: tenant, product, locale, currency, authorization/price scope aur schema version, jo bhi lagu ho. Caller ka diya tenant naam authentication nahi; production allowed scope alag se nikaalta hai.
 
-## ex2 — TTL is a stale window, not write consistency
+## ex2 — TTL purane data ki window hai, write consistency nahi
 
-Tests deliberately update price499→599 without invalidation and observe old499 from cache. After successful DB write, `invalidate()` removes the entry; the next read returns actual599/version2. Advancing the **test clock** past60seconds also forces a real read. No waiting or wall-clock benchmark is involved.
+Tests jaan-boojh kar bina invalidation ke price 499→599 karte hain aur cache se purana 499 dekhte hain. DB write safal hone ke baad `invalidate()` entry hataata hai; agla read asli 599/version 2 deta hai. **Test clock** ko 60 second aage le jaane se bhi asli read hota hai. Koi wait ya wall-clock benchmark nahi.
 
-A missing item gets at most1second negative-cache TTL; creation during that interval can still return missing until invalidation/expiry. Caller mutation cannot poison cached values. Entry-count LRU capacity is enforced; this is not a byte-accurate Valkey memory model. Downward jitter spreads expiration across different keys while staying within configured maximum TTL.
+Missing item ko zyada se zyada 1 second ka negative-cache TTL milta hai; us beech item ban jaaye toh invalidation/expiry tak missing hi aa sakta hai. Caller ke badlav cached values ko kharab nahi kar sakte. Entries ki ginti wali LRU capacity laagu hai; yeh byte tak sahi Valkey memory model nahi. Neeche ki taraf jitter alag keys ki expiry ko phailata hai aur set maximum TTL ke andar rehta hai.
 
-👉 TTL bounds residency after a fill. Real source replica lag, old in-flight reads, delayed invalidation and failure recovery can add data age. Product/price display may accept a reviewed stale window; checkout price/stock invariants must use the authoritative transaction path. Do not infer immediate stock correctness from cache hits.
+👉 TTL fill ke baad cache mein rehne ka time limit karta hai. Asli source replica lag, purane in-flight reads, der se invalidation aur failure recovery data ki umar badha sakte hain. Product/price dikhane mein review ki gayi purane data ki window chal sakti hai; checkout ke price/stock niyam authoritative transaction raaste se hi chalne chahiye. Cache hits se turant stock ka sahi hona mat maano.
 
-## ex3 — concurrent cold miss and stale-fill race
+## ex3 — ek saath cold miss aur purane fill ki race
 
-Twenty threads request the same cold key while a test gate holds the actual origin result. Nineteen requests coalesce behind one origin read. Gates exercise request ordering; elapsed times are not performance measurements.
+Bees threads wahi cold key maangte hain jabki ek test gate asli origin result ko rok kar rakhta hai. Unees requests ek hi origin read ke peeche jud jaati hain. Gates requests ka order check karte hain; beeta time performance ka naap nahi.
 
-Another gate pauses an old result before cache publication. A DB update699/version3 commits, then invalidation marks the in-flight fill obsolete. Releasing the old fill makes the wrapper discard old data and refetch; result699/version3 is cached after two actual reads. This is a **single-process** coordination model. A real multi-instance design needs reviewed distributed coordination/version fencing and bounded retries; a per-process lock does not coordinate an entire fleet.
+Ek aur gate purane result ko cache mein daalne se pehle rokta hai. DB update 699/version 3 commit hota hai, phir invalidation chalte fill ko purana mark karta hai. Purana fill chhodne par wrapper purana data phenk kar dobara laata hai; do asli reads ke baad 699/version 3 cache hota hai. Yeh **single-process** coordination model hai. Asli multi-instance design ko review kiya distributed coordination/version fencing aur limit wale retries chahiye; har process ka lock poori fleet ko coordinate nahi karta.
 
-Origin errors propagate with useful messages and no cached error or abandoned pending fill. Invalid keys, mismatched tenant/product rows and invalid cache settings fail visibly. Cache outage/fallback design must protect DB capacity with deadlines, bounded concurrency/backoff and load shedding; this reference does not simulate a remote cache transport outage.
+Origin errors kaam ke messages ke saath aage jaate hain; error cache nahi hota, na koi adhoora pending fill bachta hai. Galat keys, mismatch tenant/product rows aur galat cache settings saaf fail hote hain. Cache outage/fallback design ko deadlines, limit wali concurrency/backoff aur load shedding se DB capacity bachani chahiye; yeh reference remote cache transport ka outage simulate nahi karta.
 
-## ex4 — run actual cache/DAX metadata APIs, inspect gaps
+## ex4 — asli cache/DAX metadata APIs chalao, kamiyan dekho
 
 ```bash
 ../.venv/bin/python -I metadata.py
 ```
 
-Script creates only disposable owned VPC/subnets/SGs, a subnet-group record, a Valkey8.0 replication-group metadata fixture and a DAX-trusted IAM role with a catalogue-table read policy. Ports6379/9111 are scoped to the app SG. Every full CLI command is printed. No application traffic connects to an AWS-style cache endpoint. The metadata probe does not provision cache RBAC or prove authorization; the in-app mission starts with a separate preprovisioned RBAC fixture.
+Script sirf phenkne layak apne VPC/subnets/SGs, ek subnet-group record, ek Valkey 8.0 replication-group metadata fixture aur catalogue-table read policy wala DAX-trusted IAM role banati hai. Ports 6379/9111 app SG tak scoped hain. Har poora CLI command print hota hai. Koi application traffic AWS jaise cache endpoint se nahi judta. Metadata probe cache RBAC nahi banata, na authorization prove karta hai; app ka mission ek alag pehle se bane RBAC fixture se shuru hota hai.
 
 Actual Moto5.2.4 observations:
 
-- `create-replication-group --num-cache-clusters 2` returned available, MultiAZ enabled, automatic failover enabled, transit/at-rest flags true, **but only one MemberCluster/primary node**. `describe-cache-clusters` returned[]. Boolean flags do not prove real HA.
-- Modify-replication-group description/failover metadata and replication-group-available waiter worked.
-- Create/describe serverless cache, DAX subnet-group creation and delete-cache-subnet-group returned500/unsupported behavior. Script records errors; no successful serverless/subnet deployment is claimed.
-- DAX create accepted TLS/SSE metadata, remained creating with Nodes null; an implementation endpoint still used8111 despite TLS. Real encrypted DAX uses9111. Moto ignored placement/subnet/security details, so metadata is not TLS/VPC/HA/IAM enforcement evidence.
-- Delete requests left cache/DAX tombstones. Script attempts all independent cleanup calls and then stops/closes its **owned** ephemeral listener; process exit discards remaining in-memory records.
+- `create-replication-group --num-cache-clusters 2` ne available, MultiAZ enabled, automatic failover enabled, transit/at-rest flags true diye, **par sirf ek MemberCluster/primary node**. `describe-cache-clusters` ne [] diya. Boolean flags asli HA prove nahi karte.
+- Modify-replication-group ka description/failover metadata aur replication-group-available waiter chale.
+- Serverless cache ka create/describe, DAX subnet-group banana aur delete-cache-subnet-group ne 500/unsupported behaviour diya. Script errors likhti hai; safal serverless/subnet deployment ka daava nahi.
+- DAX create ne TLS/SSE metadata maana, Nodes null ke saath creating par atka raha; ek implementation endpoint TLS ke bawajood 8111 use karta raha. Asli encrypted DAX 9111 use karta hai. Moto ne placement/subnet/security details ignore ki, isliye metadata TLS/VPC/HA/IAM enforcement ka saboot nahi.
+- Delete requests ne cache/DAX ke nishaan chhode. Script saari alag cleanup calls try karti hai, phir apna **thodi der ka** listener rok/band karti hai; process khatam hone par bache in-memory records hat jaate hain.
 
 Asli final output:
 
@@ -82,11 +82,11 @@ METADATA DELETE REQUESTS COMPLETE; unsupported APIs/tombstones discarded with ow
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-Generated names/ports vary. Source, IAM and metadata are local fixtures, not deployed caches. An earlier capability probe on this task's own4566 server found the same gaps; that owned server was stopped. This lab does not depend on4566/4567.
+Bane naam/ports badalte rehte hain. Source, IAM aur metadata local fixtures hain, deploy hue caches nahi. Pehle ke capability probe ne is task ke apne 4566 server par yahi kamiyan dekhi thi; woh server rok diya gaya. Yeh lab 4566/4567 par depend nahi karti.
 
-## Docker follow-up — pending machine readiness, unverified
+## Docker follow-up — machine ki taiyaari baaki, check nahi hua
 
-Docker was absent during authoring; no image/container/port run is claimed. After installing Docker, verify the official [Valkey container source](https://valkey.io/topics/installation/), then use a disposable local-only container. Proposed follow-up commands below have **not** been run here; there is no captured Docker output.
+Likhte waqt Docker nahi tha; koi image/container/port run ka daava nahi. Docker install karne ke baad official [Valkey container source](https://valkey.io/topics/installation/) check karo, phir ek phenkne layak, sirf local container use karo. Neeche diye follow-up commands yahan **nahi chalaye gaye**; koi pakda Docker output nahi hai.
 
 <!-- run-readme: docker-only -->
 ```bash
@@ -99,12 +99,12 @@ docker exec "$LAB16_CONTAINER" valkey-cli DEL catalog:shop:kurta
 docker stop "$LAB16_CONTAINER"
 ```
 
-Run cleanup only for the container successfully created in this shell. If6389/name is occupied, inspect and choose another local port/name; do not remove unrelated containers. Local GET/SET/TTL validates a basic Valkey runtime only, not managed ElastiCache Multi-AZ, AWS TLS/IAM, eviction/durability or the full cache-aside adapter. An actual Valkey-backed adapter/replay remains a Docker follow-up.
+Cleanup sirf us container ka chalao jo is shell mein safal bana. 6389/naam pehle se use ho raha ho toh dekh kar doosra local port/naam chuno; anjaane containers mat hatao. Local GET/SET/TTL sirf basic Valkey runtime check karta hai, managed ElastiCache Multi-AZ, AWS TLS/IAM, eviction/durability ya poora cache-aside adapter nahi. Asli Valkey wala adapter/replay Docker follow-up mein baaki hai.
 
 ## What cleanup establishes
 
-`test_cache.py` deletes its table and closes its own listener in finally. `metadata.py` attempts supported resource deletes and closes its own listener; unsupported metadata disappears with that disposable process. `.lab/` stores endpoint/ledger evidence only. No shared reset, real AWS, user credentials or unrelated process shutdown.
+`test_cache.py` apni table delete karta hai aur finally mein apna listener band karta hai. `metadata.py` supported resource deletes try karta hai aur apna listener band karta hai; unsupported metadata us phenkne layak process ke saath gayab hota hai. `.lab/` sirf endpoint/ledger ka saboot rakhta hai. Shared reset, asli AWS, user credentials ya anjaane process ka band hona nahi.
 
-Current architecture boundaries: ordinary Valkey/Redis OSS async replicas can lose recent writes at failover; Memcached node-based sharding is not a replicated durable database. ElastiCache Valkey9.0+ now has separately configured durable Multi-AZ-log options (sync versus async); durability does not disable TTL/eviction. MemoryDB is also a durable in-memory database candidate. This lab uses a traditional node-based8.0 metadata fixture; none of those managed durability modes are exercised.
+Aaj ki architecture ki limits: aam Valkey/Redis OSS async replicas failover par haal ke writes kho sakti hain; Memcached ki node-based sharding replicated durable database nahi. ElastiCache Valkey 9.0+ mein ab alag se set hone wale durable Multi-AZ-log options hain (sync vs async); durability TTL/eviction band nahi karti. MemoryDB bhi durable in-memory database ka candidate hai. Yeh lab purane node-based 8.0 metadata fixture use karti hai; in managed durability modes mein se koi nahi chalaya jaata.
 
-Primary references checked2026-10-26: [cache write/invalidation](https://docs.aws.amazon.com/prescriptive-guidance/latest/dynamodb-elasticache-integration/cache-write.html), [Multi-AZ](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/AutoFailover.html), [current durability](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Durability.Options.html), [serverless/deployment](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.corecomponents.html), [DAX networking/TLS](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.create-cluster.cli.html).
+Primary references checked 2026-10-26: [cache write/invalidation](https://docs.aws.amazon.com/prescriptive-guidance/latest/dynamodb-elasticache-integration/cache-write.html), [Multi-AZ](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/AutoFailover.html), [current durability](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/Durability.Options.html), [serverless/deployment](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.corecomponents.html), [DAX networking/TLS](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DAX.create-cluster.cli.html).
