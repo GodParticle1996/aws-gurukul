@@ -1,8 +1,8 @@
 # Lab13 — shared storage ki configuration inspect aur repair karo
 
-**Pain:** ShopKaro seller admin ko shared Linux uploads folder chahiye. Teen AZs ki app ke liye do targets aur wrong SG attachments mile. NFS port rule, SG attachment, throughput aur application identity alag decisions hain.
+**Pain:** ShopKaro ke seller admin ko shared Linux uploads folder chahiye. Teen AZs wali app ke liye sirf do targets aur galat SG attachments mile. NFS port ka rule, SG attachment, throughput aur application ki pehchaan alag-alag faisle hain.
 
-**Local scope:** existing Moto5.2.4, one owned VPC, three subnets, three SGs, two EFS metadata fixtures and one access point. **No NFS server, mounted share, actual files, TLS/IAM/POSIX enforcement, throughput measurement or lifecycle ageing.** Runtime evidence requires approved AWS sandbox; metadata readback alone successful mount ka proof nahi.
+**Local scope:** pehle se bana Moto 5.2.4, ek apna VPC, teen subnets, teen SGs, do EFS metadata fixtures aur ek access point. **Koi NFS server, mount hua share, asli files, TLS/IAM/POSIX enforcement, throughput ka naap ya lifecycle ka purana hona nahi.** Runtime saboot ke liye approved AWS sandbox chahiye; sirf metadata readback safal mount ka saboot nahi.
 
 ## Setup
 
@@ -16,9 +16,9 @@ bash setup.sh
 source .lab/resources.sh
 ```
 
-Scripts require loopback4566 and dummy test/test. Credentials/config lab-local; profiles unset, metadata disabled. Partial setup IDs saved in `.lab/resources.sh`; cleanup only saved resources. Shared reset mat chalao.
+Scripts ko loopback 4566 aur dummy test/test chahiye. Credentials/config lab ki apni; profiles unset, metadata band. Adhoore setup ki IDs `.lab/resources.sh` mein save hoti hain; cleanup sirf save hue resources ka. Shared reset mat chalao.
 
-Asli captured setup output (generated IDs vary):
+Asli pakda setup output (bani IDs badalti hain):
 
 ```json
 {"Mode":"bursting","Encrypted":true,"Mounts":2}
@@ -30,7 +30,7 @@ Asli captured setup output (generated IDs vary):
 
 ## ex1 — target SG aur NFS rule repair
 
-Read `exercises.sh`, then run all three exercises:
+`exercises.sh` padho, phir teeno exercises chalao:
 
 ```bash
 bash exercises.sh
@@ -40,7 +40,7 @@ aws ec2 describe-security-groups --group-ids "$EFS_SG"
 aws efs describe-mount-targets --file-system-id "$FS"
 ```
 
-Script authorizes inbound TCP2049 from `APP_SG`, replaces both old target SG lists, creates third target with `EFS_SG`, then inspects state. **SG rule without SG attachment does not repair the path.** Captured target states after repair:
+Script `APP_SG` se inbound TCP 2049 allow karti hai, dono purane targets ki SG lists badalti hai, `EFS_SG` ke saath teesra target banati hai, phir state dekhti hai. **SG attachment ke bina sirf SG rule raasta theek nahi karta.** Repair ke baad pakde target states:
 
 ```json
 [
@@ -50,11 +50,11 @@ Script authorizes inbound TCP2049 from `APP_SG`, replaces both old target SG lis
 ]
 ```
 
-Actual duplicate target probe returned `MountTargetConflict: mount target already exists in this AZ`. One target per **AZ**, not every subnet. In AWS, normal regional DNS expects local-AZ target; deliberate cross-AZ IP/DNS access can work with routes/rules, but adds cost and a dependency on another AZ. Missing local target is not an absolute ban on all cross-AZ mounting.
+Asli duplicate target probe ne `MountTargetConflict: mount target already exists in this AZ` diya. Har **AZ** mein ek target, har subnet mein nahi. AWS mein normal regional DNS local-AZ target expect karta hai; soch kar kiya cross-AZ IP/DNS access routes/rules ke saath chal sakta hai, par kharcha aur doosre AZ par dependency badhata hai. Local target na hona har cross-AZ mount par poori rok nahi.
 
-## ex2 — throughput update limitation aur valid Archive configuration
+## ex2 — throughput update ki limit aur sahi Archive config
 
-The script stores IA30 on the original Bursting file system. Real command:
+Script purane Bursting file system par IA 30 save karti hai. Asli command:
 
 ```bash
 aws efs update-file-system --file-system-id "$FS" --throughput-mode elastic
@@ -66,7 +66,7 @@ Captured Moto result:
 An error occurred (500) when calling the UpdateFileSystem operation (reached max retries: 0)
 ```
 
-Original mode readback stayed `"bursting"`. Script therefore creates a **separate** file system with `--throughput-mode elastic` at creation. `ELASTIC_FS` readback contains `ThroughputMode: elastic`. Archive belongs to the Elastic fixture:
+Purane mode ka readback `"bursting"` hi raha. Isliye script banate waqt hi `--throughput-mode elastic` ke saath ek **alag** file system banati hai. `ELASTIC_FS` readback mein `ThroughputMode: elastic` hai. Archive Elastic fixture par hi lagta hai:
 
 ```bash
 aws efs describe-lifecycle-configuration --file-system-id "$ELASTIC_FS"
@@ -82,11 +82,11 @@ Asli output:
 ]}
 ```
 
-Each policy object has one transition. Archive needs Elastic/General Purpose and later threshold than IA. Moto also accepted invalid `AFTER_2_DAYS` in an isolated probe; **Moto acceptance does not validate AWS policy values**. Invalid probe config is not applied by repository exercises. No files actually change storage class here.
+Har policy object mein ek transition hota hai. Archive ko Elastic/General Purpose aur IA se baad ki threshold chahiye. Ek alag probe mein Moto ne galat `AFTER_2_DAYS` bhi maan liya; **Moto ka maanna AWS policy values ko validate nahi karta**. Repository exercises galat probe config nahi lagate. Yahan koi file asal mein storage class nahi badalti.
 
-## ex3 — seller access point
+## ex3 — seller ka access point
 
-Script creates `/seller`, enforces requested POSIX Uid/Gid1001 and CreationInfo owner1001/perms750. Inspect:
+Script `/seller` banati hai, maanga POSIX Uid/Gid 1001 aur CreationInfo owner 1001/perms 750 laagu karti hai. Dekho:
 
 ```bash
 aws efs describe-access-points --access-point-id "$AP"
@@ -99,7 +99,7 @@ Captured excerpt:
  "Root":{"Path":"/seller","CreationInfo":{"OwnerUid":1001,"OwnerGid":1001,"Permissions":"750"}}}
 ```
 
-AP SG nahi rakhta; AP mount target ki network path use karta hai. Real approved client would use EFS mount helper with `tls,iam,accesspoint=...`, correct IAM ClientMount/ClientWrite policy and POSIX permissions. Default file-system policy IAM authentication enforce nahi karti. AP metadata alone does not prove tenant isolation or write access.
+AP SG nahi rakhta; AP mount target ka network raasta use karta hai. Asli approved client EFS mount helper `tls,iam,accesspoint=...` ke saath, sahi IAM ClientMount/ClientWrite policy aur POSIX permissions use karega. Default file-system policy IAM authentication laagu nahi karti. Sirf AP metadata tenant ka alag hona ya write access prove nahi karta.
 
 ## Cleanup
 
@@ -107,13 +107,13 @@ AP SG nahi rakhta; AP mount target ki network path use karta hai. Real approved 
 bash cleanup.sh
 ```
 
-Script deletes AP, three saved targets, both saved file systems, owned SGs/subnets/VPC. Actual cleanup output was two empty arrays:
+Script AP, teen save hue targets, dono save hue file systems aur apne SGs/subnets/VPC delete karti hai. Asli cleanup output do khaali arrays tha:
 
 ```json
 []
 []
 ```
 
-Separate probe verified `FileSystemInUse` before target removal and `FileSystemNotFound` after scoped deletion. No shared emulator reset or unrelated resource deletion. Runtime AWS deletion can be asynchronous; these scripts target tested Moto only.
+Alag probe ne target hatane se pehle `FileSystemInUse` aur scoped deletion ke baad `FileSystemNotFound` check kiya. Shared emulator reset ya anjaana delete nahi. AWS mein runtime deletion async ho sakti hai; yeh scripts sirf test kiye Moto ke liye hain.
 
-👉 **Asli baat:** API state repair and a successful multi-client file read are different evidence. In-app terminal models documented readiness transitions; Moto lab verifies only metadata APIs. Optional real-AWS homework in the level explains mounted byte comparison and billable cleanup.
+👉 **Asli baat:** API state ka repair aur kai clients ka safal file read alag saboot hain. App ka terminal likhe readiness badlav ka model hai; Moto lab sirf metadata APIs check karti hai. Level ka optional asli-AWS homework mount kiye bytes ka comparison aur bill hone wala cleanup samjhata hai.
