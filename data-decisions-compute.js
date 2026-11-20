@@ -18,7 +18,7 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'Ek request/job ka kaam kitni der chalta hai?',
-        why: 'This tree starts with standard on-demand Event Functions (900s maximum). Newer eligible Managed Instances async/ESM and other Lambda models have separate limits; review the exact compute contract before a production choice.',
+        why: 'Yeh tree standard on-demand Event Functions (maximum 900s) se shuru hota hai. Naye eligible Managed Instances async/ESM aur doosre Lambda models ki limits alag hain; production mein chunne se pehle exact compute contract review karo.',
         options: [
           { t: '15 minute se kam (API call, file process, event handle)', next: 'q2' },
           { t: '15 minute se zyada ya hamesha chalta rehta hai (server, worker)', next: 'q3' },
@@ -27,7 +27,7 @@ AG.registerDecisions([
       },
       q2: {
         q: 'Traffic ka shape kaisa hai?',
-        why: 'On-demand execution duration follows billed work/INIT. Prepared capacity, API, storage/log/network costs remain separate. Compare equal availability/performance requirements; no fixed RPS or traffic shape alone proves cheaper compute.',
+        why: 'On-demand mein bill kaam ke time aur INIT ke hisaab se banta hai. Prepared capacity, API, storage/log/network ka kharcha alag rehta hai. Barabar availability/performance ki zarooraton par compare karo; sirf RPS ya traffic ka shape dekh kar sasta compute saabit nahi hota.',
         hint: 'Spiky = din mein kuch ghante traffic, raat ko lagbhag zero. Steady = har second requests aati rehti hain.',
         options: [
           { t: 'Spiky ya kam — kabhi 0, kabhi 500 req/s', next: 'lambda' },
@@ -59,8 +59,8 @@ AG.registerDecisions([
       },
       lambda: {
         leaf: true, icon: 'λ', pick: 'AWS Lambda',
-        one: 'Standard on-demand event-driven compute; infrastructure management reduced, workload correctness and cost still reviewed.',
-        why: 'Short events with variable demand can fit. Scaling remains bounded by function/account/downstream quotas; billed initialization, execution and associated services matter.',
+        one: 'Standard on-demand, event se chalne wala compute; infrastructure ka kaam kam hota hai, par workload ka sahi chalna aur kharcha phir bhi review karo.',
+        why: 'Chhote events aur upar-neeche hoti demand par fit ho sakta hai. Scaling function/account/downstream quotas ki limit mein rehti hai; INIT, execution aur saath ki services ka bill maayne rakhta hai.',
         when: [
           'S3 upload par thumbnail banana, SQS message process karna, API Gateway ke peeche chhota API',
           'Traffic din mein upar-neeche hota hai, raat ko lagbhag zero',
@@ -68,16 +68,16 @@ AG.registerDecisions([
         ],
         avoid: [
           'Longer than 900s in standard on-demand scope; evaluate other supported compute contracts',
-          'Sustained demand without an equal-requirement cost/performance comparison',
-          'Strict latency without measured cold/warm distributions and a reviewed SnapStart/PC or alternative plan',
+          'Lagatar demand par, jab barabar zarooraton wala cost/performance comparison nahi kiya',
+          'Strict latency par, jab cold/warm ka naapa hua data aur SnapStart/PC ya doosra plan review nahi hua',
           'Bahut lambi-chaudi connection pools (RDS) — har Lambda copy naya DB connection kholti hai; RDS Proxy lagao',
         ],
         gotchas: [
-          'Common Regional default 1,000 concurrency, but new accounts may be lower; reserved cap/isolation differs from provisioned readiness',
+          'Aam taur par har Region mein default 1,000 concurrency, par naye accounts mein kam ho sakti hai; reserved cap/isolation aur provisioned readiness alag cheezein hain',
           'Memory badhane se CPU bhi badhta hai (128 MB – 10,240 MB) — kabhi-kabhi zyada memory = jaldi khatam = sasta',
-          'VPC internet path needs correct NAT/supportedIPv6 design; public subnet alone gives no public IP; AWS endpoints cover selected services',
+          'VPC se internet ke liye sahi NAT/supported IPv6 design chahiye; sirf public subnet se public IP nahi milta; AWS endpoints kuch chuni services hi cover karte hain',
         ],
-        cost: 'Approx US East first-tier x86 $0.20/million small-payload requests + $0.0000166667/GB-s; arm rate differs.5million×0.5GB×0.2s =500,000GB-s ≈$8.33+$1 before INIT/other services/free credits. PC allocation/execution separate.',
+        cost: 'Lagbhag US East first-tier x86: $0.20/million chhoti requests + $0.0000166667/GB-s; arm ka rate alag hai. 5 million × 0.5 GB × 0.2s = 500,000 GB-s ≈ $8.33 + $1, INIT/doosri services/free credits se pehle. PC allocation/execution ka bill alag.',
         exam: 'Event-driven/least server management → Lambda candidate. Standard job 30 minutes exceeds 900s; evaluate Fargate/Batch/EC2 or a supported newer compute model with its own limits.',
         iac: `resource "aws_lambda_function" "thumb" {
   function_name = "make-thumbnail"
@@ -88,7 +88,7 @@ AG.registerDecisions([
   memory_size   = 512
   timeout       = 30      # seconds (max 900)
 }`,
-        example: 'Versioned S3 photo → duplicate-safe worker → three derivatives in separate output path; verify exact source version/body and failure capture. Other service costs remain even without function invocations.',
+        example: 'Versioned S3 photo → duplicate se safe worker → teen derivatives alag output path mein; exact source version/body aur failure capture check karo. Function na chale tab bhi doosri services ka kharcha rehta hai.',
         level: 'lambda',
       },
       fargate: {
@@ -206,7 +206,7 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'Kaam beech mein ruk jaaye (instance 2 minute notice par chhin jaaye) toh chalega?',
-        why: 'Spot instances AWS ki spare capacity — up to 90% off; stop/terminate warning usually 2 minutes best effort, hibernation immediately starts.',
+        why: 'Spot instances AWS ki bachi hui capacity hain — up to 90% off; stop/terminate ki warning aam taur par 2 minute pehle (best effort), aur hibernation turant shuru ho jaata hai.',
         options: [
           { t: 'Haan — batch, CI builds, stateless workers, retry ho sakta hai', next: 'spot' },
           { t: 'Nahi — production database, user-facing server', next: 'q2' },
@@ -261,7 +261,7 @@ AG.registerDecisions([
         when: ['Short-term, unpredictable kaam', 'Naye workload ka pehla mahina — usage samajhne ke liye', 'Savings Plan ke upar ka extra peak'],
         avoid: ['Saalon chalne wala steady baseline — Savings Plan se 30–70% bachat chhoot rahi hai'],
         gotchas: ['Sabse mehenga per-ghanta rate — Cost Explorer ka "Savings Plans recommendations" dekhte raho'],
-        cost: 'Current Region/type/OS On-Demand rate quote; active time plus residual storage/network cost count karo.',
+        cost: 'Aaj ke Region/type/OS ka On-Demand rate quote lo; chalne ka time aur bacha storage/network kharcha bhi gino.',
         exam: '"short-term", "unpredictable", "cannot be interrupted", "no commitment" → On-Demand.',
         level: 'ec2',
       },
