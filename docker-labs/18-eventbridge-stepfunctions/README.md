@@ -1,8 +1,8 @@
-# Lab18 — routing, schedules aur compensation ka actual proof
+# Lab18 — routing, schedules aur compensation ka asli saboot
 
-**Pain:** ShopKaro refund workflow mein captured payment aur failed stock reservation ke beech recovery gap hai. A nightly report also needs an explicit timezone and delivery permissions. Accepted API calls, configuration and completed business work are different proofs.
+**Pain:** ShopKaro ke refund workflow mein captured payment aur fail stock reservation ke beech recovery ki kami hai. Raat ki report ko bhi saaf timezone aur delivery permissions chahiye. Mani hui API calls, config aur poora hua business kaam, teeno alag saboot hain.
 
-## Setup — existing venv, owned ephemeral servers
+## Setup — pehle se bana venv, apne thodi der ke servers
 
 ```bash
 cd aws-gurukul/docker-labs
@@ -12,13 +12,13 @@ cd 18-eventbridge-stepfunctions
 ../.venv/bin/python -I test_saga.py
 ```
 
-Each script starts a separate owned `ThreadedMotoServer` on127.0.0.1 at an OS-assigned port. Every CLI/SDK call explicitly pins that endpoint, dummy test/test keys, ap-south-1 and lab-local credential/config paths. Profiles/session token unset; instance metadata disabled. No shared4566 start/reset, Docker, real AWS, package install or external payment call. `finally` deletes only created resources and closes only that server; listener closure is checked.
+Har script apna alag `ThreadedMotoServer` 127.0.0.1 par OS ke diye port par start karti hai. Har CLI/SDK call saaf taur par wahi endpoint, dummy test/test keys, ap-south-1 aur lab ki apni credential/config paths use karti hai. Profiles/session token unset; instance metadata band. Shared 4566 start/reset, Docker, asli AWS, package install ya bahar ka payment call nahi. `finally` sirf banaye resources delete karta hai aur sirf wahi server band karta hai; listener band hua ya nahi, check hota hai.
 
-## ex1 — Classic rules: operators and actual target delivery
+## ex1 — Classic rules: operators aur asli target delivery
 
-Read `pattern`, `variants` and the printed commands in `metadata.py`. This lab uses **default/Custom Event Bus–Classic rules and targets**, not the newer Custom Event Bus subscriber APIs. Both products remain available; APIs, retry defaults, ordering/retention and billing differ.
+`metadata.py` mein `pattern`, `variants` aur print hue commands padho. Yeh lab **default/Custom Event Bus ke Classic rules aur targets** use karti hai, naye Custom Event Bus subscriber APIs nahi. Dono products available hain; APIs, retry defaults, ordering/retention aur billing alag hain.
 
-Pattern requires source shop.orders, detail-type RefundRequested, numeric amount >1000, currency INR, customerId prefix customer-, environment other than test, and absent debugToken. Test variants include amount1000, string amount"2500", wrong prefix, test environment, debugToken=false and debugToken=null.
+Pattern ko chahiye: source shop.orders, detail-type RefundRequested, numeric amount >1000, currency INR, customerId ka prefix customer-, environment test ke alawa koi bhi, aur debugToken na ho. Test variants mein amount 1000, string amount "2500", galat prefix, test environment, debugToken=false aur debugToken=null hain.
 
 Actual captured output:
 
@@ -29,15 +29,15 @@ POLICY PROBE {"withoutQueuePolicy":1,"motoGapIfNonzero":true}
 ACTUAL ROUTING {"count":1,"details":[{"orderId":"order-101","amount":2500,"currency":"INR","customerId":"customer-101","environment":"prod"}]}
 ```
 
-👉 Moto5.2.4 `test-event-pattern` returns an empty successful response; it does not implement the Result. Do not treat `{}` as a matched pattern. After publishing all seven variants, actual SQS bodies prove only the valid variant routed. Missing and null are different; numeric matching does not coerce string"2500" into a number.
+👉 Moto 5.2.4 `test-event-pattern` khaali safal response deta hai; Result bana hi nahi hai. `{}` ko matched pattern mat samjho. Saato variants publish karne ke baad asli SQS bodies se prove hota hai ki sirf sahi variant route hua. Missing aur null alag hain; numeric matching string "2500" ko number nahi banati.
 
-The first own-queue publish intentionally omits queue policy: Moto delivered anyway. Script purges only its fresh probe queue, then stores a narrow events.amazonaws.com SendMessage policy with exact rule SourceArn. Policy readback is verified; **Moto delivery is not authorization proof**. Current Classic Lambda/SNS/SQS targets can use an execution role or resource policy; this lab demonstrates the resource-policy path.
+Apni queue par pehla publish jaan-boojh kar bina queue policy ke hai: Moto ne phir bhi deliver kar diya. Script sirf apni taazi probe queue purge karti hai, phir exact rule SourceArn ke saath chhoti events.amazonaws.com SendMessage policy save karti hai. Policy readback check hota hai; **Moto ki delivery authorization ka saboot nahi**. Aaj ke Classic Lambda/SNS/SQS targets execution role ya resource policy use kar sakte hain; yeh lab resource-policy wala raasta dikhati hai.
 
-Target metadata readback includes RetryPolicy MaximumRetryAttempts3, MaximumEventAgeInSeconds3600 and DeadLetterConfig for a Standard SQS queue. Classic retriable-delivery defaults are24hours/up to185retries; permanent missing-permission/resource errors can go directly to a configured DLQ. Neither policy readback nor this local immediate route proves retry timing or DLQ runtime. PutEvents acceptance also needs per-entry failure inspection; it is not target/business completion.
+Target metadata readback mein RetryPolicy MaximumRetryAttempts 3, MaximumEventAgeInSeconds 3600 aur ek Standard SQS queue ka DeadLetterConfig aata hai. Classic retry hone layak delivery ke defaults 24 ghante/185 retries tak hain; permanent missing-permission/resource errors seedhe set kiye DLQ mein ja sakte hain. Na policy readback, na yeh local turant route, retry timing ya DLQ runtime prove karta hai. PutEvents maan liya gaya ho tab bhi har entry ka failure dekhna padta hai; yeh target/business ka poora hona nahi.
 
-## ex2 — Scheduler timezone, group trust and Lambda permission
+## ex2 — Scheduler timezone, group trust aur Lambda permission
 
-Read the exact `create-schedule` call in output:
+Output mein exact `create-schedule` call padho:
 
 ```text
 ScheduleExpression: cron(0 3 * * ? *)
@@ -46,15 +46,15 @@ FlexibleTimeWindow: {"Mode":"OFF"}
 State: ENABLED
 ```
 
-These fields are a selection from the captured GetSchedule JSON. The target has an explicit execution RoleArn, input, retry budget and DLQ. Role trust is read back and scoped to the **schedule-group ARN**, not an individual schedule ARN. Role permissions name only the target queue and DLQ.
+Yeh fields pakde gaye GetSchedule JSON mein se chune gaye hain. Target ke paas saaf execution RoleArn, input, retry budget aur DLQ hai. Role trust wapas padha jaata hai aur **schedule-group ARN** tak scoped hai, ek schedule ARN tak nahi. Role permissions sirf target queue aur DLQ ka naam leti hain.
 
-👉 Scheduler is separate from legacy scheduled rules. Six-field cron3AM is interpreted in Asia/Kolkata here. OFF flexible window does not mean second-level precision: Scheduler invokes with60-second precision. No actual scheduled invocation, timezone transition, retry timer or IAM enforcement is measured by this Moto metadata lab.
+👉 Scheduler purane scheduled rules se alag hai. Chhe field wala cron 3AM yahan Asia/Kolkata mein samjha jaata hai. OFF flexible window ka matlab second tak ki precision nahi: Scheduler 60 second ki precision se chalata hai. Yeh Moto metadata lab asli scheduled invocation, timezone ka badlav, retry timer ya IAM enforcement nahi naapti.
 
-The script also creates an own Lambda zip/configuration, adds events.amazonaws.com lambda:InvokeFunction permission scoped to the exact rule SourceArn, and reads the resulting policy. No Lambda is invoked or attached as an executing target; Docker/runtime execution remains unverified. Configuration and permission metadata answer the triage question without pretending the function ran.
+Script apna Lambda zip/config bhi banati hai, exact rule SourceArn tak scoped events.amazonaws.com lambda:InvokeFunction permission jodti hai, aur bani policy padhti hai. Koi Lambda chalaya ya chalne wale target ke roop mein joda nahi jaata; Docker/runtime execution check nahi hua. Config aur permission ka metadata triage ke sawaal ka jawaab deta hai, bina yeh dikhawa kiye ki function chala.
 
-## ex3 — Step Functions default Moto history is synthetic
+## ex3 — Step Functions ki default Moto history nakli hai
 
-Script stores a real Choice/Pass state machine named for this run. Definition starts at VerifyStock and branches to RecordRefund or Ready. DescribeStateMachine round-trips the requested definition. StartExecution input has stockAvailable=false.
+Script is run ke naam se ek asli Choice/Pass state machine save karti hai. Definition VerifyStock se shuru hoti hai aur RecordRefund ya Ready par branch karti hai. DescribeStateMachine maangi gayi definition wapas deta hai. StartExecution ke input mein stockAvailable=false hai.
 
 Captured result:
 
@@ -63,16 +63,16 @@ SFN METADATA PROBE {"status":"RUNNING","output":null,"stateEnteredNames":["A Sta
 BEHAVIOR CHECKS 8
 ```
 
-👉 Requested states never appear in that default history. A synthetic ExecutionSucceeded event in GetExecutionHistory cannot prove the requested workflow completed when DescribeExecution still says RUNNING. Moto's optional ASL parser import fails in this installed environment because `localstack` is missing. The lab does not install that dependency or enable the parser. **No actual Step Functions ASL execution or Catch path is claimed.**
+👉 Maange gaye states us default history mein kabhi nahi aate. GetExecutionHistory ka nakli ExecutionSucceeded event yeh prove nahi kar sakta ki workflow poora hua, jab DescribeExecution abhi bhi RUNNING bolta hai. Is installed environment mein Moto ka optional ASL parser import fail hota hai, kyunki `localstack` missing hai. Lab woh dependency install nahi karti, na parser on karti hai. **Asli Step Functions ASL execution ya Catch path ka koi daava nahi.**
 
-## ex4 — actual host saga with DynamoDB state and restart recovery
+## ex4 — DynamoDB state aur restart recovery ke saath asli host saga
 
-Read `saga.py`, then `test_saga.py`. The host reference uses actual DynamoDB conditional/transaction operations in its own separate Moto server. Payment is explicitly a **TEST ledger**, not an external gateway.
+`saga.py` padho, phir `test_saga.py`. Host reference apne alag Moto server mein asli DynamoDB conditional/transaction operations use karta hai. Payment saaf taur par ek **TEST ledger** hai, bahar ka gateway nahi.
 
-1. Persist/verify stable order identity and payload. NEW→CAPTURED increments a test capture counter once.
-2. Reserve inventory and write READY phase/counter in **one TransactWriteItems** operation. A rejected stock condition rolls back both operations.
-3. When stock is unavailable, CAPTURED→REFUNDED updates the test ledger once. Refund outage leaves CAPTURED unresolved for monitored recovery.
-4. Retry the same order after interruption. READY/REFUNDED are durable outcomes, so replay does not capture, reserve or refund again. Conflicting amount/identity is rejected without overwriting the original.
+1. Order ki stable pehchaan aur payload save/check karo. NEW→CAPTURED test capture counter ko ek baar badhata hai.
+2. Inventory reserve karo aur READY phase/counter **ek hi TransactWriteItems** operation mein likho. Stock ki condition reject ho toh dono operations wapas ho jaate hain.
+3. Stock na ho toh CAPTURED→REFUNDED test ledger ko ek baar update karta hai. Refund ka outage CAPTURED ko monitored recovery ke liye adhoora chhodta hai.
+4. Rukawat ke baad wahi order dobara try karo. READY/REFUNDED durable results hain, isliye replay dobara capture, reserve ya refund nahi karta. Alag amount/pehchaan purane ko overwrite kiye bina reject hoti hai.
 
 Actual capture:
 
@@ -82,19 +82,19 @@ OWNED TABLES []
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-👉32 behavior checks cover shortage/actual stock preservation, repeated refunded/ready orders, interruption after capture, interruption after atomic reserve, refund outage/recovery, conflicting payload and malformed input. Separate cleanup assertion makes33checks. Test payment fields never call a bank/provider. A real payment cannot be atomically included in the local DynamoDB transaction: use provider idempotency keys, explicit pending states, reconciliation and monitored recovery. Compensation can fail or have costs; a saga is not an invisible global rollback.
+👉 32 behaviour checks yeh cover karte hain: stock ki kami/asli stock ka bachna, baar-baar refund/ready orders, capture ke baad rukawat, atomic reserve ke baad rukawat, refund outage/recovery, alag payload aur galat input. Alag cleanup assertion se 33 checks bante hain. Test payment fields kabhi bank/provider ko call nahi karte. Asli payment ko local DynamoDB transaction mein atomically nahi joda ja sakta: provider ki idempotency keys, saaf pending states, milaan aur monitored recovery use karo. Compensation fail ho sakta hai ya uska kharcha ho sakta hai; saga koi chhupa global rollback nahi.
 
-The host reference is not an ASL interpreter and is not the installed Moto Step Functions runtime. Reusing stable business identity and durable phases is the production lesson. Real workflow execution, external-provider ambiguity, distributed load/concurrency, IAM/KMS/network enforcement and failure timing need separate runtime tests.
+Host reference ASL interpreter nahi, na installed Moto Step Functions runtime. Production ki seekh hai: stable business pehchaan aur durable phases dobara use karo. Asli workflow execution, bahar ke provider ka saaf jawaab na aana, distributed load/concurrency, IAM/KMS/network enforcement aur failure timing ke liye alag runtime tests chahiye.
 
 ## Cleanup and evidence
 
-Metadata run:8 behavior checks plus cleanup9. Host saga:32 plus cleanup33. Both scripts record their endpoint/closed-listener status and created IDs under ignored `.lab/`. Created-ID lists are historical ledgers, not leftovers.
+Metadata run: 8 behaviour checks + cleanup 9. Host saga: 32 + cleanup 33. Dono scripts apna endpoint/band listener ka status aur bani IDs ignore hone wale `.lab/` mein likhti hain. Bani IDs ki lists purane ledgers hain, bache hue resources nahi.
 
 ```text
 OWNED RESOURCES {"queues": [], "rules": [], "schedules": [], "groups": [{"Arn": "arn:aws:scheduler:ap-south-1:123456789012:schedule-group/default", "Name": "default", "State": "ACTIVE"}], "machines": [], "roles": [], "functions": []}
 OWNED MOTO STOPPED / LISTENER CLOSED
 ```
 
-Default schedule group is Moto's builtin marker; the run-created group is deleted. No shared or user resources were present in these owned disposable processes. CLI requests print their real generated endpoint/resource names; no expected result is invented.
+Default schedule group Moto ka built-in marker hai; run ka banaya group delete hota hai. In apne phenkne layak processes mein koi shared ya user resource nahi tha. CLI requests apne asli bane endpoint/resource names print karti hain; koi expected result banaya nahi gaya.
 
 Primary references: [Classic/default bus](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-event-bus.html), [new Custom Event Bus](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-custom-bus.html), [target permission paths](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-use-resource-based.html), [Classic retry](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-retry-policy.html), [delivery DLQ](https://docs.aws.amazon.com/eventbridge/latest/userguide/eb-rule-dlq.html), [Scheduler timezones/precision](https://docs.aws.amazon.com/scheduler/latest/UserGuide/schedule-types.html), [Scheduler group trust](https://docs.aws.amazon.com/scheduler/latest/UserGuide/cross-service-confused-deputy-prevention.html), [Standard/Express semantics](https://docs.aws.amazon.com/step-functions/latest/dg/choosing-workflow-type.html).
