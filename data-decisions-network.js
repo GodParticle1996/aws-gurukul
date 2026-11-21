@@ -189,7 +189,7 @@ AG.registerDecisions([
     title: 'Route 53 routing policy — simple, weighted, latency, failover, geolocation...',
     short: 'Route 53 policy',
     tldr: 'Policy ka sawal ek hai: "ek DNS naam ke kai jawab hon toh kaunsa doon?" — % split (weighted), sabse tez (latency), backup (failover), user ka desh (geolocation), distance+bias (geoproximity), kai healthy IPs (multivalue).',
-    levels: ['route53'],
+    levels: ['route53', 'finalboss'],
     start: 'q1',
     nodes: {
       q1: {

@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -508,6 +508,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.regionDrill) {
+      print('sys', 'ls aur cat runbook.txt se shuru karo. KMS: describe-key, replicate-key. Secrets Manager: describe-secret, replicate-secret-to-regions. Auto Scaling: describe-auto-scaling-groups, update-auto-scaling-group. Route 53: create-health-check, change-resource-record-sets, wait, list-resource-record-sets. CloudWatch: put-metric-alarm, describe-alarms.');
+      return;
+    }
     if (norm === 'help' && sim.account.authMode) {
       print('sys', 'App login fixture: aws cognito-idp create-user-pool / describe-user-pool / create-user-pool-client / describe-user-pool-client / admin-create-user / admin-set-user-password / admin-get-user / admin-initiate-auth; aws cognito-identity create-identity-pool / describe-identity-pool / set-identity-pool-roles / get-identity-pool-roles; aws apigatewayv2 get-authorizers / get-authorizer / update-authorizer. ls/cat se files padho. Tokens course ke unsigned JWT hain.');
       return;
@@ -688,6 +692,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.obsMode && AG.obsCLI && AG.obsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.dmsMode && AG.dmsCLI && AG.dmsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.lakeMode && AG.lakeCLI && AG.lakeCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
+    if (sim.account.regionDrill && AG.finalbossCLI({service,op,toks,flag,sim,print,resultJson})) return;
     if (sim.account.authMode && AG.authCLI && AG.authCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Fail before mutation on misspelled flags or stray positional values.
     if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {

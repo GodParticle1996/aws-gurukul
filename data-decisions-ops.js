@@ -14,7 +14,7 @@ AG.registerDecisions([
     title: 'Region gir jaaye toh? — Backup & Restore, Pilot Light, Warm Standby, Multi-site',
     short: 'DR strategy',
     tldr: 'Do numbers se strategy nikalti hai: RTO (kitni der down chalega) aur RPO (kitna data kho sakte ho). Jitne chhote numbers, utni mehengi strategy. Business se numbers pucho, phir chuno.',
-    levels: ['dr', 'resilience', 'wellarch'],
+    levels: ['dr', 'resilience', 'wellarch', 'finalboss'],
     start: 'q1',
     nodes: {
       q1: {

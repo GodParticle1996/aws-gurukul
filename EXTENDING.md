@@ -18,8 +18,8 @@ awsgurukul/
 ├── games.js                ← AG.renderers — bins/fill/order/match/quiz/hotspot/incident
 ├── awscli.js               ← AG.renderers.terminal — AWS CLI + Terraform simulator
 ├── data-beg-1-*.js … data-beg-8-*.js ← Track 1 (8 separate level files)
-├── data-intermediate.js    ← Track 2 (11 levels)
-├── data-advanced.js        ← Track 3 (10 levels)
+├── data-int-*.js           ← Track 2 (12 levels)
+├── data-adv-*.js           ← Track 3 (12 levels)
 ├── data-architect.js       ← Track 4 (9 levels — decision-first)
 ├── validate.js             ← offline full-app validator (node validate.js)
 ├── app.js                  ← screens: home/track/level/interview/dojo/certs
@@ -33,7 +33,7 @@ awsgurukul/
 ```
 core.js → data-core.js → visuals.js → games.js → awscli.js
        → labs.js → decisions.js → data-beg-1-*.js … data-beg-8-*.js
-       → data-intermediate.js → data-advanced.js
+       → data-int-*.js → data-adv-*.js
        → data-architect.js → data-decisions-*.js → app.js
 ```
 
@@ -139,7 +139,7 @@ cd awsgurukul
 node --check data-beg-8-boss1.js     # ya relevant track file
 # Combined check (catches cross-file redeclaration):
 cat core.js data-core.js visuals.js games.js awscli.js \
-    data-beg-*.js data-intermediate.js data-advanced.js data-architect.js app.js > /tmp/c.js
+    data-beg-*.js data-int-*.js data-adv-*.js data-architect.js app.js > /tmp/c.js
 node --check /tmp/c.js
 
 # Ya sab kuch ek saath (recommended) — syntax, duplicates, schemas,
@@ -489,7 +489,7 @@ engine automatically pick up kar lega.
 2. **Combined syntax check** (catches cross-file `const` redeclaration):
    ```bash
    cat core.js data-core.js visuals.js games.js awscli.js \
-       data-beg-*.js data-intermediate.js data-advanced.js \
+       data-beg-*.js data-int-*.js data-adv-*.js \
        data-newtrack.js app.js > /tmp/c.js && node --check /tmp/c.js
    ```
 

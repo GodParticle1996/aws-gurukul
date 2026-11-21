@@ -488,19 +488,15 @@ const VISUALS = {
   },
 
   finalboss: {
-    t: 'Final Boss — Senior Solutions Architect Gauntlet',
+    t: 'Priya ka checkout kis Region mein jayega?',
     html: `
       <div class="dg-ladder">
-        <div class="dg-rung"><span class="lv">1</span><span class="cmd">Design: scalable web app</span><span class="q">multi-AZ, ALB, ASG, cache, RDS</span></div>
-        <div class="dg-rung"><span class="lv">2</span><span class="cmd">Harden: security</span><span class="q">least privilege, KMS, WAF, GuardDuty</span></div>
-        <div class="dg-rung g"><span class="lv">3</span><span class="cmd">Optimize: cost</span><span class="q">reserved, spot, rightsize, lifecycle</span></div>
-        <div class="dg-rung a"><span class="lv">4</span><span class="cmd">Recover: DR plan</span><span class="q">RTO/RPO, Multi-Site, backups</span></div>
-        <div class="dg-rung g"><span class="lv">5</span><span class="cmd">Observe: monitoring</span><span class="q">CloudWatch + X-Ray + CloudTrail</span></div>
-        <div class="dg-rung a"><span class="lv">6</span><span class="cmd">Migrate: 7Rs decision</span><span class="q">per-app strategy, DMS</span></div>
-        <div class="dg-rung"><span class="lv">🎤</span><span class="cmd">Interview Marathon</span><span class="q">architecture + incident + hands-on</span></div>
-        <div class="dg-rung a"><span class="lv">👑</span><span class="cmd">Mahaguru Certificate</span><span class="q">SAA ready!</span></div>
+        <div class="dg-rung"><span class="lv">📡</span><span class="cmd">Route 53</span><span class="q">Mumbai ka /ready theek hai? Naya DNS jawaab Mumbai.</span></div>
+        <div class="dg-rung a"><span class="lv">↪</span><span class="cmd">Mumbai ka check fail</span><span class="q">Naya DNS jawaab Hyderabad. Purana jawaab cache mein reh sakta hai.</span></div>
+        <div class="dg-rung"><span class="lv">🏬</span><span class="cmd">Hyderabad checkout</span><span class="q">3 healthy servers × 100 orders/s = 300 orders/s</span></div>
+        <div class="dg-rung g"><span class="lv">🔑</span><span class="cmd">Local secret aur key</span><span class="q">App role ko password mila? Sahi writer tak order pahuncha?</span></div>
       </div>
-      <div class="dg-cap">Yehi hai senior architect ka din: design → secure → optimize → recover → observe → migrate. Har pillar ek challenge. Pass = tum SAA exam ready ho!</div>`,
+      <div class="dg-cap">Drill tab poori hai jab Priya ka test order save ho aur receipt dobara padhi ja sake.</div>`,
   },
 
   /* ================= TRACK 4 — ARCHITECT (Nirnay Path) ================= */
