@@ -15,7 +15,7 @@
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const DIR = __dirname;
 const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'labs.js', 'decisions.js'];
-const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-int-3-cloudfront.js', 'data-int-4-s3adv.js', 'data-int-5-efs.js', 'data-int-6-lambda.js', 'data-int-7-dynamodb.js', 'data-int-8-caching.js', 'data-int-9-sqssns.js', 'data-int-10-events.js', 'data-int-11-security.js', 'data-int-12-boss2.js', 'data-adv-1-wellarch.js', 'data-adv-2-orgs.js', 'data-adv-3-dr.js', 'data-adv-4-advnet.js', 'data-adv-5-containers.js', 'data-adv-6-iac.js', 'data-adv-7-cost.js', 'data-adv-8-observability.js', 'data-adv-9-migration.js', 'data-adv-10-analytics.js', 'data-adv-11-appai.js', 'data-adv-12-finalboss.js', 'data-architect.js',
+const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-int-3-cloudfront.js', 'data-int-4-s3adv.js', 'data-int-5-efs.js', 'data-int-6-lambda.js', 'data-int-7-dynamodb.js', 'data-int-8-caching.js', 'data-int-9-sqssns.js', 'data-int-10-events.js', 'data-int-11-security.js', 'data-int-12-boss2.js', 'data-adv-1-wellarch.js', 'data-adv-2-orgs.js', 'data-adv-3-dr.js', 'data-adv-4-advnet.js', 'data-adv-5-containers.js', 'data-adv-6-iac.js', 'data-adv-7-cost.js', 'data-adv-8-observability.js', 'data-adv-9-migration.js', 'data-adv-10-analytics.js', 'data-adv-11-appai.js', 'data-adv-12-finalboss.js', 'data-arch-1-compute.js', 'data-architect.js',
   'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js'];
 const ALL = [...ENGINE, ...DATA, 'app.js'];
 let FAIL = 0;
@@ -153,6 +153,13 @@ let nStage = 0, terminals = [], fills = [];
 const labStages = [];
 function chk(s, S) {
   switch (s.type) {
+    case 'decide': {
+      const tree = AG.decisions.find(t => t.id === s.tree);
+      if (!tree || !Number.isInteger(s.scenarios) || s.scenarios < 1 || s.scenarios > tree.scenarios.length)
+        w(S, 'decide needs an existing tree and a valid scenario count');
+      else labStages.push({ s, S });
+      break;
+    }
     case 'quiz':
       if (!s.questions || !s.questions.length) { w(S, 'no questions'); break; }
       s.questions.forEach((q, i) => {
@@ -381,6 +388,21 @@ for (const { s, S } of labStages) {
   try { AG.renderers[s.type](s, arena, r => { done = r; }); }
   catch (e) { LP.push(`${S} — render crash: ${e.message}`); continue; }
 
+  if (s.type === 'decide') {
+    const tree = AG.decisions.find(t => t.id === s.tree);
+    const seen = new Set();
+    for (let i = 0; i < s.scenarios; i++) {
+      const key = one(arena, 'dd-scenario')?.dataset.scenario;
+      const sc = key && tree.scenarios[Number(key.split('#')[1])];
+      const choices = byClass(arena, 'dd-choice');
+      if (!sc || seen.has(key)) { LP.push(S + ' invalid/repeated scenario'); break; }
+      seen.add(key);
+      if (!i) choices.find(b => b.dataset.leaf !== sc.answer)?.click();
+      choices.find(b => b.dataset.leaf === sc.answer)?.click();
+      one(arena, 'dd-next')?.click();
+    }
+    if (done?.total !== s.scenarios || done.firstTry !== s.scenarios - 1) LP.push(S + ' decision score/finish');
+  }
   if (s.type === 'dryrun') {
     const steps = s.steps || [];
     for (let i = 0, guard = 0; guard < steps.length * 3 + 5 && !done; guard++) {
@@ -460,7 +482,7 @@ for (const { s, S } of labStages) {
   }
 }
 LP.forEach(p => bad(p));
-if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/triage/docker) — no softlocks, no NaN`);
+if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker) — no softlocks, no NaN`);
 
 /* ================= 4. TERMINAL MISSIONS ================= */
 console.log('\n4️⃣  Terminal missions (real awscli.js simulator)');
@@ -585,6 +607,7 @@ try { require('./validate-observability.js'); } catch(e) { bad('Observability re
 try { require('./validate-migration.js'); } catch(e) { bad('Migration regressions: '+e.stack); }
 try { require('./validate-analytics.js'); } catch(e) { bad('Analytics regressions: '+e.stack); }
 try { require('./validate-finalboss.js'); } catch(e) { bad('Region drill regressions: '+e.stack); }
+try { require('./validate-compute.js'); } catch(e) { bad('PixShare compute regressions: '+e.stack); }
 try { require('./validate-appai.js'); } catch(e) { bad('App login regressions: '+e.stack); }
 
 /* ================= 5. FILL STAGES ================= */
@@ -649,6 +672,7 @@ const sxp = s => {
   if (s.type === 'terminal') return AG.TERMINAL_XP + bon;
   const n = { quiz: 'questions', bins: 'items', match: 'pairs', order: 'steps', fill: 'blanks', hotspot: 'questions' }[s.type];
   if (n) return (s[n] || []).length * per + bon;
+  if (s.type === 'decide') return s.scenarios * per + bon;
   if (s.type === 'incident') return Object.values(s.nodes || {}).filter(x => !x.end).length * per + bon;
   if (s.type === 'dryrun') return Math.max(1, (s.steps || []).filter(x => x.ask).length) * per + bon;
   if (s.type === 'flowlab') return (s.quiz ? 2 : 1) * per + bon;

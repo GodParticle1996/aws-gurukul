@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : sim.account.pixCompute ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -228,7 +228,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
 
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
-  setTimeout(() => input.focus(), 100);
+  // Let PixShare learners read the release goal before scrolling to its prompt.
+  setTimeout(() => input.focus({ preventScroll: !!sim.account.pixCompute }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -508,6 +509,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.pixCompute) {
+      print('sys', 'ls se mission files dekho. ECS mein register-task-definition, describe-task-definition, run-task, list-tasks aur describe-tasks hain. Lambda mein get-function-configuration, update-function-configuration, wait function-updated-v2 aur put-function-concurrency hain.');
+      return;
+    }
     if (norm === 'help' && sim.account.regionDrill) {
       print('sys', 'ls aur cat runbook.txt se shuru karo. KMS: describe-key, replicate-key. Secrets Manager: describe-secret, replicate-secret-to-regions. Auto Scaling: describe-auto-scaling-groups, update-auto-scaling-group. Route 53: create-health-check, change-resource-record-sets, wait, list-resource-record-sets. CloudWatch: put-metric-alarm, describe-alarms.');
       return;
@@ -682,6 +687,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     }
     for (const arg of ['query', 'output']) {
       if (toks.includes('--' + arg) && flag(arg) === null) return print('err', `aws: error: argument --${arg}: expected one argument`);
+    }
+    if (sim.account.pixCompute && service === 'lambda' && flag('region') !== null && flag('region') !== sim.account.region) {
+      return print('err', 'PixShare ke functions ' + sim.account.region + ' mein hain.');
     }
     // Scoped DR fixture owns its documented flags (copy-image, image waiter, cross-Region replica) before the shared guard.
     if (sim.account.drMode && AG.drCLI && AG.drCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;

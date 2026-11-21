@@ -502,31 +502,19 @@ const VISUALS = {
   /* ================= TRACK 4 — ARCHITECT (Nirnay Path) ================= */
 
   compute: {
-    t: 'Compute chuno — Lambda vs Fargate vs ECS/EC2 vs Batch',
+    t: 'PixShare · Photo aur video ka raasta',
     html: `
       <div class="dg-flow">
-        <div class="dg-node is-good" data-hs="lambda"><span class="ni">⚡</span><span class="nl">Lambda</span><span class="ns">event/spiky · &lt;15 min · idle=$0</span></div>
-        <div class="dg-node is-accent" data-hs="fargate"><span class="ni">📦</span><span class="nl">Fargate</span><span class="ns">container, no server mgmt · steady</span></div>
-        <div class="dg-node is-gold" data-hs="ec2"><span class="ni">🖥️</span><span class="nl">EC2 / ASG</span><span class="ns">full control · GPU · always-on heavy</span></div>
-        <div class="dg-node" data-hs="batch"><span class="ni">🧮</span><span class="nl">Batch / Spot</span><span class="ns">bulk offline jobs · sasta</span></div>
+        <div class="dg-node is-good" data-hs="lambda"><span class="ni">📷</span><span class="nl">Photo → Lambda</span><span class="ns">Thumbnail banao aur output save karo.</span></div>
+        <div class="dg-node is-accent" data-hs="fargate"><span class="ni">🎬</span><span class="nl">Video → Fargate task</span><span class="ns">Job ID do. Worker poora video banaaye.</span></div>
+        <div class="dg-node is-gold" data-hs="ec2"><span class="ni">🖥️</span><span class="nl">GPU → EC2</span><span class="ns">Encoder ka driver aur GPU image test karo.</span></div>
+        <div class="dg-node" data-hs="batch"><span class="ni">🧮</span><span class="nl">Job queue → Batch</span><span class="ns">Jobs ka order aur retry policy rakho.</span></div>
       </div>
-      <div class="dg-split" style="margin-top:14px">
-        <div class="dg-box is-good"><span class="bx-label">✅ Lambda kab</span>
-          <div class="dg-col">
-            <span class="dg-pill good">spiky/event-driven traffic (S3 upload, API burst)</span>
-            <span class="dg-pill good">idle time zyada — pay-per-invoke</span>
-            <span class="dg-pill bad" data-hs="lambdano">❌ &gt;15 min job, heavy steady load (mehnga), &lt;10ms latency chahiye</span>
-          </div>
-        </div>
-        <div class="dg-box is-accent"><span class="bx-label">✅ Fargate/ECS kab</span>
-          <div class="dg-col">
-            <span class="dg-pill acc">long-running service, steady traffic</span>
-            <span class="dg-pill acc">container hai, par node manage nahi karna</span>
-            <span class="dg-pill bad" data-hs="ec2yes">❌ GPU/very-high-throughput/licensing → EC2</span>
-          </div>
-        </div>
+      <div class="dg-split">
+        <div class="dg-box is-good" data-hs="lambdano"><span class="bx-label">900 second</span>Standard on-demand Lambda ki ek call ki limit. PixShare ki video ko ek pass mein 22 minute chahiye.</div>
+        <div class="dg-box is-accent" data-hs="ec2yes"><span class="bx-label">14.69 req/s</span>512 MB aur 200 billed ms par 24 ghante/roz traffic aaye toh course model mein Lambda aur Fargate ka bill barabar hai.</div>
       </div>
-      <div class="dg-cap"><b>Sawal poocho:</b> traffic spiky hai ya steady? Job kitni lambi? Server manage karne ki fursat hai? <b>Default: Lambda (spiky) → Fargate (steady service) → EC2 (control/GPU) → Batch+Spot (bulk).</b> Har jagah <b>Graviton</b> = ~20% sasta, <b>Spot</b> = ~70% sasta fault-tolerant loads par.</div>`,
+      <div class="dg-cap">Pehle job ka waqt aur zaroori hardware dekho. Phir wahi load aur latency par bill milao.</div>`,
   },
 
   datastore: {

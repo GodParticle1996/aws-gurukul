@@ -253,32 +253,23 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
      SCREEN: 🎯 practice — scenario padho, sahi service chuno
      tree = null → mixed (saare trees se 10)
      ============================================================ */
-  window.showDecisionPractice = function showDecisionPractice(tree) {
-    AG.session = null;
-    appEl.innerHTML = '';
-    window.scrollTo(0, 0);
-    let pool = [];
+  function practicePool(tree, count) {
+    const pool = [];
     (tree ? [tree] : AG.decisions).forEach(t => (t.scenarios || []).forEach((sc, i) => pool.push({ t, sc, key: t.id + '#' + i })));
-    pool = shuffle(pool).slice(0, tree ? pool.length : 10);
+    return shuffle(pool).slice(0, count ?? (tree ? pool.length : 10));
+  }
+
+  function renderPractice(arena, pool, onFirst, finish) {
     let qi = 0, score = 0;
-
-    const wrap = el('section', 'panel');
-    const back = el('button', 'btn ghost small', tree ? `← ${tree.icon} ${tree.short || tree.title}` : '← Decision Dojo');
-    back.onclick = () => (tree ? showDecisionTree(tree) : showDecisionDojo());
-    wrap.appendChild(back);
-    wrap.appendChild(el('h2', 'level-h', `🎯 Practice — ${tree ? `${tree.icon} ${tree.short || tree.title}` : 'Mixed (saare topics)'}`));
-    wrap.appendChild(el('p', 'instructions', 'Scenario padho → sahi service/approach chuno. Galat hua toh <b>raasta</b> dikhega (kaunse sawal tumhe sahi jawab tak laate) — aur scenario Revision Dojo mein chala jayega.'));
-    const arena = el('div', 'arena');
-    wrap.appendChild(arena);
-    appEl.appendChild(wrap);
-
     function ask() {
       arena.innerHTML = '';
-      if (qi >= pool.length) return finish();
+      if (qi >= pool.length) return finish(score);
       const { t, sc, key } = pool[qi];
       let mistake = false;
       arena.appendChild(el('div', 'quiz-progress', `Scenario ${qi + 1} / ${pool.length} · ${t.icon} ${t.short || t.title}`));
-      arena.appendChild(el('div', 'dd-scenario', `🏭 ${sc.s}`));
+      const scenario = el('div', 'dd-scenario', `🏭 ${sc.s}`);
+      scenario.dataset.scenario = key;
+      arena.appendChild(scenario);
       const feedback = el('div', 'feedback');
       const choices = el('div', 'choices');
       // ADHD-friendly: bahut saare options mein aankh bhatakti hai — sahi jawab + max 3 aur
@@ -293,10 +284,9 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
           const ans = t.nodes[sc.answer];
           const route = AG.decisionPath(t, sc.answer).map(p => `<li>${p.q} <b>➜ ${p.a}</b></li>`).join('');
           if (right) {
-            const st = dstate(t.id);
             if (!mistake) {
               score++;
-              if (!st.solved.includes(key)) { st.solved.push(key); AG.addXP(AG.XP_PER_ITEM); }
+              onFirst(t, key);
             }
             b.classList.add('correct');
             choices.querySelectorAll('.choice').forEach(x => { x.disabled = true; });
@@ -323,7 +313,33 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
       arena.append(choices, feedback);
     }
 
-    function finish() {
+    if (!pool.length) { arena.appendChild(el('p', 'instructions', 'Is topic mein abhi scenarios nahi hain.')); return; }
+    ask();
+  }
+
+  AG.renderers.decide = function (stage, arena, onDone) {
+    const tree = AG.decisions.find(t => t.id === stage.tree);
+    const pool = practicePool(tree, stage.scenarios);
+    renderPractice(arena, pool, () => AG.addXP(AG.XP_PER_ITEM),
+      firstTry => onDone({ firstTry, total: pool.length }));
+  };
+
+  window.showDecisionPractice = function showDecisionPractice(tree) {
+    AG.session = null;
+    appEl.innerHTML = '';
+    window.scrollTo(0, 0);
+    const pool = practicePool(tree);
+    const wrap = el('section', 'panel');
+    const back = el('button', 'btn ghost small', tree ? `← ${tree.icon} ${tree.short || tree.title}` : '← Decision Dojo');
+    back.onclick = () => (tree ? showDecisionTree(tree) : showDecisionDojo());
+    wrap.appendChild(back);
+    wrap.appendChild(el('h2', 'level-h', `🎯 Practice — ${tree ? `${tree.icon} ${tree.short || tree.title}` : 'Mixed (saare topics)'}`));
+    wrap.appendChild(el('p', 'instructions', 'Scenario padho → sahi service/approach chuno. Galat hua toh <b>raasta</b> dikhega (kaunse sawal tumhe sahi jawab tak laate) — aur scenario Revision Dojo mein chala jayega.'));
+    const arena = el('div', 'arena');
+    wrap.appendChild(arena);
+    appEl.appendChild(wrap);
+
+    function finish(score) {
       if (tree) {
         const st = dstate(tree.id);
         st.best = Math.max(st.best, score);
@@ -345,7 +361,9 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
       sum.appendChild(row);
       arena.appendChild(sum);
     }
-    if (!pool.length) { arena.appendChild(el('p', 'instructions', 'Is topic mein abhi scenarios nahi hain.')); return; }
-    ask();
+    renderPractice(arena, pool, (t, key) => {
+      const st = dstate(t.id);
+      if (!st.solved.includes(key)) { st.solved.push(key); AG.addXP(AG.XP_PER_ITEM); }
+    }, finish);
   };
 })();

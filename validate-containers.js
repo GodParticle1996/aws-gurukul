@@ -197,7 +197,7 @@ for (const [label, command, needle] of [
   ['uppercase repository', `aws ecr create-repository --repository-name Shop/Orders`, "Invalid parameter at 'repositoryName'"],
   ['missing image', `aws ecr describe-images --repository-name ${REPO} --image-ids imageTag=v9.9.9`, 'ImageNotFoundException'],
   ['IAM write', 'aws iam put-role-policy --role-name ecsTaskExecutionRole --policy-name x --policy-document {}', 'not modeled here'],
-  ['run-task not modeled', `aws ecs run-task ${CL} --task-definition orders:1`, 'not modeled here'],
+  ['run-task without registered revision', `aws ecs run-task ${CL} --launch-type FARGATE --task-definition orders:1`, 'Unable to describe task definition'],
   ['other waiter', `aws ecs wait tasks-running ${CL} --tasks x`, 'services-stable'],
   ['describe without services', `aws ecs describe-services ${CL}`, 'required: --services'],
   ['no lifecycle yet', `aws ecr get-lifecycle-policy --repository-name ${REPO}`, 'LifecyclePolicyNotFoundException'],

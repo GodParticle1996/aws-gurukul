@@ -155,7 +155,15 @@ to the new level, complete all stages + interview, verify XP + badge award.
 
 ## 2. Game Types (stages mein use hone wale)
 
-Har game `AG.renderers[type]` se render hota hai (games.js mein defined).
+Har game `AG.renderers[type]` se render hota hai.
+
+### `decide` — Decision Dojo ki practice level ke andar
+
+```js
+{ type: 'decide', title: 'Kaam kahan chale?', tree: 'compute', scenarios: 4 }
+```
+
+`tree` ek registered Decision Dojo tree ka ID hai. `scenarios` 1 se tree ke total scenarios tak rakho. `decisions.js` har run mein alag scenarios chunta hai. Pehli koshish par sahi jawaab ko stage XP milta hai. Level ki practice standalone Dojo ka best score alag rakhti hai.
 
 ### `quiz` — Multiple Choice
 ```js

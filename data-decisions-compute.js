@@ -20,7 +20,7 @@ AG.registerDecisions([
         q: 'Ek request/job ka kaam kitni der chalta hai?',
         why: 'Yeh tree standard on-demand Event Functions (maximum 900s) se shuru hota hai. Naye eligible Managed Instances async/ESM aur doosre Lambda models ki limits alag hain; production mein chunne se pehle exact compute contract review karo.',
         options: [
-          { t: '15 minute se kam (API call, file process, event handle)', next: 'q2' },
+          { t: '15 minute tak (API call, file process, event handle)', next: 'q2' },
           { t: '15 minute se zyada ya hamesha chalta rehta hai (server, worker)', next: 'q3' },
           { t: 'Ghanton ki batch job (video render, ML training, report)', next: 'batch' },
         ],
@@ -31,7 +31,7 @@ AG.registerDecisions([
         hint: 'Spiky = din mein kuch ghante traffic, raat ko lagbhag zero. Steady = har second requests aati rehti hain.',
         options: [
           { t: 'Spiky ya kam — kabhi 0, kabhi 500 req/s', next: 'lambda' },
-          { t: 'Steady aur bhaari — 24×7 lagataar 200+ req/s', next: 'q3' },
+          { t: 'Lagataar traffic hai, doosre workers ka kharcha bhi dekhein', next: 'q3' },
         ],
       },
       q3: {
@@ -43,18 +43,18 @@ AG.registerDecisions([
       },
       q4: {
         q: 'Team ko Kubernetes chahiye? (Helm charts, K8s operators, multi-cloud portability)',
-        why: 'EKS control plane ka khud ka bill hai ($0.10/ghanta ≈ $73/mahina) aur Kubernetes chalane ka ops-load bhi. Bina zaroorat EKS = paisa aur mehnat dono zyada.',
+        why: 'Standard version support par EKS cluster ka bill $0.10/ghanta hai aur Kubernetes chalane ka ops-load bhi. Bina zaroorat EKS = paisa aur mehnat dono zyada.',
         options: [
           { t: 'Haan — K8s already use karte hain / K8s ecosystem chahiye', next: 'eks' },
-          { t: 'Nahi — bas container chalana hai, servers manage nahi karne', next: 'q5' },
+          { t: 'Nahi — ECS se containers chal sakte hain', next: 'q5' },
         ],
       },
       q5: {
-        q: 'GPU chahiye, ya bahut bade scale par har dollar bachana hai?',
-        why: 'Fargate par GPU nahi milta. Bade, steady scale par ECS-on-EC2 (Savings Plan + Spot ke saath) Fargate se sasta padta hai — par servers patch karne ka kaam wapas aata hai.',
+        q: 'GPU chahiye ya apna EC2 group test mein behtar fit nikla?',
+        why: 'Fargate par GPU nahi milta. Baaki jobs ke liye wahi load aur latency par dono ka bill dekho. Apne EC2 group ke patch, spare capacity aur team ka waqt bhi gino.',
         options: [
           { t: 'Nahi — kam ops chahiye, servers ka jhanjhat nahi', next: 'fargate' },
-          { t: 'Haan — GPU chahiye ya 100+ containers steady chal rahe hain', next: 'ecsec2' },
+          { t: 'Haan — GPU ya apna test kiya EC2 group chahiye', next: 'ecsec2' },
         ],
       },
       lambda: {
@@ -102,7 +102,7 @@ AG.registerDecisions([
         ],
         avoid: [
           'GPU chahiye — Fargate par GPU nahi hai',
-          'Bahut bade steady scale par har dollar bachana — ECS on EC2 + Savings Plans sasta',
+          'Test mein apne EC2 group ka poora kharcha kam nikla aur team hosts sambhaal sakti hai',
           'Kubernetes-specific tooling (Helm, operators) — EKS lo',
         ],
         gotchas: [
@@ -129,8 +129,8 @@ AG.registerDecisions([
       ecsec2: {
         leaf: true, icon: '🏭', pick: 'ECS on EC2 (capacity providers)',
         one: 'Containers ECS chalata hai, par containers tumhare EC2 instances par baithte hain.',
-        why: 'GPU chahiye, ya scale itna bada hai ki EC2 + Savings Plans + Spot Fargate se kaafi sasta padta hai. Badle mein EC2 fleet ka patching tumhara kaam.',
-        when: ['GPU containers (ML inference)', '100+ steady containers — bin-packing se instance poora use hota hai', 'Spot instances ke saath sasta batch/worker fleet'],
+        why: 'GPU chahiye, ya usi load par apne EC2 group ka poora kharcha kam nikla. Badle mein EC2 fleet ka patching tumhara kaam.',
+        when: ['GPU containers (ML inference)', 'Steady tasks ko paas rakh kar instances achhe se bhar sakein', 'Spot instances ke saath sasta batch/worker fleet'],
         avoid: ['Chhoti team jo OS patching nahi sambhal sakti', 'Chhota, spiky workload — Fargate ya Lambda simple hai'],
         gotchas: ['ECS-optimized AMI ko update karna tumhara kaam', 'Capacity provider + managed scaling on karo, warna tasks "PROVISIONING" mein atke rehte hain jab instances bhar jaate hain'],
         cost: 'EC2 ka bill (instance-ghante). Usable task capacity, AZ/deploy headroom, instance family, EBS aur commitment rates compare karo; high packing se savings ho sakti hain, par fixed break-even percentage nahi. Chhote HA fleet par Fargate sasta bhi pad sakta hai.',
@@ -143,8 +143,8 @@ AG.registerDecisions([
         why: 'Team ko Kubernetes ka ecosystem chahiye (Helm, operators, portability). EKS control plane AWS sambhalta hai.',
         when: ['Pehle se Kubernetes chal raha hai (on-prem / doosra cloud)', 'Helm charts, service mesh, K8s operators chahiye', 'Multi-cloud portability ek asli requirement hai'],
         avoid: ['Sirf "container chalana hai" — ECS simple aur control plane free', 'Team mein Kubernetes jaanne wala koi nahi'],
-        gotchas: ['Har cluster ka control plane ~$73/mahina (standard support) — purane K8s version par extended support mehenga', 'Kubernetes version har ~14 mahine mein upgrade karna padta hai'],
-        cost: '$0.10/ghanta per cluster + nodes ka bill (EC2/Fargate).',
+        gotchas: ['Har cluster ka control plane ~$73/mahina (standard support) — purane K8s version par extended support mehenga', 'Support ki tareekh dekh kar cluster aur add-ons ke upgrades plan karo'],
+        cost: 'Standard version support mein $0.10/ghanta per cluster. Workers ka bill alag hai.',
         exam: '"existing Kubernetes workloads", "open-source portability" → EKS.',
         level: 'containers',
       },
@@ -155,18 +155,18 @@ AG.registerDecisions([
         when: ['Legacy app (lift-and-shift migration)', 'Windows/SQL Server licence, ya Dedicated Host chahiye', 'Special hardware: GPU, bahut zyada memory, local NVMe'],
         avoid: ['Spiky chhote kaam — Lambda', 'Container app jahan servers manage nahi karne — Fargate'],
         gotchas: ['OS patching, AMI updates, agent installs — sab tumhara (shared responsibility)', 'Single instance = single AZ. HA ke liye Auto Scaling group 2+ AZs mein'],
-        cost: 'Per-second billing. m7g.large (2 vCPU, 8 GB, Graviton) ≈ $0.0816/ghanta ≈ $60/mahina On-Demand; Savings Plan se ~40% kam.',
+        cost: 'Region, OS aur instance ka rate lo. Storage aur network jodo. Savings Plan ka rate aur kitna commitment use hoga, alag se dekho.',
         exam: '"full control of the OS", "BYOL license", "lift and shift" → EC2.',
         level: 'ec2',
       },
       batch: {
         leaf: true, icon: '🧮', pick: 'AWS Batch',
         one: 'Jobs ko queue mein daalo — Batch compute (EC2/Spot/Fargate) laata hai, jobs chalata hai, phir band karta hai.',
-        why: 'Kaam ghanton chalta hai aur job-queue jaisa hai. Batch Spot instances se 70–90% sasta compute deta hai.',
+        why: 'Batch queue, dependencies aur retries sambhalta hai. Sahi capacity chuno aur Spot ke liye ruke jobs dobara chalaane ka kharcha gino.',
         when: ['Video transcoding, genomics, Monte-Carlo, raat ki report', 'Hazaaron independent jobs, retry ke saath'],
         avoid: ['User ke saamne real-time API', '15 minute se chhote event jobs — Lambda simple'],
-        gotchas: ['Spot par chal rahe ho toh job checkpoint karo — 2 minute notice par instance ja sakta hai'],
-        cost: 'Batch khud free — sirf EC2/Fargate ka bill. Spot ke saath 70–90% bachat.',
+        gotchas: ['Spot ki warning best effort hai. Poora hua kaam pehle se save karo.'],
+        cost: 'Batch ka alag service fee nahi hai. Compute, storage, logs aur transfer ka kharcha gino.',
         exam: '"batch processing jobs", "hundreds of thousands of jobs" → AWS Batch.',
         level: 'compute',
       },
@@ -174,23 +174,23 @@ AG.registerDecisions([
     compare: {
       cols: ['', 'Lambda', 'Fargate', 'ECS on EC2', 'EKS', 'EC2'],
       rows: [
-        ['Max ek kaam', '15 min', 'unlimited', 'unlimited', 'unlimited', 'unlimited'],
-        ['Idle ka bill', '$0', 'task chal raha = bill', 'instance = bill', 'control plane + nodes', 'instance = bill'],
+        ['Ek job ka waqt', 'standard on-demand: 15 min tak', 'task ke band hone tak', 'task aur host par', 'pod aur worker par', 'process aur host par'],
+        ['Idle ka bill', 'on-demand: zero calls par zero compute', 'task chal raha = bill', 'instance = bill', 'control plane + nodes', 'instance = bill'],
         ['Ops-load', 'sabse kam', 'kam', 'medium (EC2 patch)', 'zyada (K8s)', 'sabse zyada'],
-        ['GPU', 'nahi', 'nahi', 'haan', 'haan', 'haan'],
-        ['Scale speed', 'ms–seconds', '~1 min', 'minutes', 'minutes', 'minutes'],
+        ['GPU', 'nahi', 'nahi', 'GPU instance', 'GPU node', 'GPU instance'],
+        ['Nayi capacity ka wait', 'environment init', 'image pull aur startup', 'free host ya naya instance', 'pod aur node readiness', 'instance aur app startup'],
         ['Best fit', 'spiky events', 'steady containers', 'bada steady/GPU', 'K8s ecosystem', 'legacy / full control'],
       ],
     },
     scenarios: [
-      { s: 'S3 mein PDF upload hota hai, 20 second mein text nikaal ke DynamoDB mein likhna hai. Din mein 3,000 uploads, raat ko lagbhag zero.', answer: 'lambda', explain: 'Chhota event-driven kaam, spiky traffic. Lambda ka idle bill $0.' },
-      { s: 'Ek video ko 4K mein render karne mein 3 ghante lagte hain. Roz 500 videos.', answer: 'batch', explain: '15 minute se lamba, job-queue jaisa kaam. Batch + Spot sabse sasta.' },
-      { s: 'Orders API Docker image mein hai, 24×7 chalti hai, team mein 3 log, koi Kubernetes nahi jaanta.', answer: 'fargate', explain: 'Steady container service, servers manage nahi karne, Kubernetes nahi chahiye → Fargate.' },
-      { s: 'Company ke paas on-prem Kubernetes par 40 microservices hain, Helm charts ke saath. AWS par same tooling chahiye.', answer: 'eks', explain: 'Existing Kubernetes + Helm → EKS. ECS par Helm charts kaam nahi karte.' },
-      { s: 'Purana Windows app jo ek specific licensed software ke saath per-core licence par chalta hai. Container nahi bana.', answer: 'ec2', explain: 'Legacy, licence, OS-control → EC2 (licence ke hisaab se Dedicated Host bhi).' },
-      { s: 'ML inference containers ko GPU chahiye, 24×7, 30 containers.', answer: 'ecsec2', explain: 'Fargate par GPU nahi. ECS on EC2 GPU instances (ya EKS) chahiye.' },
-      { s: 'Har raat 2 baje ek 5-minute cleanup script chalni hai.', answer: 'lambda', explain: 'EventBridge Scheduler + Lambda. Server 24 ghante chalane ki zaroorat nahi.' },
-      { s: 'Ek API har second 800 requests lagataar leti hai, har request 50 ms, 24×7. Container ready hai, K8s nahi chahiye.', answer: 'fargate', explain: 'Steady bhaari traffic par Lambda ka per-request bill bahut badhta hai. Fargate tasks steady load par sasta.' },
+      { s: 'S3 mein PDF upload hota hai, 20 second mein text nikaal ke DynamoDB mein likhna hai. Din mein 3,000 uploads, raat ko lagbhag zero.', answer: 'lambda', explain: 'PDF ki har call 20 second leti hai. On-demand Lambda mein khaali raat ka request ya duration bill nahi banta.' },
+      { s: 'Ek video ko 4K mein render karne mein 3 ghante lagte hain. Roz 500 videos ki queue hai. Retry policy aur jobs ka order bhi chahiye.', answer: 'batch', explain: 'Batch queue aur retries sambhaal sakta hai. Spot tab dekho jab adhura render saved chunks se dobara chal sake.' },
+      { s: 'Orders API Docker image mein hai, 24×7 chalti hai, team host patch nahi karna chahti. Kubernetes ki zaroorat nahi hai.', answer: 'fargate', explain: 'Steady container service, servers manage nahi karne, Kubernetes nahi chahiye → Fargate.' },
+      { s: 'Company ke paas on-prem Kubernetes par 40 microservices hain, Helm charts ke saath. AWS par same tooling chahiye.', answer: 'eks', explain: 'Helm charts Kubernetes API par depend karte hain. EKS se team wahi charts aur doosri Kubernetes tooling rakh sakti hai.' },
+      { s: 'Purana Windows app jo ek specific licensed software ke saath per-core licence par chalta hai. Container nahi bana.', answer: 'ec2', explain: 'App ko apna Windows OS aur licence chahiye. EC2 dekho aur licence ki terms se host ki zaroorat jaancho.' },
+      { s: 'ML inference containers ko GPU chahiye, 24×7. Team ECS pehle se use karti hai aur Kubernetes ki zaroorat nahi.', answer: 'ecsec2', explain: 'Team ECS rakh sakti hai. GPU wala EC2 instance aur sahi driver do taaki container ko GPU mile.' },
+      { s: 'Har raat 2 baje ek 5-minute cleanup script chalni hai.', answer: 'lambda', explain: 'EventBridge Scheduler raat ko Lambda chala sakta hai. Paanch minute ke kaam ke liye poora din server rakhne ki zaroorat nahi.' },
+      { s: 'Ek API har second 800 requests lagataar leti hai, har request 50 ms, 24×7. Load test mein Fargate ne latency aur budget dono poore kiye. Team ko nodes nahi rakhne.', answer: 'fargate', explain: 'Is API ke apne test mein Fargate budget ke andar tha. Doosri API ke liye uska billed time aur traffic phir se naapo.' },
     ],
   },
 
@@ -201,7 +201,7 @@ AG.registerDecisions([
     title: 'EC2 ka paisa kaise do? — On-Demand, Savings Plans, RI, Spot, Dedicated',
     short: 'EC2 pricing model',
     tldr: 'Pehle right-size karo. Phir jo hamesha chalta hai us par commit karo (Savings Plans). Jo kaam ruk ke dobara chal sakta hai, us kaam ko Spot par chalao. Bacha hua On-Demand.',
-    levels: ['ec2', 'cost', 'costdec'],
+    levels: ['ec2', 'cost', 'compute', 'costdec'],
     start: 'q1',
     nodes: {
       q1: {
@@ -299,9 +299,9 @@ AG.registerDecisions([
     compare: {
       cols: ['', 'On-Demand', 'Savings Plan / RI', 'Spot', 'Dedicated Host'],
       rows: [
-        ['Discount', '0%', '~66–72%', 'up to90%', 'mehenga'],
+        ['Discount', '0%', 'plan aur use par', 'price aur capacity par', 'mehenga'],
         ['Commitment', 'koi nahi', '1 ya 3 saal', 'koi nahi', 'per host'],
-        ['Interruption', 'nahi', 'nahi', '2 min notice', 'nahi'],
+        ['Interruption', 'nahi', 'nahi', 'warning best effort', 'nahi'],
         ['Use', 'unpredictable', 'steady baseline', 'fault-tolerant', 'BYOL / compliance'],
       ],
     },
@@ -322,7 +322,7 @@ AG.registerDecisions([
     title: 'Container kahan chalaun? — ECS ya EKS, Fargate ya EC2',
     short: 'ECS vs EKS',
     tldr: 'Do alag faisle hain. (1) Orchestrator: ECS (AWS ka simple, control plane free) ya EKS (Kubernetes). (2) Capacity: Fargate (server nahi) ya EC2 (sasta at scale, GPU).',
-    levels: ['containers'],
+    levels: ['containers', 'compute'],
     start: 'q1',
     nodes: {
       q1: {
@@ -340,7 +340,7 @@ AG.registerDecisions([
         ],
       },
       q3: {
-        q: 'GPU chahiye ya 100+ steady containers?',
+        q: 'GPU chahiye ya test mein apna EC2 group behtar fit nikla?',
         options: [
           { t: 'Nahi', next: 'ecsfargate' },
           { t: 'Haan', next: 'ecsec2c' },
@@ -355,7 +355,7 @@ AG.registerDecisions([
       { s: 'Startup ke 5 microservices, koi Kubernetes nahi jaanta, servers patch nahi karne.', answer: 'ecsfargate', explain: 'Simple + kam ops → ECS on Fargate.' },
       { s: 'K8s par ML platform, GPU nodes chahiye, Karpenter se Spot use karna hai.', answer: 'eksec2', explain: 'Kubernetes + GPU + node control → EKS on EC2.' },
       { s: 'Existing Helm charts, par team nodes manage nahi karna chahti; koi DaemonSet nahi.', answer: 'eksfargate', explain: 'Kubernetes chahiye, nodes nahi → EKS on Fargate.' },
-      { s: '150 steady containers, Kubernetes nahi chahiye, har mahine ka bill kam karna hai.', answer: 'ecsec2c', explain: 'Bada steady scale, K8s nahi → ECS on EC2 + Savings Plans.' },
+      { s: '150 steady containers ka load test hua. Apna EC2 group usi latency par sasta pada. Team nodes patch kar sakti hai. Kubernetes nahi chahiye.', answer: 'ecsec2c', explain: 'Team ka test ECS on EC2 ko support karta hai. Plan kharidne se pehle steady usage dekho.' },
     ],
   },
 ]);

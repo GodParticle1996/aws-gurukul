@@ -18,6 +18,7 @@
    'put-lifecycle-policy':['repository-name','lifecycle-policy-text'],'get-lifecycle-policy':['repository-name'],'delete-lifecycle-policy':['repository-name'],
    'start-lifecycle-policy-preview':['repository-name','lifecycle-policy-text'],'get-lifecycle-policy-preview':['repository-name'],'batch-delete-image':['repository-name','image-ids*'],'get-login-password':[]},
   ecs:{'list-clusters':[],'describe-clusters':['clusters*'],'create-cluster':['cluster-name','capacity-providers*'],
+   'run-task':['cluster','launch-type','task-definition','network-configuration','client-token'],
    'register-task-definition':['cli-input-json','family','execution-role-arn','task-role-arn','cpu','memory','network-mode','requires-compatibilities*','runtime-platform','container-definitions'],
    'describe-task-definition':['task-definition'],'list-task-definitions':['family-prefix','status'],'deregister-task-definition':['task-definition'],
    'create-service':['cli-input-json','cluster','service-name','task-definition','desired-count','launch-type','capacity-provider-strategy*','network-configuration','load-balancers*','deployment-configuration','deployment-controller'],
@@ -260,7 +261,7 @@
    const allowed=specs[service][op].concat(['region','query','output','no-cli-pager!']),seen=new Set();
    for(let i=op==='wait'?4:3;i<toks.length;){const n=toks[i].startsWith('--')?toks[i].slice(2):'',entry=allowed.find(x=>x.replace(/[!*]$/,'')===n);if(!entry)throw Error('Unknown options: '+toks[i]+'. This container fixture models the documented flags for aws '+service+' '+op+(op==='wait'?' services-stable':'')+'.');
     if(seen.has(n))throw Error('aws: error: duplicate option --'+n+'; supply it once.');seen.add(n);i++;if(entry.endsWith('!'))continue;if(i>=toks.length||toks[i].startsWith('--'))throw Error('aws: error: argument --'+n+': expected one argument');i++;if(entry.endsWith('*'))while(i<toks.length&&!toks[i].startsWith('--'))i++;}
-   if((flag('region')??region)!==region)throw Error(`Container fixture scope: ShopKaro's registry and cluster live in ${region}.`);
+   if((flag('region')??region)!==region)throw Error(`Container fixture scope: the registry and cluster live in ${region}.`);
    /* ---------------- IAM (read-only) ---------------- */
    if(service==='iam'){
     if(op==='list-roles'){resultJson({Roles:(a.iamRoles||[]).map(r=>({RoleName:r.name,Arn:r.arn,Description:r.description}))});return true;}
@@ -335,7 +336,7 @@
     if(!Array.isArray(base.containerDefinitions)||base.containerDefinitions.length!==1||!obj(base.containerDefinitions[0]))throw Error('ClientException: containerDefinitions must hold exactly one container in this fixture.');
     const c=base.containerDefinitions[0];keys(c,['name','image','essential','portMappings','logConfiguration','environment','stopTimeout'],'container definition (secrets, dependsOn, volumes …)');
     if(typeof c.name!=='string'||!/^[A-Za-z0-9_-]{1,255}$/.test(c.name)||typeof c.image!=='string'||!c.image)throw Error('ClientException: Container.image and Container.name should not be null or empty.');
-    const ref=AG.containerImageRef(c.image);if(!ref||ref.account!==acct||ref.region!==region)throw Error(`ClientException: Container fixture scope: use a ShopKaro Amazon ECR image like ${acct}.dkr.ecr.${region}.amazonaws.com/<repo>:<tag> or @sha256:<digest>.`);
+    const ref=AG.containerImageRef(c.image);if(!ref||ref.account!==acct||ref.region!==region)throw Error(`ClientException: Container fixture scope: use a fixture Amazon ECR image like ${acct}.dkr.ecr.${region}.amazonaws.com/<repo>:<tag> or @sha256:<digest>.`);
     if(c.essential!==undefined&&c.essential!==true)throw Error('ClientException: the only container must be essential (true).');
     const pm=c.portMappings===undefined?[]:c.portMappings;if(!Array.isArray(pm)||pm.some(p=>!obj(p)||!Number.isInteger(p.containerPort)||p.containerPort<1||p.containerPort>65535||(p.protocol!==undefined&&!['tcp','udp'].includes(p.protocol))||Object.keys(p).some(k=>!['containerPort','hostPort','protocol','name'].includes(k))))throw Error('ClientException: portMappings need integer containerPort (protocol tcp|udp).');
     if(c.stopTimeout!==undefined&&(!Number.isInteger(c.stopTimeout)||c.stopTimeout<2||c.stopTimeout>120))throw Error('ClientException: Fargate stopTimeout must be 2-120 seconds (default 30).');
@@ -347,7 +348,7 @@
     const nm=base.networkMode;if(nm!==undefined&&!['awsvpc','bridge','host','none'].includes(nm))throw Error('ClientException: networkMode must be awsvpc, bridge, host or none.');
     const rp=base.runtimePlatform;if(rp!==undefined){if(!obj(rp))throw Error('ClientException: runtimePlatform needs cpuArchitecture and operatingSystemFamily');keys(rp,['cpuArchitecture','operatingSystemFamily'],'runtimePlatform');if(rp.cpuArchitecture!==undefined&&!['X86_64','ARM64'].includes(rp.cpuArchitecture)||rp.operatingSystemFamily!==undefined&&rp.operatingSystemFamily!=='LINUX')throw Error('ClientException: runtimePlatform: cpuArchitecture X86_64|ARM64, operatingSystemFamily LINUX (Windows is outside this fixture)');}
     if(nm==='awsvpc'&&pm.some(p=>p.hostPort!==undefined&&p.hostPort!==p.containerPort))throw Error('ClientException: When networkMode=awsvpc, the host ports and container ports in port mappings must match.');
-    if(!comp.includes('FARGATE'))throw Error('Container fixture scope: this ShopKaro cluster runs Fargate tasks; set requiresCompatibilities ["FARGATE"].');
+    if(!comp.includes('FARGATE'))throw Error('Container fixture scope: this cluster runs Fargate tasks; set requiresCompatibilities ["FARGATE"].');
     if(nm!=='awsvpc')throw Error('ClientException: Fargate only supports network mode ‘awsvpc’.');
     if(base.cpu===undefined||base.memory===undefined)throw Error('ClientException: Fargate requires that \'cpu\' be defined at the task level.');
     const cpu=toCpu(base.cpu),mem=toMem(base.memory);if(!own(FARGATE,cpu)||!FARGATE[cpu].includes(mem))throw Error(`ClientException: No Fargate configuration exists for given values: ${base.cpu} CPU, ${base.memory} memory. See the Amazon ECS documentation for the valid combinations.`);
@@ -410,10 +411,34 @@
    if(op==='wait'){const names=values('services');if(!names.length)throw Error('aws: error: services-stable needs --services <name>');const res=names.map(n=>settle(svcOf(n)));if(res.some(r=>r.changed))bump();
     if(res.some(r=>!r.stable))throw Error('Waiter ServicesStable failed: Max attempts exceeded. Inspect describe-services (deployments, events) and list-tasks --desired-status STOPPED + describe-tasks (stoppedReason).');
     print('sys','Services stable (declared contract settled once). Steady state means tasks run and pass health checks; read events and app logs to know whether the new version is the one serving.');return true;}
+   if (op === 'run-task') {
+    // One standalone Fargate task. The fixture checks startup, without executing the image.
+    const c = cluster(), ref = required('task-definition'), td = tdRef(ref);
+    if (td.status !== 'ACTIVE' || required('launch-type') !== 'FARGATE' || !td.requiresCompatibilities.includes('FARGATE'))
+      throw Error('InvalidParameterException: select an active Fargate task definition');
+    const net = network(required('network-configuration')), token = flag('client-token');
+    if (token !== null && !/^[\x21-\x7e]{1,64}$/.test(token)) throw Error('InvalidParameterException: invalid client token');
+    const request = JSON.stringify([ref, net]);
+    let task = token && tasks().find(t => t.cluster === c.name && t.clientToken === token);
+    if (task && task.request !== request) throw Error('ConflictException: client token already used for a different request');
+    if (!task) {
+      const id = newId(), digest = AG.containerResolve(a,td.containerDefinitions[0].image);
+      const failure = AG.containerStartFailure(a,td,net,digest,id), subnet = net.subnets[0];
+      task = { id, cluster: c.name, group: 'family:' + td.family, taskDefinition: tdArn(td), imageDigest: digest,
+        subnet, az: a.subnets.find(s => s.id === subnet).az, network: net, clientToken: token, request,
+        lastStatus: failure ? 'STOPPED' : 'RUNNING',
+        ...(failure ? { stopCode: failure.stopCode, stoppedReason: failure.reason } : {}) };
+      tasks().push(task);
+      bump();
+    }
+    resultJson({ tasks: [{ taskArn: taskArn(task), clusterArn: c.arn, taskDefinitionArn: task.taskDefinition,
+      launchType: 'FARGATE', lastStatus: task.lastStatus, ...(task.stoppedReason ? { stoppedReason: task.stoppedReason } : {}) }], failures: [] });
+    return true;
+   }
    if(op==='list-tasks'){const c=cluster(),sn=flag('service-name'),st=flag('desired-status')??'RUNNING';if(!['RUNNING','STOPPED','PENDING'].includes(st))throw Error('InvalidParameterException: --desired-status must be RUNNING, PENDING or STOPPED');if(sn!==null&&!list('ecsServices').some(s=>s.cluster===c.name&&s.name===sn))throw Error('ServiceNotFoundException: Service not found.');
     resultJson({taskArns:tasks().filter(t=>t.cluster===c.name&&(sn===null||t.service===sn)&&t.lastStatus===(st==='PENDING'?'PENDING':st)).map(taskArn)});return true;}
    if(op==='describe-tasks'){const c=cluster(),ids=values('tasks');if(!ids.length)throw Error('aws: error: the following arguments are required: --tasks');if(ids.length>100)throw Error('InvalidParameterException: at most 100 tasks');const rows=ids.map(id=>tasks().find(t=>t.cluster===c.name&&(t.id===id||taskArn(t)===id)));
-    resultJson({tasks:rows.filter(Boolean).map(t=>{const td=byArn(t.taskDefinition),cd=td?td.containerDefinitions[0]:{name:'?',image:'?'};return {taskArn:taskArn(t),clusterArn:`arn:aws:ecs:${region}:${acct}:cluster/${t.cluster}`,taskDefinitionArn:t.taskDefinition,group:'service:'+t.service,launchType:'FARGATE',capacityProviderName:t.capacityProvider,lastStatus:t.lastStatus,desiredStatus:t.lastStatus==='RUNNING'?'RUNNING':'STOPPED',
+    resultJson({tasks:rows.filter(Boolean).map(t=>{const td=byArn(t.taskDefinition),cd=td?td.containerDefinitions[0]:{name:'?',image:'?'};return {taskArn:taskArn(t),clusterArn:`arn:aws:ecs:${region}:${acct}:cluster/${t.cluster}`,taskDefinitionArn:t.taskDefinition,group:t.group||'service:'+t.service,launchType:'FARGATE',capacityProviderName:t.capacityProvider,lastStatus:t.lastStatus,desiredStatus:t.lastStatus==='RUNNING'?'RUNNING':'STOPPED',
      ...(t.lastStatus==='STOPPED'?{stopCode:t.stopCode,stoppedReason:t.stoppedReason}:{}),availabilityZone:t.az,attachments:[{type:'ElasticNetworkInterface',status:t.lastStatus==='RUNNING'?'ATTACHED':'DELETED',details:[{name:'subnetId',value:t.subnet},...(t.ip?[{name:'privateIPv4Address',value:t.ip}]:[])]}],
      containers:[{name:cd.name,image:cd.image,...(t.imageDigest?{imageDigest:t.imageDigest}:{}),lastStatus:t.lastStatus,...(t.exitCode!==undefined?{exitCode:t.exitCode}:{}),...(t.containerReason?{reason:t.containerReason}:{})}]};}),failures:ids.filter((id,i)=>!rows[i]).map(id=>({arn:id,reason:'MISSING'}))});return true;}
    return false;
