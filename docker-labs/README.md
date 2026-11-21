@@ -75,6 +75,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `28-logs-metrics-alarms` | 👁️ Observability | apne Moto par retention (never expire → 30 din, audit 365), JSON metric filter, Logs Insights, p99 + errors alarms, manual state test; Moto ki filter-metric/JSON pattern/stats/p99/evaluation/composite ki kamiyan saaf; average vs p99 aur M-of-N host par |
 | `29-migration-cutover` | 🚚 Migration | SQLite "on-prem" se Moto DynamoDB: full load, triggers wala change log, idempotent CDC replay, checksum validation, cutover runbook; NAS folder ka aws s3 sync (delta); Moto DMS sirf metadata (statistics/modify 500) |
 | `30-data-lake-athena` | 📊 Analytics | Firehose se raw zone, host ETL se dt= partitions (CSV; pyarrow nahi), Glue catalog + batch-create-partition, Athena workgroup scan limit; Moto ki Firehose prefix/crawler/Athena SQL kamiyan saaf, jawaab aur pruning host par |
+| `31-cognito-app-login` | 🤖 App login + AI | User pool (password policy, MFA, bina secret client), temporary password challenge, asli JWT decode + JWKS verify, host authorizer ka audience 401, `${sub}` rok; Moto ki SECRET_HASH/auth flow/identity pool roles/guest/Rekognition kamiyan saaf |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

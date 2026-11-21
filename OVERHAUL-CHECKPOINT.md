@@ -67,6 +67,12 @@ Validation: full `node validate.js` **ALL CHECKS PASSED**, 39 levels/263 stages/
 
 Evidence: `.overhaul-evidence/review-fixes/{FULL-VALIDATE,LAB25-REPLAY,LAB25-CLEANUP-TESTS,CONTAINERS-BROWSER-LOG,IAC-BROWSER-LOG,COST-BROWSER-LOG}.txt`, corresponding browser JSON reports and screenshots. Representative screenshots: `review-fixes/iac-screenshots/terminal-solved-360.png`, `review-fixes/cost-screenshots/terminal-summary-360.png`, `review-fixes/containers-screenshots/terminal-solved-1280.png`. Original read-only report: `/tmp/aws-gurukul-review/REPORT.md`.
 
+## Advanced 9c `appai` loop completed (2026-11-21; master §5.C9c, naya level)
+
+File `data-adv-11-appai.js`, naya `appai-cli.js` (`account.authMode`: user pools, clients, users, admin login with decodable course JWTs, identity pools + roles, HTTP API JWT authorizers). Naya `VISUALS.appai`. Main mission 8 commands (pool, bina secret client, TEST user, identity pool, roles read). Interview: authorizer audience mein mobile client jodo (401 fix). Flowlab: moderation thresholds, 560 states / 21 fit. `validate-appai.js` 653 checks. Lab31 (Moto): password policy, NEW_PASSWORD_REQUIRED, JWT decode + JWKS verify, host authorizer 401, `${sub}` rok; GAPs: SECRET_HASH, auth flows, identity pool roles 500, guest rok, Rekognition 500. 8 checks + cleanup, exit 0.
+
+Facts (2026-11-20): Kendra naye customers ke liye 30 Jul 2026 se band (Bedrock Managed Knowledge Base); Rekognition Streaming Video aur Bulk Image Analysis 30 Apr 2026 se band; Comprehend topic modeling/event detection/prompt safety band; Cognito plans Lite/Essentials (default)/Plus. Agla: `finalboss` (§5.C10), lab32. Push nahi kiya.
+
 ## Advanced 9b `analytics` loop completed (2026-11-20; master §5.C9b, naya level)
 
 Naya level id `analytics` (user ne Round 1 mein chuna tha), file `data-adv-10-analytics.js`, `migration` aur `finalboss` ke beech. Naya hero diagram `VISUALS.analytics`, naya Decision Dojo tree `analytics` (Athena / zero-ETL Redshift / Redshift / EMR / OpenSearch / Quick Sight; 5 scenarios), aur `stream` tree ke levels mein `analytics` joda. Certificate levels khud ginta hai (ab 40 levels).

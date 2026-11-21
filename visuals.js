@@ -405,6 +405,27 @@ const VISUALS = {
     html: `<div class="dg-ladder"><div class="dg-rung g"><span class="lv">1</span><span class="cmd">Measure</span><span class="q">Usage quantity × rate; cost per successful order</span></div><div class="dg-rung a"><span class="lv">2</span><span class="cmd">Preserve</span><span class="q">Data, recovery, HA, performance, retention</span></div><div class="dg-rung g"><span class="lv">3</span><span class="cmd">Reduce waste</span><span class="q">Approved idle inventory, gp3, network paths, dev schedules</span></div><div class="dg-rung a"><span class="lv">4</span><span class="cmd">Commit baseline</span><span class="q">Hourly eligibility + downturn + unused minimum</span></div><div class="dg-rung g"><span class="lv">5</span><span class="cmd">Govern</span><span class="q">Activated tags, Budget receiver, delayed billing review</span></div></div><div class="dg-cap">Compute SP up to66%; EC2 Instance SP up to72%; eligible Database SP up to35%. Advertised ceilings are not guaranteed savings. Spot needs fault tolerance. Budget is delayed tracking, not a universal real-time spend cap.</div>`,
   },
 
+  appai: {
+    t: 'App login aur AI — pehchaan, AWS access, API, sahi AI service',
+    html: `
+      <div class="dg-flow">
+        <div class="dg-col">
+          <div class="dg-node is-accent" data-hs="app"><span class="ni">📱</span><span class="nl">Mobile app</span><span class="ns">public client, bina secret</span></div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">login</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node is-good" data-hs="userpool"><span class="ni">👤</span><span class="nl">User pool</span><span class="ns">ID + access + refresh</span></div>
+          <div class="dg-node is-gold" data-hs="idpool"><span class="ni">🎫</span><span class="nl">Identity pool</span><span class="ns">temp AWS creds</span></div>
+        </div>
+        <div class="dg-link"><span class="dg-pill acc">token / creds</span><div class="dg-arrow flow"></div></div>
+        <div class="dg-col">
+          <div class="dg-node" data-hs="authorizer"><span class="ni">🚪</span><span class="nl">JWT authorizer</span><span class="ns">issuer + audience</span></div>
+          <div class="dg-node is-good" data-hs="s3"><span class="ni">🪣</span><span class="nl">S3 apna folder</span><span class="ns">\${sub} prefix</span></div>
+          <div class="dg-node is-gold" data-hs="ai"><span class="ni">🤖</span><span class="nl">AI services</span><span class="ns">Textract, Rekognition, Bedrock</span></div>
+        </div>
+      </div>
+      <div class="dg-cap"><b>User pool</b> batata hai user kaun hai (tokens). <b>Identity pool</b> usi login ke badle thodi der ke AWS credentials deta hai. <b>JWT authorizer</b> token ka issuer aur audience (app client) jaanchta hai. Har AI kaam ke liye pehle ready <b>managed service</b> dekho, aur naye account mein availability check karo.</div>`,
+  },
   analytics: {
     t: 'Analytics — OLTP se alag data lake, sahi layout, sahi tool',
     html: `

@@ -508,6 +508,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.authMode) {
+      print('sys', 'App login fixture: aws cognito-idp create-user-pool / describe-user-pool / create-user-pool-client / describe-user-pool-client / admin-create-user / admin-set-user-password / admin-get-user / admin-initiate-auth; aws cognito-identity create-identity-pool / describe-identity-pool / set-identity-pool-roles / get-identity-pool-roles; aws apigatewayv2 get-authorizers / get-authorizer / update-authorizer. ls/cat se files padho. Tokens course ke unsigned JWT hain.');
+      return;
+    }
     if (norm === 'help' && sim.account.lakeMode) {
       print('sys', 'Data lake fixture: aws glue create-database / get-databases / create-crawler / start-crawler / get-crawler / get-tables / get-table / get-partitions; aws athena create-work-group / get-work-group / start-query-execution / get-query-execution / get-query-results. SQL subset: SELECT ... FROM t [WHERE dt ...] [GROUP BY] [ORDER BY] [LIMIT], MSCK REPAIR TABLE, SHOW PARTITIONS. ls/cat se files padho. Scan bytes ek model hain.');
       return;
@@ -684,6 +688,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.obsMode && AG.obsCLI && AG.obsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.dmsMode && AG.dmsCLI && AG.dmsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.lakeMode && AG.lakeCLI && AG.lakeCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
+    if (sim.account.authMode && AG.authCLI && AG.authCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Fail before mutation on misspelled flags or stray positional values.
     if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {
       const specs = {
