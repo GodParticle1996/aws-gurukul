@@ -533,29 +533,21 @@ const VISUALS = {
   },
 
   messaging: {
-    t: 'Decouple kaise — SQS vs SNS vs Kinesis vs Step Functions',
+    t: 'PixShare mein ek edit ke do raaste',
     html: `
       <div class="dg-flow">
-        <div class="dg-node is-accent" data-hs="sqs"><span class="ni">📨</span><span class="nl">SQS</span><span class="ns">queue · 1 consumer group · buffer+retry</span></div>
-        <div class="dg-node is-good" data-hs="sns"><span class="ni">📢</span><span class="nl">SNS</span><span class="ns">pub/sub fan-out · push · N subscribers</span></div>
-        <div class="dg-node is-gold" data-hs="kinesis"><span class="ni">🌊</span><span class="nl">Kinesis</span><span class="ns">ordered stream · replay · many readers</span></div>
-        <div class="dg-node" data-hs="sfn"><span class="ni">🪜</span><span class="nl">Step Functions</span><span class="ns">workflow · retry/catch · saga</span></div>
+        <div class="dg-node is-good" data-hs="sns"><span class="ni">📣</span><span class="nl">SNS FIFO</span><span class="ns">Group p7 · edit p7-v2</span></div>
       </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <div class="dg-box is-gold"><span class="bx-label">🍟 Classic combo: SNS + SQS fan-out</span>
-          <div class="dg-flow">
-            <div class="dg-node"><span class="ni">🛒</span><span class="nl">Order</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-node is-good" data-hs="fanout"><span class="ni">📢</span><span class="nl">SNS topic</span></div>
-            <div class="dg-arrow flow"></div>
-            <div class="dg-col">
-              <div class="dg-node is-accent"><span class="ni">📨</span><span class="nl">email-queue</span></div>
-              <div class="dg-node is-accent"><span class="ni">📨</span><span class="nl">analytics-queue</span></div>
-            </div>
-          </div>
-        </div>
+      <div class="dg-cap" data-hs="fanout">↓ Dono queues ko ek-ek copy</div>
+      <div class="dg-flow">
+        <div class="dg-node is-accent" data-hs="sqs"><span class="nl">Render FIFO</span><span class="ns">p7-v1 → p7-v2 · pixels badlo</span></div>
+        <div class="dg-node is-accent"><span class="nl">Feed FIFO</span><span class="ns">p7-v1 → p7-v2 · naya crop dikhao</span></div>
       </div>
-      <div class="dg-cap"><b>SQS</b> = kaam ek baar ho (buffer/retry). <b>SNS</b> = ek event, kai subscribers (fan-out). <b>Kinesis</b> = ordered + replayable stream (clickstream/IoT, kai consumers same data). <b>Step Functions</b> = multi-step workflow with rollback. <b>Sync call ko async bana do</b> — checkout tez + resilient.</div>`,
+      <div class="dg-flow">
+        <div class="dg-box is-gold" data-hs="kinesis"><span class="bx-label">Kinesis · view records</span>Dashboard aur report apne checkpoint se wahi views phir padh sakte hain.</div>
+        <div class="dg-box" data-hs="sfn"><span class="bx-label">Step Functions · print order</span>Approve → payment hold → print. Print fail ho toh Catch se hold chhodne ka action chalao.</div>
+      </div>
+      <div class="dg-cap">Har queue mein apni copy hai. Ek photo ki edits ek group mein rehti hain. Doosri photos saath chal sakti hain.</div>`,
   },
 
   eventbridge: {

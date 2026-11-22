@@ -79,6 +79,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | [32-region-drill-terraform](32-region-drill-terraform/README.md) | 👑 Final Boss | Terraform se do Regions, local secret, replica key, pehle se rakhe servers aur DNS failover ka host test |
 | [33-compute-breakeven](33-compute-breakeven/README.md) | 🖥️ Architect · Compute | Moto par Lambda aur ECS config, laptop par ek hi photo ke pixels aur monthly bill ka crossover |
 | [34-polyglot-data](34-polyglot-data/README.md) | 🗄️ Architect · Datastore | 384 posts par Query aur filtered Scan, consumed units, S3 export aur Aurora cluster readback |
+| [35-fifo-ordering-fanout](35-fifo-ordering-fanout/README.md) | 📨 Architect · Messaging | Do FIFO queues par photo edits, retry ki dedup aur Kinesis ke do readers ka replay |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -509,6 +509,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.pixMessaging) {
+      print('sys', 'ls aur cat se mission ki files padho. SNS mein create-topic, subscribe, set-subscription-attributes aur publish hain. SQS mein create-queue, get-queue-attributes, set-queue-attributes aur receive-message hain. Kinesis mein create-stream, wait stream-exists, list-streams aur describe-stream-summary hain.');
+      return;
+    }
     if (norm === 'help' && sim.account.pixData) {
       print('sys', 'ls aur cat release.txt se shuru karo. DynamoDB mein create-table, wait table-exists, describe-table, batch-write-item, update-table, query aur update-continuous-backups hain. Export ke liye export-table-to-point-in-time, list-exports aur describe-export hain. RDS mein create-db-cluster, describe-db-clusters aur wait db-cluster-available hain.');
       return;
@@ -695,6 +699,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.pixCompute && service === 'lambda' && flag('region') !== null && flag('region') !== sim.account.region) {
       return print('err', 'PixShare ke functions ' + sim.account.region + ' mein hain.');
     }
+    if (sim.account.pixMessaging && AG.messagingCLI({service,op,toks,flag,sim,list,print,resultJson})) return;
     if (sim.account.pixData && AG.datastoreCLI({service,op,toks,flag,sim,list,print,resultJson,putObject})) return;
     // Scoped DR fixture owns its documented flags (copy-image, image waiter, cross-Region replica) before the shared guard.
     if (sim.account.drMode && AG.drCLI && AG.drCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;

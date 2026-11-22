@@ -93,10 +93,10 @@ resource "aws_sqs_queue" "orders" {
       },
       sns: {
         leaf: true, icon: '📣', pick: 'Amazon SNS',
-        one: 'Pub/sub push — email, SMS, mobile push, HTTP, Lambda, SQS subscribers.',
+        one: 'SNS Standard topic email, SMS, mobile push, HTTP, Lambda aur SQS tak bhej sakta hai.',
         when: ['Alarm → on-call ko email/SMS', 'Mobile push notifications', 'Lambda subscribers ko event push'],
         avoid: ['Competing-worker job buffer (use SQS); durable per-service processing copies need queues. Eligible SNS FIFO archive/replay is separate from queue consumption.'],
-        gotchas: ['HTTP/email subscriptions ko confirm karna padta hai', 'SNS FIFO, SQS FIFO aur Standard dono ko bhej sakta hai; Standard phir bhi best-effort/at-least-once hai. Seedhe customer HTTP/email/SMS/mobile endpoints supported nahi.'],
+        gotchas: ['HTTP/email subscriptions ko confirm karo. SNS retry ki policy endpoint aur error par depend karti hai. Delivery fail rahe toh subscription DLQ kaam aa sakti hai.', 'SNS FIFO, SQS FIFO aur Standard dono ko bhej sakta hai; Standard phir bhi best-effort/at-least-once hai. Seedhe customer HTTP/email/SMS/mobile endpoints supported nahi.'],
         cost: 'Lagbhag us-east-1 Standard $0.50/million paid API request units; endpoint, body-filter scans, transfer aur KMS ka charge alag se jud sakta hai.',
         exam: '"notify", "push", "email/SMS alerts", "pub/sub" → SNS.',
         level: 'sqssns',
@@ -152,10 +152,10 @@ resource "aws_sqs_queue" "orders" {
     },
     scenarios: [
       { s: 'Image upload ke baad resize ka kaam background mein; upload spike ke time workers ko overload nahi karna.', answer: 'sqs', explain: 'Job queue + buffer → SQS Standard.' },
-      { s: '"OrderPlaced" event ko email service, inventory service aur analytics teeno ko apni-apni speed se chahiye; koi down ho toh message miss na ho.', answer: 'snssqs', explain: 'Durable fan-out → SNS + har service ki SQS queue.' },
+      { s: 'PixShare par har edit render aur feed dono ko chahiye. Feed worker do ghante band ho sakta hai. Wapas aakar feed ko har edit apni speed se lagaani hai.', answer: 'snssqs', explain: 'Har service apni queue mein bachi copy padhti hai. Publish ke baad queue policy aur subscription ki delivery bhi jaancho.' },
       { s: 'Sirf 50,000 se badi payments par fraud Lambda chale; Stripe ke webhooks bhi isi system mein aane chahiye.', answer: 'eb', explain: 'Content-based rule + SaaS → EventBridge.' },
       { s: '10 lakh IoT sensors har second reading bhejte hain; real-time dashboard aur ML model dono same data padhein, 7 din replay chahiye.', answer: 'kinesis', explain: 'Stream + multiple consumers + replay → Kinesis Data Streams.' },
-      { s: 'Bank account events need per-account ordering; consumer already has idempotent transactional business updates.', answer: 'sqsfifo', explain: 'SQS FIFO mein MessageGroupId=account_id se order mein consumption aur producer dedup milta hai; business effect dobara na ho, iske liye transactional consumer phir bhi chahiye.' },
+      { s: 'Ek worker pool ko har account ki entries order mein lagaani hain. Worker payment aur payment ID ek saath save karta hai.', answer: 'sqsfifo', explain: 'Account ID ko FIFO group banao. Worker payment ko dobara lagaane se pehle uski saved ID jaanche.' },
       { s: 'On-prem Java app ActiveMQ (JMS) par hai; AWS par bina code change shift karna hai.', answer: 'mq', explain: 'JMS compatibility → Amazon MQ.' },
       { s: 'CloudWatch alarm fire ho toh on-call engineer ko SMS + email.', answer: 'sns', explain: 'Push notifications → SNS.' },
       { s: 'EC2 instance terminate hote hi Slack message jaaye.', answer: 'eb', explain: 'AWS service event (EC2 state change) → EventBridge rule → Lambda/API destination.' },
@@ -169,7 +169,7 @@ resource "aws_sqs_queue" "orders" {
     title: 'SQS configure kaise karun? — Standard vs FIFO, visibility timeout, DLQ',
     short: 'SQS setup',
     tldr: 'Default Standard + idempotent consumer + DLQ. FIFO sirf tab jab order zaroori ho. Visibility timeout worker ke max time se zyada.',
-    levels: ['sqssns'],
+    levels: ['sqssns', 'messaging'],
     start: 'q1',
     nodes: {
       q1: {
