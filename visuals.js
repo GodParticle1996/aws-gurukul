@@ -551,35 +551,20 @@ const VISUALS = {
   },
 
   eventbridge: {
-    t: 'EventBridge & Pipes — event backbone',
+    t: 'PixShare ke teen alag raaste',
     html: `
-      <div class="dg-flow">
-        <div class="dg-node"><span class="ni">🛠️</span><span class="nl">Producers</span><span class="ns">apps · AWS services · SaaS</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-box is-accent"><span class="bx-label">🔔 EventBridge Bus</span>
-          <div class="dg-col">
-            <div class="dg-node is-accent pulse" data-hs="bus"><span class="ni">🚌</span><span class="nl">Event bus</span><span class="ns">default / custom / partner</span></div>
-            <div class="dg-flow">
-              <div class="dg-node is-good" data-hs="rule"><span class="ni">🧭</span><span class="nl">Rule</span><span class="ns">content pattern match</span></div>
-              <div class="dg-node is-gold" data-hs="schedule"><span class="ni">⏰</span><span class="nl">Scheduler</span><span class="ns">cron/rate</span></div>
-            </div>
-          </div>
-        </div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-good" data-hs="target"><span class="ni">🎯</span><span class="nl">Targets</span><span class="ns">Lambda · SQS · SFN · 20+</span></div>
-      </div>
-      <div class="dg-box is-gold" style="margin-top:14px"><span class="bx-label">🔧 EventBridge Pipes — point-to-point ETL glue</span>
+      <div class="dg-col">
+        <div class="dg-node is-accent" data-hs="bus"><span class="nl">Upload → Classic bus</span><span class="ns">p7 premium · p8 basic</span></div>
         <div class="dg-flow">
-          <div class="dg-node" data-hs="psource"><span class="ni">📥</span><span class="nl">Source</span><span class="ns">SQS/Kinesis/DDB stream</span></div>
-          <div class="dg-arrow flow"></div>
-          <div class="dg-node is-bad" data-hs="pfilter"><span class="ni">🧹</span><span class="nl">Filter</span><span class="ns">chhaan lo</span></div>
-          <div class="dg-arrow flow"></div>
-          <div class="dg-node is-gold" data-hs="penrich"><span class="ni">✨</span><span class="nl">Enrich</span><span class="ns">Lambda/API se data jodo</span></div>
-          <div class="dg-arrow flow"></div>
-          <div class="dg-node is-good" data-hs="ptarget"><span class="ni">🎯</span><span class="nl">Target</span></div>
+          <div class="dg-node is-good" data-hs="rule"><span class="nl">Audit rule</span><span class="ns">p7 aur p8 ka poora event</span></div>
+          <div class="dg-node is-gold" data-hs="target"><span class="nl">Review rule → SQS</span><span class="ns">Sirf p7 · uploadId aur tier</span></div>
         </div>
+        <div class="dg-cap">Archive se replay → original bus → chuna review rule</div>
       </div>
-      <div class="dg-cap"><b>EventBridge Bus</b> = many-to-many router (content-based rules, SaaS/AWS events, schema registry). <b>Pipes</b> = ek source→ek target ka managed glue with filter+enrich — woh "SQS se padho, transform karo, bhejo" wala Lambda <b>khatam</b> kar deta hai. <b>SNS</b> se farak: EventBridge content par filter karta hai + schema/replay deta hai.</div>`,
+      <div class="dg-box is-accent" style="margin-top:16px"><span class="bx-label">Alag inbox Pipe</span>
+        <div class="dg-flow"><span data-hs="psource">SQS body</span> → <span data-hs="pfilter">tier filter</span> → <span data-hs="penrich">optional lookup</span> → <span data-hs="ptarget">workflow</span></div>
+      </div>
+      <div class="dg-cap" data-hs="schedule">Scheduler → Toronto ke subah 3 baje cleanup. Is call ke liye upload nahi chahiye.</div>`,
   },
 
   logsetl: {

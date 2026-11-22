@@ -162,6 +162,28 @@ resource "aws_sqs_queue" "orders" {
     ],
   },
 
+  {
+    id:'pixroutes',icon:'🔔',short:'PixShare routes',title:'Upload, inbox ya ghadi se kaam shuru hoga?',
+    tldr:'Kaam kis cheez se shuru hota hai aur kitne consumers ko chahiye? Usse route chuno.',levels:['eventbridge'],start:'source',
+    nodes:{
+      source:{q:'Pehla signal kahan se aata hai?',why:'Queue ko padhna, event ko push karna aur time par call karna alag kaam hain.',
+        options:[{t:'Time ya calendar se',next:'clock'},{t:'Pehle se bani queue ya stream se',next:'pipe'},{t:'App ek event publish karta hai',next:'publish'}]},
+      publish:{q:'Consumers ka kaam kya hai?',why:'Notification aur chuni rule par archive replay ki zaroorat alag dekho.',
+        options:[{t:'Email ya SMS alert bhi seedha chahiye',next:'topic'},{t:'Kai rules aur archived upload dobara chalana hai',next:'bus'}]},
+      clock:{leaf:true,icon:'⏰',pick:'EventBridge Scheduler',one:'Calendar ya rate se target API chalao.',when:['Raat ka cleanup ya ek baar ka reminder'],avoid:['Har naye upload par action'],gotchas:['Timezone aur execution role milao.'],level:'eventbridge'},
+      pipe:{leaf:true,icon:'🔧',pick:'EventBridge Pipe',one:'Ek source se poll karo. Filter aur optional lookup ke baad ek target bulao.',when:['SQS se Standard workflow'],avoid:['Kai services ko har job ki apni copy'],gotchas:['Unmatched SQS message queue se hat jaata hai.'],level:'eventbridge'},
+      topic:{leaf:true,icon:'📣',pick:'SNS Standard',one:'Ek publish ko matching subscriptions tak push karo.',when:['Seedha SMS aur email alert'],avoid:['Classic bus ke rules par archive replay'],gotchas:['JSON body ya message attributes ka filter scope chuno.'],level:'eventbridge'},
+      bus:{leaf:true,icon:'🔔',pick:'EventBridge Classic bus',one:'Har rule ka pattern dekho. Matching events ko us rule ke targets tak bhejo.',when:['Audit sab uploads le aur review sirf premium'],avoid:['Sirf raat ki ghadi se kaam shuru karna'],gotchas:['Target aur access bhi jodo. Replay original bus par aata hai.'],level:'eventbridge'}
+    },scenarios:[
+      {s:'PixShare ke app uploads ko audit aur review alag rules se padhenge. Bug fix par sirf review rule ko kal ke events chahiye.',answer:'bus',explain:'Classic archive se original bus par chuni rule aur window ko replay do.'},
+      {s:'SQS inbox mein orders hain. Premium jobs mein customer lookup jodkar ek Standard workflow shuru karo.',answer:'pipe',explain:'Pipe SQS ko poll karta hai. Match ke baad enrichment aur async workflow target jodo.'},
+      {s:'Har Sunday subah 3 baje Toronto time par thumbnail safai chahiye.',answer:'clock',explain:'Scheduler par timezone aur weekly cron do. Target ka execution role bhi set karo.'},
+      {s:'Signup par support ko seedha SMS aur on-call ko email alert chahiye.',answer:'topic',explain:'SNS Standard topic se SMS aur confirmed email subscriptions tak alert bhejo.'},
+      {s:'Customer ne Friday dopahar ek reminder maanga. Us waqt koi upload nahi hoga.',answer:'clock',explain:'Ek baar ke at schedule se target bulao. Event publish hone ka wait nahi chahiye.'},
+      {s:'DynamoDB stream ki matching changes ek hi analytics target ko deni hain. Team polling ka code hataana chahti hai.',answer:'pipe',explain:'Stream source ko Pipe poll karega. Filter aur ek target ka route bana sakte ho.'}
+    ]
+  },
+
   /* ------------------------------------------------------------------ */
   {
     id: 'sqstype',

@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -509,6 +509,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.pixBridge) {
+      print('sys', 'ls aur cat se files padho. events mein create-event-bus, create-archive, put-rule, put-targets, put-events, start-replay aur describe-replay chalte hain. Pattern ke liye test-event-pattern aur target ke liye list-targets-by-rule dekho. pipes se create-pipe, update-pipe aur describe-pipe chalao.');
+      return;
+    }
     if (norm === 'help' && sim.account.pixMessaging) {
       print('sys', 'ls aur cat se mission ki files padho. SNS mein create-topic, subscribe, set-subscription-attributes aur publish hain. SQS mein create-queue, get-queue-attributes, set-queue-attributes aur receive-message hain. Kinesis mein create-stream, wait stream-exists, list-streams aur describe-stream-summary hain.');
       return;
@@ -713,9 +717,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.regionDrill && AG.finalbossCLI({service,op,toks,flag,sim,print,resultJson})) return;
     if (sim.account.authMode && AG.authCLI && AG.authCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Fail before mutation on misspelled flags or stray positional values.
-    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service)) {
+    if (['elbv2', 'autoscaling', 'ec2', 's3api', 'rds', 'route53', 'cloudfront', 'efs', 'lambda', 'dynamodb', 'elasticache', 'dax', 'sqs', 'sns', 'events', 'scheduler', 'stepfunctions'].includes(service) || (sim.account.pixBridge && service === 'pipes')) {
       const specs = {
+        pipes: AG.bridgeSpecs?.pipes || {},
         events: {
+          ...(sim.account.pixBridge ? AG.bridgeSpecs.events : {}),
           'list-rules':['event-bus-name','name-prefix'], 'describe-rule':['name','event-bus-name'],
           'put-rule':['name','event-bus-name','event-pattern','schedule-expression','state','description'], 'delete-rule':['name','event-bus-name','force!'],
           'put-targets':['rule','event-bus-name','targets*'], 'list-targets-by-rule':['rule','event-bus-name'], 'remove-targets':['rule','event-bus-name','ids*','force!'],
@@ -865,7 +871,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const name = toks[i].startsWith('--') ? toks[i].slice(2) : '';
           const spec = allowed.find(a => a.replace(/[*!]$/, '') === name);
           if (!spec) return print('err', `Unknown options: ${toks[i]}. This simulator models the documented flags listed by help.`);
-          if(['elasticache','dax','sqs','sns','events','scheduler','stepfunctions'].includes(service)&&seenOptions.has(name))return print('err','Duplicate options are not modeled: --'+name+'; supply one explicit value.');
+          if(['elasticache','dax','sqs','sns','events','scheduler','stepfunctions','pipes'].includes(service)&&seenOptions.has(name))return print('err','Duplicate options are not modeled: --'+name+'; supply one explicit value.');
           seenOptions.add(name);
           if (spec.endsWith('!')) { i++; continue; }
           if (!toks[i + 1] || toks[i + 1].startsWith('--')) return print('err', `aws: error: argument --${name}: expected one argument`);
@@ -3308,9 +3314,39 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         }catch(e){return print('err',e.message);}
       }
 
-      /* ===================== ORGANIZATIONS ===================== */
-      /* EventBridge Classic / Scheduler / bounded Step Functions ASL model.
+      /* EventBridge Classic / Pipes / Scheduler / bounded Step Functions ASL model.
          Configuration, delivery acceptance and TEST business state are distinct proofs. */
+      case 'pipes':
+        if (!sim.account.pixBridge) {
+          if (op === 'list-pipes') {
+            const ps = list('pipes');
+            if (!ps.length) return print('ok', '{\n    "Pipes": []\n}');
+            print('ok', '{\n    "Pipes": [\n' +
+              ps.map(p => `        { "Name": "${p.name}", "CurrentState": "${p.state || 'RUNNING'}", "Source": "${p.source}", "Target": "${p.target}" }`).join(',\n') +
+              '\n    ]\n}');
+          } else if (op === 'describe-pipe') {
+            const name = flag('name');
+            const p = find('pipes', name);
+            if (!p) return print('err', `NotFoundException: Pipe ${name} not found`);
+            print('ok', prettyJson({
+              Name: p.name, CurrentState: p.state || 'RUNNING',
+              Source: p.source, SourceParameters: p.filter ? { FilterCriteria: { Filters: [{ Pattern: p.filter }] } } : {},
+              Enrichment: p.enrichment || null,
+              Target: p.target, TargetParameters: p.targetParams || {},
+            }));
+          } else if (op === 'create-pipe') {
+            const name = flag('name');
+            if (!name) return print('err', 'error: --name required');
+            const ps = list('pipes');
+            if (ps.find(x => x.name === name)) return print('err', `ConflictException: Pipe ${name} already exists`);
+            ps.push({ name, state: 'RUNNING', source: flag('source') || '', target: flag('target') || '', enrichment: flag('enrichment') || null });
+            print('ok', prettyJson({ Name: name, CurrentState: 'CREATING', Arn: `arn:aws:pipes:us-east-1:123456789012:pipe/${name}` }));
+          } else {
+            print('err', `unknown Pipes op: ${op}`);
+          }
+          return;
+        }
+        // PixShare Pipes use the shared queue, role and workflow state below.
       case 'events':
       case 'scheduler':
       case 'stepfunctions': {
@@ -3339,8 +3375,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         function dlq(config){if(!object(config)||Object.keys(config).some(k=>k!=='Arn')||typeof config.Arn!=='string')bad('DeadLetterConfig needs Arn');const q=list('queues').find(q=>q.arn===config.Arn);if(!q||q.isFifo||!q.arn.startsWith(`arn:aws:sqs:${region}:${account}:`))bad('Simulator requires existing same-Region/account Standard SQS delivery DLQ');return q;}
         function queueSend(q,event,provenance,attributes={}){q.messages=q.messages||[];q.queueId=q.queueId||'seed:'+q.arn;const now=Date.parse(clock()),m={messageId:next('event-message'),body:JSON.stringify(event),messageAttributes:clone(attributes),sentAt:now,visibleAt:now+Number(q.attributes?.DelaySeconds||0)*1000,receiveCount:0,provenance:clone(provenance)};q.messages.push(m);return m;}
         function targetAllowed(t,r){if(t.RoleArn)return roleAllows(t.RoleArn,'events.amazonaws.com',t.Arn.includes(':lambda:')?'lambda:InvokeFunction':'sqs:SendMessage',t.Arn,r.arn);const fn=lambda(t.Arn),q=list('queues').find(q=>q.arn===t.Arn);return fn?policyAllows(fn.policy,'events.amazonaws.com','lambda:InvokeFunction',t.Arn,r.arn):q?policyAllows(q.policy||q.attributes?.Policy,'events.amazonaws.com','sqs:SendMessage',t.Arn,r.arn):false;}
-        function dispatch(r,t,event){const fn=lambda(t.Arn),q=list('queues').find(q=>q.arn===t.Arn),provenance={ruleArn:r.arn,ruleId:r.ruleId,ruleRevision:r.revision,eventId:event.id,targetId:t.Id};let outcome=!fn&&!q?'NO_RESOURCE':targetAllowed(t,r)?'ACCEPTED':'NO_PERMISSIONS',m;
-          if(outcome==='ACCEPTED'){if(q)m=queueSend(q,event,provenance);else if(fn.pendingConfig||fn.state&&fn.state!=='Active')outcome='RESOURCE_NOT_READY';else{fn.pendingEvents=fn.pendingEvents||[];fn.pendingEvents.push(clone(event));}}
+        function dispatch(r,t,event){const fn=lambda(t.Arn),q=list('queues').find(q=>q.arn===t.Arn),provenance={ruleArn:r.arn,ruleId:r.ruleId,ruleRevision:r.revision,eventId:event.id,targetId:t.Id,...(event['replay-name']?{replayName:event['replay-name']}:{})};let outcome=!fn&&!q?'NO_RESOURCE':targetAllowed(t,r)?'ACCEPTED':'NO_PERMISSIONS',m;
+          if(outcome==='ACCEPTED'){const payload=t.InputTransformer&&sim.account.pixBridge?AG.bridgeTemplate(t.InputTransformer,event):event;if(q)m=queueSend(q,payload,provenance);else if(fn.pendingConfig||fn.state&&fn.state!=='Active')outcome='RESOURCE_NOT_READY';else{fn.pendingEvents=fn.pendingEvents||[];fn.pendingEvents.push(clone(payload));}}
           const record={...provenance,targetArn:t.Arn,status:outcome,messageId:m?.messageId,queueId:q?.queueId};
           if(['NO_RESOURCE','NO_PERMISSIONS'].includes(outcome)&&t.DeadLetterConfig){const dead=list('queues').find(q=>q.arn===t.DeadLetterConfig.Arn);if(dead&&policyAllows(dead.policy||dead.attributes?.Policy,'events.amazonaws.com','sqs:SendMessage',dead.arn,r.arn)){const message=queueSend(dead,event,{...provenance,deliveryFailure:outcome},{ERROR_CODE:{DataType:'String',StringValue:outcome},RULE_ARN:{DataType:'String',StringValue:r.arn},TARGET_ARN:{DataType:'String',StringValue:t.Arn}});record.deadLetterMessageId=message.messageId;}else record.deadLetterFailure='NO_PERMISSIONS_OR_RESOURCE';}
           (sim.account.eventDeliveries||(sim.account.eventDeliveries=[])).push(record);print('sys',`Teaching delivery observation ${t.Id}: ${outcome}. Async Lambda acceptance is not handler/business completion; retry timing is not modeled.`);
@@ -3394,11 +3430,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         }
         try {
           if(flag('region')&&flag('region')!==region)bad('Simulator mission is scoped to '+region+'; use that Region with the exact fixture ARNs');
+          if(sim.account.pixBridge && AG.bridgeCLI({service,op,required,flag,doc,sim,list,clock,bus,rules,dispatch,roleAllows,machines,next,print,resultJson}))return;
           if(service==='events'){
             if(op==='list-event-buses')return resultJson({EventBuses:buses().map(b=>({Name:b.name,Arn:b.arn}))});
             if(op==='create-event-bus'){const name=required('name');if(!/^[A-Za-z0-9_.-]{1,256}$/.test(name)||name==='default')bad('Use ordinary custom Classic bus name; default already exists');if(buses().some(b=>b.name===name))throw Error('ResourceAlreadyExistsException: Event bus exists');const b={name,arn:busArn(name),busId:next('bus')};list('eventBuses').push(b);return resultJson({EventBusArn:b.arn});}
             if(op==='describe-event-bus'){const b=bus(flag('name')||'default');return resultJson({Name:b.name,Arn:b.arn});}
-            if(op==='delete-event-bus'){const b=bus(required('name'));if(b.name==='default'||rules().some(r=>r.bus===b.name))bad('Cannot delete default bus or bus with rules');list('eventBuses').splice(list('eventBuses').indexOf(b),1);return print('ok','');}
+            if(op==='delete-event-bus'){const b=bus(required('name'));if(sim.account.pixBridge && sim.account.archives.some(a=>a.busId===b.busId))bad('Delete the bus archive first');if(b.name==='default'||rules().some(r=>r.bus===b.name))bad('Cannot delete default bus or bus with rules');list('eventBuses').splice(list('eventBuses').indexOf(b),1);return print('ok','');}
             if(op==='test-event-pattern'){const pattern=doc('event-pattern'),event=doc('event');if(!object(event)||['id','account','source','detail-type','time','region','resources'].some(k=>!own(event,k)))bad('Test event needs complete EventBridge envelope: id/account/source/detail-type/time/region/resources');return resultJson({Result:AG.eventPatternMatch(pattern,event)});}
             if(op==='list-rules'){const b=bus(flag('event-bus-name')||'default');return resultJson({Rules:rules().filter(r=>r.bus===b.name&&r.name.startsWith(flag('name-prefix')||'')).map(r=>({Name:r.name,Arn:r.arn,State:r.state||'ENABLED',EventBusName:r.bus,...(r.pattern?{EventPattern:JSON.stringify(r.pattern)}:{}),...(r.schedule?{ScheduleExpression:r.schedule}:{})}))});}
             if(op==='put-rule'){
@@ -3409,7 +3446,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
               const entries=doc('entries');if(!Array.isArray(entries)||!entries.length||entries.length>10)bad('Classic PutEvents requires1..10entries (new Custom Event Bus V2 has separate quotas)');let total=0;for(const entry of entries){if(!object(entry))bad('Every entry must be object');total+=bytes(String(entry.Source||''))+bytes(String(entry.DetailType||''))+bytes(String(entry.Detail||''))+(entry.Time===undefined?0:14)+(Array.isArray(entry.Resources)?entry.Resources.reduce((n,v)=>n+bytes(String(v)),0):0);}if(total>=1048576)bad('Classic PutEvents total entry bytes must be less than1MiB');
               const entryTime=e=>{if(e.Time===undefined)return clock();const ms=typeof e.Time==='number'?e.Time*1000:typeof e.Time==='string'?Date.parse(e.Time):NaN;if(!Number.isFinite(ms)||!Number.isFinite(new Date(ms).getTime()))bad('Time must be a valid ISO date string or Unix seconds');return new Date(ms).toISOString();};for(const entry of entries)entryTime(entry);
               const outcomes=[];for(const entry of entries){let detail;try{if(typeof entry.Source!=='string'||!entry.Source||typeof entry.DetailType!=='string'||!entry.DetailType||typeof entry.Detail!=='string')throw Error('Source/DetailType/JSON-string Detail required');if(entry.Source.startsWith('aws.'))throw Error('Custom publisher cannot spoof reserved aws. source');detail=JSON.parse(entry.Detail);if(!object(detail)||entry.Resources!==undefined&&(!Array.isArray(entry.Resources)||entry.Resources.some(v=>typeof v!=='string')))throw Error('Detail object/Resources string array required');}catch(error){outcomes.push({ErrorCode:entry.Source?.startsWith?.('aws.')?'NotAuthorizedForSourceException':'MalformedDetail',ErrorMessage:error.message});continue;}
-                const b=bus(entry.EventBusName||'default',false),id=next('event'),event={version:'0',id,account,source:entry.Source,'detail-type':entry.DetailType,time:entryTime(entry),region,resources:entry.Resources||[],detail};outcomes.push({EventId:id});if(!b){print('sys','Teaching observation: nonexistent bus accepted then dropped, without FailedEntryCount (documented AWS behavior). Verify bus and delivery.');continue;}for(const r of rules().filter(r=>r.bus===b.name&&r.state!=='DISABLED'&&r.pattern&&AG.eventPatternMatch(r.pattern,event)))for(const t of r.targets)dispatch(r,t,event);
+                const b=bus(entry.EventBusName||'default',false),id=next('event'),event={version:'0',id,account,source:entry.Source,'detail-type':entry.DetailType,time:entryTime(entry),region,resources:entry.Resources||[],detail};outcomes.push({EventId:id});if(!b){print('sys','Teaching observation: nonexistent bus accepted then dropped, without FailedEntryCount (documented AWS behavior). Verify bus and delivery.');continue;}
+                if(sim.account.pixBridge)AG.bridgeCapture(sim.account,b,event,Date.parse(clock()));
+                for(const r of rules().filter(r=>r.bus===b.name&&r.state!=='DISABLED'&&r.pattern&&AG.eventPatternMatch(r.pattern,event)))for(const t of r.targets)dispatch(r,t,event);
               }return resultJson({FailedEntryCount:outcomes.filter(r=>r.ErrorCode).length,Entries:outcomes});
             }
             if(!['describe-rule','put-targets','list-targets-by-rule','remove-targets','delete-rule','enable-rule','disable-rule'].includes(op))return print('err','Simulator scope: unsupported Classic EventBridge op '+op);
@@ -3418,7 +3457,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             if(op==='list-targets-by-rule')return resultJson({Targets:clone(r.targets)});
             if(op==='put-targets'){
               const raw=text('targets');let targets;if(raw.startsWith('['))targets=json(raw,'--targets');else targets=flags('targets').map(value=>{const m=value.match(/^Id=([A-Za-z0-9_.-]+),Arn=(arn:aws:[^,\s]+)$/);if(!m)bad('Use --targets JSON/file or Id=target-id,Arn=full-arn; bare ARN is not AWS target syntax');return {Id:m[1],Arn:m[2]};});
-              if(!Array.isArray(targets)||!targets.length)bad('Targets must be nonempty array');const ids=new Set();for(const t of targets){if(!object(t)||typeof t.Id!=='string'||!/^[A-Za-z0-9_.-]{1,64}$/.test(t.Id)||ids.has(t.Id)||typeof t.Arn!=='string'||!new RegExp(`^arn:aws:(lambda|sqs):${region}:${account}:`).test(t.Arn))bad('Unique target Id and supported same-Region/account Lambda/SQS Arn required');ids.add(t.Id);if(Object.keys(t).some(k=>!['Id','Arn','RoleArn','RetryPolicy','DeadLetterConfig'].includes(k)))bad('Simulator target subset supports Id/Arn/RoleArn/RetryPolicy/DeadLetterConfig');if(t.RetryPolicy)retry(t.RetryPolicy);if(t.DeadLetterConfig)dlq(t.DeadLetterConfig);if(t.RoleArn!==undefined&&(typeof t.RoleArn!=='string'||!/^arn:aws:iam::\d{12}:role\/.+/.test(t.RoleArn)))bad('RoleArn must be IAM role ARN');if(list('queues').some(q=>q.arn===t.Arn&&q.isFifo))bad('Simulator Classic SQS targets are Standard; FIFO SqsParameters are not modeled');}
+              if(!Array.isArray(targets)||!targets.length)bad('Targets must be nonempty array');const ids=new Set();for(const t of targets){if(!object(t)||typeof t.Id!=='string'||!/^[A-Za-z0-9_.-]{1,64}$/.test(t.Id)||ids.has(t.Id)||typeof t.Arn!=='string'||!new RegExp(`^arn:aws:(lambda|sqs):${region}:${account}:`).test(t.Arn))bad('Unique target Id and supported same-Region/account Lambda/SQS Arn required');ids.add(t.Id);if(sim.account.pixBridge && t.InputTransformer!==undefined)AG.bridgeTemplate(t.InputTransformer);if(Object.keys(t).some(k=>!(sim.account.pixBridge && k==='InputTransformer')&&!['Id','Arn','RoleArn','RetryPolicy','DeadLetterConfig'].includes(k)))bad('Simulator target subset supports Id/Arn/RoleArn/RetryPolicy/DeadLetterConfig');if(t.RetryPolicy)retry(t.RetryPolicy);if(t.DeadLetterConfig)dlq(t.DeadLetterConfig);if(t.RoleArn!==undefined&&(typeof t.RoleArn!=='string'||!/^arn:aws:iam::\d{12}:role\/.+/.test(t.RoleArn)))bad('RoleArn must be IAM role ARN');if(list('queues').some(q=>q.arn===t.Arn&&q.isFifo))bad('Simulator Classic SQS targets are Standard; FIFO SqsParameters are not modeled');}
               const merged=r.targets.filter(t=>!ids.has(t.Id)).concat(clone(targets));if(merged.length>5)throw Error('LimitExceededException: Classic rule supports at most5targets');r.targets=merged;r.revision++;return resultJson({FailedEntryCount:0,FailedEntries:[]});
             }
             if(op==='remove-targets'){const ids=flags('ids');if(!ids.length)bad('--ids required');r.targets=r.targets.filter(t=>!ids.includes(t.Id));r.revision++;return resultJson({FailedEntryCount:0,FailedEntries:[]});}
@@ -3550,36 +3589,6 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           } }));
         } else {
           print('err', `unknown OpenSearch op: ${op}`);
-        }
-        return;
-
-      /* ===================== EVENTBRIDGE PIPES ===================== */
-      case 'pipes':
-        if (op === 'list-pipes') {
-          const ps = list('pipes');
-          if (!ps.length) return print('ok', '{\n    "Pipes": []\n}');
-          print('ok', '{\n    "Pipes": [\n' +
-            ps.map(p => `        { "Name": "${p.name}", "CurrentState": "${p.state || 'RUNNING'}", "Source": "${p.source}", "Target": "${p.target}" }`).join(',\n') +
-            '\n    ]\n}');
-        } else if (op === 'describe-pipe') {
-          const name = flag('name');
-          const p = find('pipes', name);
-          if (!p) return print('err', `NotFoundException: Pipe ${name} not found`);
-          print('ok', prettyJson({
-            Name: p.name, CurrentState: p.state || 'RUNNING',
-            Source: p.source, SourceParameters: p.filter ? { FilterCriteria: { Filters: [{ Pattern: p.filter }] } } : {},
-            Enrichment: p.enrichment || null,
-            Target: p.target, TargetParameters: p.targetParams || {},
-          }));
-        } else if (op === 'create-pipe') {
-          const name = flag('name');
-          if (!name) return print('err', 'error: --name required');
-          const ps = list('pipes');
-          if (ps.find(x => x.name === name)) return print('err', `ConflictException: Pipe ${name} already exists`);
-          ps.push({ name, state: 'RUNNING', source: flag('source') || '', target: flag('target') || '', enrichment: flag('enrichment') || null });
-          print('ok', prettyJson({ Name: name, CurrentState: 'CREATING', Arn: `arn:aws:pipes:us-east-1:123456789012:pipe/${name}` }));
-        } else {
-          print('err', `unknown Pipes op: ${op}`);
         }
         return;
 
