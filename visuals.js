@@ -518,39 +518,18 @@ const VISUALS = {
   },
 
   datastore: {
-    t: 'Data store chuno — right tool for the shape',
+    t: 'PixShare · Asha ki feed aur manager ki report',
     html: `
-      <div class="dg-grid" style="grid-template-columns:1fr 1fr">
-        <div class="dg-box is-accent"><span class="bx-label">🗄️ Relational</span>
-          <div class="dg-col">
-            <span class="dg-pill acc" data-hs="rds">RDS / Aurora — joins, transactions, complex queries</span>
-            <span class="dg-pill">Aurora = MySQL/PG compat, auto-scale storage, 15 replicas</span>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">🔑 Key-value / NoSQL</span>
-          <div class="dg-col">
-            <span class="dg-pill good" data-hs="dynamo">DynamoDB — single-digit ms, infinite scale, known access pattern</span>
-            <span class="dg-pill bad" data-hs="dynamono">❌ ad-hoc analytical queries, joins</span>
-          </div>
-        </div>
-        <div class="dg-box is-gold"><span class="bx-label">⚡ Cache</span>
-          <div class="dg-col">
-            <span class="dg-pill gold" data-hs="cache">ElastiCache (Redis) / DAX — sub-ms, hot reads</span>
-            <span class="dg-pill">read-heavy, DB ko relief</span>
-          </div>
-        </div>
-        <div class="dg-box is-muted"><span class="bx-label">📊 Analytics</span>
-          <div class="dg-col">
-            <span class="dg-pill" data-hs="warehouse">Redshift — big scans/BI · Athena — S3 par SQL, serverless</span>
-            <span class="dg-pill">OLAP, columnar, reporting</span>
-          </div>
-        </div>
+      <div class="dg-flow">
+        <div class="dg-node is-accent" data-hs="rds"><span class="ni">🔐</span><span class="nl">Aurora</span><span class="ns">Viewer ka account aur access dekho · 4 ms</span></div>
+        <div class="dg-node is-gold" data-hs="cache"><span class="ni">⚡</span><span class="nl">Viewer cache</span><span class="ns">Access version aur viewer ki key · 1 ms</span></div>
+        <div class="dg-node is-good" data-hs="dynamo"><span class="ni">📰</span><span class="nl">DynamoDB</span><span class="ns">Miss par u07 ki 12 posts padho · 6 ms</span></div>
       </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="s3">S3 — objects/media/data-lake (DB nahi!)</span>
-        <span class="dg-pill">OLTP (transactions) ≠ OLAP (analytics) — alag tools</span>
+      <div class="dg-split">
+        <div class="dg-box is-accent" data-hs="dynamono"><span class="bx-label">Phone par feed</span>PixShare trace mein miss par 11 ms aur hit par 5 ms. Creator page byCreator index padhta hai.</div>
+        <div class="dg-box is-good" data-hs="warehouse"><span class="bx-label">Weekly report</span>PITR → S3 export → Athena. Report par snapshot ka waqt bhi dikhao.</div>
       </div>
-      <div class="dg-cap"><b>Data ka shape decide karta hai, popularity nahi.</b> Rishtey+transactions = RDS/Aurora. Known key-based access at scale = DynamoDB. Hot reads = cache. Bade scans/BI = Redshift/Athena. <b>Ek app aksar 3-4 stores use karti hai</b> — "sab DynamoDB" ya "sab RDS" dono galat hain.</div>`,
+      <div class="dg-cap" data-hs="s3">Photo bytes S3 mein hain. Post ki row mein object key hai. Follow links ke kai hops ke liye Neptune aur caption search ke liye OpenSearch dekho.</div>`,
   },
 
   messaging: {

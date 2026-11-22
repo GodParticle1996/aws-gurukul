@@ -78,6 +78,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | `31-cognito-app-login` | 🤖 App login + AI | User pool (password policy, MFA, bina secret client), temporary password challenge, asli JWT decode + JWKS verify, host authorizer ka audience 401, `${sub}` rok; Moto ki SECRET_HASH/auth flow/identity pool roles/guest/Rekognition kamiyan saaf |
 | [32-region-drill-terraform](32-region-drill-terraform/README.md) | 👑 Final Boss | Terraform se do Regions, local secret, replica key, pehle se rakhe servers aur DNS failover ka host test |
 | [33-compute-breakeven](33-compute-breakeven/README.md) | 🖥️ Architect · Compute | Moto par Lambda aur ECS config, laptop par ek hi photo ke pixels aur monthly bill ka crossover |
+| [34-polyglot-data](34-polyglot-data/README.md) | 🗄️ Architect · Datastore | 384 posts par Query aur filtered Scan, consumed units, S3 export aur Aurora cluster readback |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 
