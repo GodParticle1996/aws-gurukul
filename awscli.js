@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -509,6 +509,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.pixLogs) {
+      print('sys', 'ls aur cat release.txt se shuru karo. logs mein describe-log-groups, put-subscription-filter, describe-subscription-filters aur put-log-events hain. firehose se describe-delivery-stream aur opensearch se describe-domain chalao. Test ke baad cat delivery.txt mein IDs milao.');
+      return;
+    }
     if (norm === 'help' && sim.account.pixBridge) {
       print('sys', 'ls aur cat se files padho. events mein create-event-bus, create-archive, put-rule, put-targets, put-events, start-replay aur describe-replay chalte hain. Pattern ke liye test-event-pattern aur target ke liye list-targets-by-rule dekho. pipes se create-pipe, update-pipe aur describe-pipe chalao.');
       return;
@@ -660,6 +664,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (toks[0] === 'cat') {
       if (toks.length !== 2) return print('err', 'usage: cat <mission-file> (ls lists available files)');
       const f = Object.prototype.hasOwnProperty.call(sim.files, toks[1]) && sim.files[toks[1]];
+      if (f && typeof f.content === 'string' && typeof f.onRead === 'function') f.onRead(sim);
       return print(f && typeof f.content === 'string' ? 'ok' : 'err', f && typeof f.content === 'string' ? f.content : `cat: ${toks[1]}: No readable mission file`);
     }
 
@@ -703,6 +708,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.pixCompute && service === 'lambda' && flag('region') !== null && flag('region') !== sim.account.region) {
       return print('err', 'PixShare ke functions ' + sim.account.region + ' mein hain.');
     }
+    if (sim.account.pixLogs && AG.logsetlCLI({service,op,toks,flag,sim,print,resultJson})) return;
     if (sim.account.pixMessaging && AG.messagingCLI({service,op,toks,flag,sim,list,print,resultJson})) return;
     if (sim.account.pixData && AG.datastoreCLI({service,op,toks,flag,sim,list,print,resultJson,putObject})) return;
     // Scoped DR fixture owns its documented flags (copy-image, image waiter, cross-Region replica) before the shared guard.

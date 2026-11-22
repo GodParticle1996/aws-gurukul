@@ -81,6 +81,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | [34-polyglot-data](34-polyglot-data/README.md) | 🗄️ Architect · Datastore | 384 posts par Query aur filtered Scan, consumed units, S3 export aur Aurora cluster readback |
 | [35-fifo-ordering-fanout](35-fifo-ordering-fanout/README.md) | 📨 Architect · Messaging | Do FIFO queues par photo edits, retry ki dedup aur Kinesis ke do readers ka replay |
 | [36-event-bus-replay](36-event-bus-replay/README.md) | 🔔 Architect · EventBridge | Classic rules, queue par transformed JSON, archive replay aur SQS Pipe ki settings |
+| [37-log-pipeline-firehose](37-log-pipeline-firehose/README.md) | 🔍 Architect · Log ETL | Logs se Firehose aur S3 ka gzip, filter probe, host par do JSON docs aur OpenSearch domain readback |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

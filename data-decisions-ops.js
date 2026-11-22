@@ -6,6 +6,30 @@
    ✍️ Niyam: "yeh / woh / isse / uska" ki jagah naam dobara likho.
    ===================================================================== */
 AG.registerDecisions([
+  {
+    id:'pixlogtools',icon:'🔍',short:'PixShare logs',title:'Log ko padhna, ginna ya search mein rakhna hai?',
+    levels:['logsetl'],tldr:'Data abhi kahan hai? Team ko kitni baar aur kis tarah ka jawaab chahiye? Dono dekhkar tool chuno.',start:'need',
+    nodes:{
+      need:{q:'Team ko kya chahiye?',options:[{t:'ERROR ki ginti par page',next:'metric'},{t:'S3 par purani files ki SQL report',next:'sql'},{t:'Log text dhoondhna hai',next:'lookup'}]},
+      lookup:{q:'Search kitni baar chahiye?',options:[{t:'Aaj ka incident, groups CloudWatch mein hain',next:'insights'},{t:'Hot full-text index aur roz dashboards',next:'search'}]},
+      metric:{leaf:true,icon:'🔔',pick:'Metric filter aur alarm',one:'Standard group mein ERROR ko 1 gino. Paanch minute ka Sum dekho.',
+        when:['Ginti par on-call page'],avoid:['Puri request ka trace'],gotchas:['Alarm action aur period bhi set karo.'],level:'logsetl'},
+      sql:{leaf:true,icon:'🪣',pick:'S3 aur Athena',one:'S3 ki files ko table se padho. Date partition se scan ghatao.',
+        when:['Mahine mein ek report'],avoid:['Har second full-text lookup'],gotchas:['Table ka format actual S3 object se milao.'],level:'logsetl'},
+      insights:{leaf:true,icon:'📜',pick:'CloudWatch Logs Insights',one:'Chune groups mein ek time window aur request ID do.',
+        when:['Ek release ki jaanch'],avoid:['Pehle se bane S3 lake ko seedha query karna'],gotchas:['Badi time window mein zyada bytes scan ho sakte hain.'],level:'logsetl'},
+      search:{leaf:true,icon:'🔍',pick:'OpenSearch Service',one:'Har matching line ko alag document do. Hot index par chhoti retention rakho.',
+        when:['Baar baar full-text search aur dashboards'],avoid:['Sirf ERROR gin kar page karna'],gotchas:['Index age aur minimum free disk dekho.'],level:'logsetl'}
+    },scenarios:[
+      {s:'P9 timeout hua. Feed aur thumbnails ke CloudWatch groups mein pichhle das minute ki lines ek baar dekhni hain.',answer:'insights',explain:'Kai groups chuno aur requestId se chhoti window padho.'},
+      {s:'Paanch minute mein 100 ERROR par on-call ko page chahiye. Search screen ki zaroorat nahi hai.',answer:'metric',explain:'Standard group mein ERROR count nikalo. CloudWatch alarm uska Sum dekhe.'},
+      {s:'Finance ko quarter ki S3 files par ek SQL report chahiye. Data date ke partitions mein hai.',answer:'sql',explain:'Athena se chuni dates ke S3 objects padho. Scan aur result storage ka bill dekho.'},
+      {s:'Support team ko har shift mein saat din ke indexed messages par full-text queries aur shared search dashboards chahiye.',answer:'search',explain:'Chune docs ko hot index mein bhejo. Disk par saat din ki age ka rule rakho.'},
+      {s:'Deployment ke baad teen CloudWatch groups mein pichhle aadhe ghante ke slow requests ek baar milane hain.',answer:'insights',explain:'Groups aur time window milao. Naya hot index banaane ka wait nahi chahiye.'},
+      {s:'Archive ke readable S3 objects mein purane INFO bhi hain. Analyst ko ek din ke request counts SQL se chahiye.',answer:'sql',explain:'Sahi schema aur date partition se raw records gino. Hot filter mein INFO nahi aata.'}
+    ]
+  },
+
 
   /* ------------------------------------------------------------------ */
   {
@@ -120,7 +144,7 @@ AG.registerDecisions([
         ],
       },
       cwm: { leaf: true, icon: '📈', pick: 'CloudWatch Metrics + Alarms', one: 'Time-series numbers + threshold par alarm → SNS/Auto Scaling/koi action.', when: ['CPU, latency, 5xx, queue depth par alarms', 'Auto Scaling triggers'], avoid: ['Memory/disk EC2 par by default nahi — CloudWatch agent install karo'], gotchas: ['EC2 basic monitoring 5 min; detailed 1 min (paid)', 'Alarm "INSUFFICIENT_DATA" ko bhi handle karo'], cost: 'Custom metrics ~$0.30/metric/mahina; alarms ~$0.10 each.', exam: '"monitor CPU", "alert when threshold" → CloudWatch alarm. "memory utilization" → CloudWatch agent.', level: 'observability' },
-      cwl: { leaf: true, icon: '📜', pick: 'CloudWatch Logs (+ Logs Insights, metric filters)', one: 'App/Lambda/VPC logs ek jagah; Logs Insights se query; metric filter se log → metric → alarm.', when: ['Lambda/ECS logs, error search', '"ERROR" count par alarm (metric filter)'], avoid: ['Retention "never expire" chhod dena — bill badhta rehta hai'], gotchas: ['Retention policy set karo (14/30/90 din)', 'Badi analytics ke liye subscription filter → Firehose → OpenSearch/S3'], cost: '~$0.50/GB ingest + storage.', exam: '"centralize logs", "search logs" → CloudWatch Logs / Logs Insights.', level: 'logsetl' },
+      cwl: { leaf: true, icon: '📜', pick: 'CloudWatch Logs (+ Logs Insights, metric filters)', one: 'App/Lambda/VPC logs ek jagah; Logs Insights se query; metric filter se log → metric → alarm.', when: ['Lambda/ECS logs, error search', '"ERROR" count par alarm (metric filter)'], avoid: ['Retention "never expire" chhod dena — bill badhta rehta hai'], gotchas: ['Retention policy set karo (14/30/90 din)', 'Raw batches Firehose se S3 mein rakho. Search ke liye pehle har matching line ka alag document banao.'], cost: '~$0.50/GB ingest + storage.', exam: '"centralize logs", "search logs" → CloudWatch Logs / Logs Insights.', level: 'logsetl' },
       xray: { leaf: true, icon: '🧵', pick: 'AWS X-Ray (distributed tracing)', one: 'Request ka poora safar — har service/DB call ka time ek trace mein.', when: ['Microservices latency debugging, service map'], avoid: ['Sirf ek service ka metric dekhna'], gotchas: ['SDK/OpenTelemetry (ADOT) se instrument karo; sampling rate set karo'], cost: 'Per trace recorded/scanned.', exam: '"trace requests across microservices", "identify bottleneck" → X-Ray.', level: 'observability' },
       trail: { leaf: true, icon: '🕵️', pick: 'AWS CloudTrail', one: 'Har API call ka audit — kisne, kab, kahan se, kya kiya.', when: ['Security investigation, compliance audit', 'Organization trail se saare accounts ka central log'], avoid: ['Performance metrics ke liye'], gotchas: ['Event history sirf 90 din (management events) — trail banao S3 mein lambe time ke liye', 'Data events (S3 object-level, Lambda invoke) alag se enable, paid', 'Log file validation + S3 Object Lock se tamper-proof'], cost: 'Pehli management events copy free; data events ~$0.10 per 1 lakh.', exam: '"who made the API call", "audit", "track user activity" → CloudTrail.', level: 'observability' },
       config: { leaf: true, icon: '📋', pick: 'AWS Config', one: 'Resource configuration ka timeline + compliance rules (aur auto-remediation).', when: ['"Saare EBS encrypted hain?"', '"Security group kab aur kya badla?"', 'Conformance packs (CIS, PCI)'], avoid: ['API call ka "kisne" jawab (CloudTrail)'], gotchas: ['Config "kya badla", CloudTrail "kisne badla" — dono saath use karo'], cost: 'Per configuration item + per rule evaluation.', exam: '"assess, audit, evaluate configurations", "compliance over time" → AWS Config.', level: 'observability' },

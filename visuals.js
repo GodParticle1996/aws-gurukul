@@ -568,29 +568,15 @@ const VISUALS = {
   },
 
   logsetl: {
-    t: 'Log analytics ETL — CloudWatch → Firehose → OpenSearch',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node is-muted" data-hs="cwlogs"><span class="ni">📜</span><span class="nl">CloudWatch Logs</span><span class="ns">Lambda/ECS/app logs yahan</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-accent" data-hs="subfilter"><span class="ni">🔎</span><span class="nl">Subscription Filter</span><span class="ns">pattern → real-time stream</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-gold" data-hs="firehose"><span class="ni">🚿</span><span class="nl">Kinesis Firehose</span><span class="ns">buffer + transform, no code</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-good" data-hs="opensearch"><span class="ni">🔍</span><span class="nl">OpenSearch</span><span class="ns">index + Dashboards</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <div class="dg-down flow"></div>
-        <div class="dg-node" data-hs="s3backup"><span class="ni">🪣</span><span class="nl">S3 (raw backup)</span><span class="ns">Firehose ka doosra haath — Athena se query, cheap archive</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="metricfilter">Metric Filter — log se metric+alarm (count of ERROR)</span>
-        <span class="dg-pill gold">Firehose = fully managed (no shards to manage) · near-real-time (buffer)</span>
-        <span class="dg-pill bad">❌ CloudWatch Logs Insights theek hai chhote ke liye — bade/cross-service search par OpenSearch</span>
-      </div>
-      <div class="dg-cap"><b>Pipeline:</b> Logs → <b>Subscription Filter</b> (real-time tap) → <b>Firehose</b> (managed buffer+transform) → <b>OpenSearch</b> (search/dashboards) + <b>S3</b> (sasta raw backup, Athena se query). <b>Firehose kyun, Kinesis Streams nahi?</b> — Firehose fully managed, shards nahi sambhalne, seedha delivery. Sirf custom real-time processing chahiye toh Kinesis Streams.</div>`,
+    t: 'PixShare · kaunsi log line kahan milegi?',
+    html: `<div class="dg-flow">
+      <div class="dg-node" data-hs="cwlogs"><span class="nl">CloudWatch Logs</span><span class="ns">INFO · WARN · ERROR</span></div><div class="dg-arrow flow"></div>
+      <div class="dg-node is-accent" data-hs="subfilter"><span class="nl">Do subscriptions</span><span class="ns">Raw mein sab · hot mein WARN aur ERROR</span></div></div>
+      <div class="dg-flow"><div class="dg-node" data-hs="s3backup"><span class="nl">Raw → Firehose → S3</span><span class="ns">Teenon lines ka gzip batch · raw/</span></div></div>
+      <div class="dg-flow"><div class="dg-node is-gold" data-hs="firehose"><span class="nl">Hot → Lambda → Firehose</span><span class="ns">Ek matching line ka ek JSON record</span></div><div class="dg-arrow flow"></div>
+      <div class="dg-node is-good" data-hs="opensearch"><span class="nl">OpenSearch + S3</span><span class="ns">Do docs index mein · do matched/ mein</span></div></div>
+      <span class="dg-pill acc" data-hs="metricfilter">Sirf ERROR ginne hain? Metric filter se alarm banao.</span>`
   },
-
   edge: {
     t: 'Edge & Network — ALB vs NLB vs API GW, CloudFront vs GA',
     html: `
