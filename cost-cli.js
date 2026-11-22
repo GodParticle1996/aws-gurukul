@@ -20,7 +20,7 @@
   return obj(s)&&Object.keys(s).every(k=>['Sid','Effect','Principal','Action','Resource','Condition'].includes(k))&&s.Effect==='Allow'&&obj(s.Principal)&&Object.keys(s.Principal).length===1&&one(s.Principal.Service,'budgets.amazonaws.com')&&one(s.Action,'SNS:Publish')&&one(s.Resource,arn)&&obj(c)&&Object.keys(c).length===2&&obj(c.StringEquals)&&Object.keys(c.StringEquals).length===1&&one(c.StringEquals['aws:SourceAccount'],a.callerIdentity.Account)&&obj(c.ArnLike)&&Object.keys(c.ArnLike).length===1&&one(c.ArnLike['aws:SourceArn'],`arn:aws:budgets::${a.callerIdentity.Account}:*`);
  };
  AG.costCLI=({service,op,toks,flag,flags,sim,print,resultJson})=>{
-  if(!sim.account.costMode||!own(specs,service))return false;
+  if(!own(specs,service) || !(sim.account.costMode || sim.account.pixBill && ['budgets','ce'].includes(service)))return false;
   const a=sim.account,req=k=>{const v=flag(k);if(v===null||v==='')throw Error('aws: error: the following arguments are required: --'+k);return v;},rows=k=>a[k]||(a[k]=[]);
   const file=raw=>{if(!raw.startsWith('file://'))return raw;const f=own(sim.files,raw.slice(7))&&sim.files[raw.slice(7)];if(!f||typeof f.content!=='string')throw Error('Unable to load paramfile '+raw+'; ls lists mission files.');return f.content;};
   const json=k=>{let d;try{d=JSON.parse(file(req(k)));}catch(e){throw Error('Error parsing --'+k+': '+e.message);}if(!safe(d))throw Error('InvalidParameterException: unsafe keys or nesting exceeds the fixture limit');return d;};

@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -282,6 +282,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
 
   // Route-table associations are independent of MapPublicIpOnLaunch.
   // Old fixtures may store subnet.routeTable; preserve that schema during migration.
+  function ec2Tags(tags) {
+    return JSON.stringify(Object.entries(tags).map(([Key, Value]) => ({ Key, Value })));
+  }
   function networkTables() {
     const tables = list('routeTables');
     for (const rt of tables) {
@@ -509,6 +512,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.pixBill) {
+      print('sys','cat release.txt se shuru karo. ls mein bill aur budget ki files hain. EC2 route tables, gateway endpoint aur tags sambhaalta hai. ElastiCache replica ki AZ aur SSM reader setting milao. cat canary.txt local route aur reader ka result deta hai.');
+      return;
+    }
     if (norm === 'help' && sim.account.pixEdge) {
       print('sys', 'ls aur cat release.txt se shuru karo. cloudfront get-distribution-config se ETag padho. OAC, bucket policy aur distribution ke JSON files mile hain. curl ke local test commands cat viewers.txt mein hain.');
       return;
@@ -720,7 +727,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.hybridMode && AG.hybridCLI && AG.hybridCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Scoped container fixture owns ecr/ecs plus its read-only iam/elbv2 views (its target groups are not the ALB lab's).
     if (sim.account.containerMode && AG.containerCLI && AG.containerCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
-    if (sim.account.costMode && AG.costCLI && AG.costCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
+    if (sim.account.pixBill && AG.costdecCLI({service,op,toks,flag,flags,sim,print,resultJson})) return;
+    if ((sim.account.costMode || sim.account.pixBill && ['budgets','ce'].includes(service)) && AG.costCLI && AG.costCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.obsMode && AG.obsCLI && AG.obsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.dmsMode && AG.dmsCLI && AG.dmsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.lakeMode && AG.lakeCLI && AG.lakeCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
@@ -1659,7 +1667,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const filtered = insts.filter(i => (!iidFilter || i.id === iidFilter) && (!nameFilter || i.name === nameFilter));
           if (!filtered.length) return print('ok', '{\n    "Reservations": []\n}');
           print('ok', filtered.map(i =>
-            `{ "InstanceId": "${i.id}", "State": { "Name": "${i.state}" }, "InstanceType": "${i.type}", "PublicIpAddress": ${i.publicIp ? `"${i.publicIp}"` : 'null'}, "PrivateIpAddress": "${i.privateIp}", "SubnetId": "${i.subnetId || 'subnet-0a1b2c3d'}", "VpcId": "${i.vpcId || 'vpc-0a1b2c3d'}", "SecurityGroups": [${(i.sgIds || []).map(g => `{ "GroupId": "${g}" }`).join(', ')}], "MetadataOptions": { "HttpTokens": "${i.imds || 'optional'}" }, "BlockDeviceMappings": [${list('volumes').filter(v => v.attachedTo === i.id).map(v => `{ "DeviceName": "${v.device || '/dev/xvda'}", "Ebs": { "VolumeId": "${v.id}", "DeleteOnTermination": ${v.deleteOnTermination ? 'true' : 'false'} } }`).join(', ')}], "Tags": [{ "Key": "Name", "Value": "${i.name}" }], "Placement": { "AvailabilityZone": "${i.az}" } }`).join('\n'));
+            `{ "InstanceId": "${i.id}", "State": { "Name": "${i.state}" }, "InstanceType": "${i.type}", "PublicIpAddress": ${i.publicIp ? `"${i.publicIp}"` : 'null'}, "PrivateIpAddress": "${i.privateIp}", "SubnetId": "${i.subnetId || 'subnet-0a1b2c3d'}", "VpcId": "${i.vpcId || 'vpc-0a1b2c3d'}", "SecurityGroups": [${(i.sgIds || []).map(g => `{ "GroupId": "${g}" }`).join(', ')}], "MetadataOptions": { "HttpTokens": "${i.imds || 'optional'}" }, "BlockDeviceMappings": [${list('volumes').filter(v => v.attachedTo === i.id).map(v => `{ "DeviceName": "${v.device || '/dev/xvda'}", "Ebs": { "VolumeId": "${v.id}", "DeleteOnTermination": ${v.deleteOnTermination ? 'true' : 'false'} } }`).join(', ')}], "Tags": ${sim.account.pixBill ? ec2Tags(i.tags || {}) : `[{ "Key": "Name", "Value": "${i.name}" }]`}, "Placement": { "AvailabilityZone": "${i.az}" } }`).join('\n'));
         } else if (op === 'describe-vpcs') {
           const vpcs = list('vpcs');
           if (!vpcs.length) return print('ok', '{\n    "Vpcs": []\n}');
@@ -1691,7 +1699,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const vols = list('volumes');
           if (!vols.length) return print('ok', '{\n    "Volumes": []\n}');
           print('ok', '{\n    "Volumes": [\n' +
-            vols.map(v => `        { "VolumeId": "${v.id}", "Size": ${v.size}, "VolumeType": "${v.type}", "State": "${v.state}"${v.attachedTo ? `, "Attachments": [{ "InstanceId": "${v.attachedTo}" }]` : ''} }`).join(',\n') +
+            vols.map(v => `        { "VolumeId": "${v.id}", "Size": ${v.size}, "VolumeType": "${v.type}", "State": "${v.state}"${sim.account.pixBill ? ', "Tags": ' + ec2Tags(v.tags || {}) : ''}${v.attachedTo ? `, "Attachments": [{ "InstanceId": "${v.attachedTo}" }]` : ''} }`).join(',\n') +
             '\n    ]\n}');
         } else if (op === 'describe-availability-zones') {
           const region = sim.account.region || 'us-east-1';

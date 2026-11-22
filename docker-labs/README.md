@@ -83,6 +83,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | [36-event-bus-replay](36-event-bus-replay/README.md) | 🔔 Architect · EventBridge | Classic rules, queue par transformed JSON, archive replay aur SQS Pipe ki settings |
 | [37-log-pipeline-firehose](37-log-pipeline-firehose/README.md) | 🔍 Architect · Log ETL | Logs se Firehose aur S3 ka gzip, filter probe, host par do JSON docs aur OpenSearch domain readback |
 | [38-edge-entry-points](38-edge-entry-points/README.md) | 🌍 Architect · Edge | CloudFront ke do routes, private ALB listener, S3 aur WAF ka readback |
+| [39-nat-vs-endpoint-bill](39-nat-vs-endpoint-bill/README.md) | 💰 Architect · Hidden costs | Do private tables, S3 prefix aur default NAT ke raaste ka kharcha |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

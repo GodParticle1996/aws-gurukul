@@ -588,28 +588,15 @@ const VISUALS = {
   },
 
   costdec: {
-    t: 'Cost traps — sasta lagta, mehnga nikla',
-    html: `
-      <div class="dg-grid" style="grid-template-columns:1fr 1fr">
-        <div class="dg-box is-bad"><span class="bx-label">💸 Chhupe kharche</span>
-          <div class="dg-col">
-            <span class="dg-pill bad" data-hs="nat">NAT Gateway — per-GB + hourly; S3/DDB ke liye VPC endpoint use karo</span>
-            <span class="dg-pill bad" data-hs="egress">Data egress — internet + cross-AZ transfer</span>
-            <span class="dg-pill bad" data-hs="idle">Idle resources — un-attached EBS, old snapshots, idle RDS</span>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">💰 Lever</span>
-          <div class="dg-col">
-            <span class="dg-pill good" data-hs="commit">Savings Plans / RI — steady load −40-70%</span>
-            <span class="dg-pill good" data-hs="spot">Spot — fault-tolerant/batch −70-90%</span>
-            <span class="dg-pill good" data-hs="lifecycle">S3 lifecycle + Graviton + right-size</span>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill acc" data-hs="breakeven">Lambda sasta jab spiky/idle; steady 24×7 par Fargate/EC2 sasta (break-even socho)</span>
-      </div>
-      <div class="dg-cap"><b>"Serverless hamesha sasta" — myth.</b> Lambda spiky par sasta, steady heavy par mehnga. Sabse bade chhupe bill: <b>NAT Gateway</b>, <b>cross-AZ/egress transfer</b>, <b>idle/orphaned</b> resources. Levers: <b>commit</b> (SP/RI) steady par, <b>Spot</b> fault-tolerant par, <b>lifecycle+right-size</b> hamesha. Cost = architecture decision, baad ki safai nahi.</div>`,
+    t: 'PixShare · bill ki kaunsi line badlegi?',
+    html: `<div class="dg-split">
+      <div class="dg-box is-accent"><span class="bx-label">Private app ke do raaste</span><div class="dg-col">
+        <span class="dg-pill good">S3 prefix → gateway endpoint</span><span class="dg-pill">Baaki IPv4 → us AZ ka NAT</span>
+        <span class="ns">S3 ke bytes bache. NAT hours ab bhi hain.</span></div></div>
+      <div class="dg-box is-good"><span class="bx-label">Feed ki cache read</span><div class="dg-col">
+        <span class="dg-pill good">App A → reader A</span><span class="dg-pill">Reader B fallback · writer C</span>
+        <span class="ns">Local read se transfer bacha. Naye node ka bill jodo.</span></div></div></div>
+      <div class="dg-cap">Pehle usage type aur route padho. Phir idle resources aur har ghante ki compute demand dekho. Budget alert aane par owner ko pata chalega.</div>`
   },
 
   resilience: {
