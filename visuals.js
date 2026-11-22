@@ -578,28 +578,13 @@ const VISUALS = {
       <span class="dg-pill acc" data-hs="metricfilter">Sirf ERROR ginne hain? Metric filter se alarm banao.</span>`
   },
   edge: {
-    t: 'Edge & Network — ALB vs NLB vs API GW, CloudFront vs GA',
-    html: `
-      <div class="dg-split">
-        <div class="dg-box is-accent"><span class="bx-label">🚦 Load balancer / entry</span>
-          <div class="dg-col">
-            <span class="dg-pill acc" data-hs="alb">ALB — L7 (HTTP), path/host routing, WAF</span>
-            <span class="dg-pill gold" data-hs="nlb">NLB — L4 (TCP/UDP), ultra-low latency, static IP, millions rps</span>
-            <span class="dg-pill good" data-hs="apigw">API Gateway — REST/HTTP APIs, auth/throttle/keys, serverless</span>
-          </div>
-        </div>
-        <div class="dg-box is-good"><span class="bx-label">🌍 Global reach</span>
-          <div class="dg-col">
-            <span class="dg-pill good" data-hs="cloudfront">CloudFront — CDN, cache static+dynamic, edge</span>
-            <span class="dg-pill" data-hs="ga">Global Accelerator — anycast IP, non-HTTP/TCP, fast failover</span>
-          </div>
-        </div>
-      </div>
-      <div class="dg-flow" style="margin-top:12px">
-        <span class="dg-pill bad" data-hs="nlbno">❌ L7 path routing chahiye? NLB nahi, ALB</span>
-        <span class="dg-pill bad" data-hs="cfno">❌ cacheable content? CloudFront; ❌ raw TCP game server? Global Accelerator</span>
-      </div>
-      <div class="dg-cap"><b>ALB</b> = HTTP smart routing (microservices, path-based). <b>NLB</b> = raw speed/TCP/static-IP. <b>API Gateway</b> = managed API front (auth, throttle, Lambda). <b>CloudFront</b> = cache + HTTPS edge (websites, media). <b>Global Accelerator</b> = non-cacheable global TCP/UDP with instant failover. Wrong pick = latency, cost, ya missing features.</div>`,
+    t: 'PixShare · viewer ko jawab kahan se mila?',
+    html: `<div class="dg-flow"><div class="dg-node is-accent" data-hs="cloudfront"><span class="nl">CloudFront + WAF</span><span class="ns">Viewer HTTPS · pehla matching path</span></div></div>
+      <div class="dg-split"><div class="dg-box is-good"><span class="bx-label">/images/* · public photo</span><div class="dg-col">
+        <span class="dg-pill good">Fresh hit → edge se p7</span><span class="dg-pill">Miss → signed OAC → private S3</span></div></div>
+      <div class="dg-box is-accent"><span class="bx-label">Default · /api aur /api/me</span><div class="dg-col">
+        <span class="dg-pill acc">CachingDisabled · login forward</span><span class="dg-pill" data-hs="alb">VPC origin → internal ALB</span></div></div></div>
+      <div class="dg-cap" data-hs="ga">Game ka UDP aur do fixed global IPv4 chahiye? Global Accelerator se regional NLB tak jao. Har packet ko endpoint chahiye.</div>`
   },
 
   costdec: {

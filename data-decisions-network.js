@@ -77,10 +77,10 @@ AG.registerDecisions([
       },
       apigw: {
         leaf: true, icon: '🚪', pick: 'Amazon API Gateway',
-        one: 'Managed API front door — Lambda integration, auth, throttling, API keys, usage plans.',
+        one: 'Managed API mein Lambda aur auth jodo. Native JWT ke liye HTTP API dekho. Client keys aur usage plans ke liye REST API dekho.',
         when: ['Serverless API (API Gateway → Lambda)', 'Public API product: per-customer API keys + usage plans + throttling', 'Request validation, caching (REST API), WebSocket APIs'],
-        avoid: ['Bhaari steady traffic (billions/mahina) jahan per-request bill bahut badhta hai — ALB sasta', 'Lambi requests (integration timeout default 29 s)'],
-        gotchas: ['HTTP API ~70% sasta + kam latency, par REST API ke features (usage plans, caching, WAF directly) kam', 'Payload max 10 MB'],
+        avoid: ['Bhaari steady traffic (billions/mahina) jahan per-request bill bahut badhta hai — ALB sasta', 'Lambi requests ke liye chune API type ka integration timeout dekho'],
+        gotchas: ['REST API stage par WAF seedha lag sakta hai. HTTP API mein direct WAF aur usage plans nahi milte.', 'Payload max 10 MB'],
         cost: 'HTTP API ~$1 per 10 lakh requests; REST API ~$3.50 per 10 lakh.',
         exam: '"serverless REST API", "throttling", "API keys", "usage plans" → API Gateway.',
         level: 'lambda',
@@ -128,7 +128,7 @@ AG.registerDecisions([
     nodes: {
       q1: {
         q: 'HTTP(S) website/API edge delivery chahiye, ya transport/static-entry priority hai?',
-        why: 'CloudFront edge par response rakh leta hai — agla user origin tak gaye bina jawab paata hai. Global Accelerator kuch cache nahi karta; sirf user ko AWS ke private backbone par sabse paas wale healthy endpoint tak jaldi pahunchata hai.',
+        why: 'CloudFront edge par response rakh leta hai — agla user origin tak gaye bina jawab paata hai. Global Accelerator kuch cache nahi karta; sirf user ko AWS ke private backbone par traffic policy aur health ke hisaab se chune endpoint tak bhejta hai.',
         options: [
           { t: 'HTTP website/images/video/API, cached or deliberately uncached', next: 'cfe' },
           { t: 'TCP/UDP, or global static-entry/failover priority without CDN need', next: 'q2' },
@@ -136,7 +136,7 @@ AG.registerDecisions([
       },
       q2: {
         q: 'Client ko fixed IP chahiye ya region failover seconds mein chahiye (DNS TTL ka intezaar nahi)?',
-        why: 'DNS-based failover client ke DNS cache (TTL) par atakta hai — kuch clients minutes tak purana IP use karte hain. Global Accelerator ke 2 anycast IPs kabhi nahi badalte; failover AWS edge par hota hai.',
+        why: 'DNS-based failover client ke DNS cache (TTL) par atakta hai — kuch clients minutes tak purana IP use karte hain. IPv4 standard accelerator ke do anycast IP accelerator ke saath rehte hain. Health checks ke baad nayi connections ka raasta badal sakta hai.',
         options: [
           { t: 'Haan — static anycast IP / fast failover / non-HTTP', next: 'ga' },
           { t: 'Nahi — bas users ko nearest region bhejna hai, DNS kaafi hai', next: 'r53lat' },
@@ -154,11 +154,11 @@ AG.registerDecisions([
       },
       ga: {
         leaf: true, icon: '🛰️', pick: 'AWS Global Accelerator',
-        one: '2 static anycast IPs — user nearest AWS edge se backbone par healthy region tak.',
+        one: 'IPv4 standard accelerator do static anycast IP deta hai. AWS edge se traffic chune healthy endpoint tak jaata hai.',
         when: ['Gaming/VoIP/IoT (UDP/TCP) global users', 'Client allow-list ke liye fixed IPs', 'Multi-region active-passive jahan failover seconds mein chahiye'],
         avoid: ['Cacheable HTTP content — CloudFront'],
         gotchas: ['Endpoints: ALB, NLB, EC2, Elastic IP', 'Traffic dials se region ka % control (blue/green across regions)'],
-        cost: '~$0.025/ghanta per accelerator + data transfer premium.',
+        cost: 'Accelerator ≈ $0.025/ghanta hai. Data transfer premium, public IPv4 aur regional transfer alag hain.',
         exam: '"static IP addresses", "UDP", "non-HTTP", "fast regional failover", "AWS global network" → Global Accelerator.',
         level: 'edge',
       },
@@ -178,7 +178,7 @@ AG.registerDecisions([
       { s: 'News website ke images aur articles duniya bhar mein tez load hone chahiye.', answer: 'cfe', explain: 'Cacheable HTTP → CloudFront.' },
       { s: 'Online game (UDP) ke players 3 continents mein; client mein IPs hardcoded hain.', answer: 'ga', explain: 'UDP + static IP → Global Accelerator.' },
       { s: 'Do regions mein same web app; bas users ko paas wale region bhejna hai, budget tight.', answer: 'r53lat', explain: 'DNS latency routing simple aur sasta.' },
-      { s: 'Payment API do regions mein; primary region down ho toh 30 second ke andar traffic doosre region par — clients ke DNS cache ka intezaar nahi.', answer: 'ga', explain: 'Edge-level failover, static IPs → Global Accelerator.' },
+      { s: 'Payment API do regions mein hai. Nayi connections ko healthy endpoint par bhejna hai. Client ki allowlist mein do fixed IPv4 hain.', answer: 'ga', explain: 'IPv4 standard accelerator ka pair stable hai. Health checks aur actual recovery time dono test karo.' },
     ],
   },
 

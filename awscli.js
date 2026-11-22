@@ -98,13 +98,13 @@ AG.dnsAnswer = function (account, zone, name, type, cursor = 0) {
 };
 
 // Small S3/OAC teaching fixture, not a general IAM evaluator or HTTP client.
-AG.cdnResponse = function (account, distribution, path) {
+AG.cdnResponse = function (account, distribution, path, behavior) {
   if(!distribution)return {status:503,reason:'Distribution missing'};
   const cfg=distribution.deployedConfig||(distribution.status==='Deployed'?distribution.config:null);
   if(!cfg)return {status:503,reason:'No deployed configuration yet'};
   if(!cfg||!cfg.Enabled)return {status:403,reason:'Distribution disabled'};
-  const origin=(cfg.Origins.Items||[]).find(o=>o.Id===cfg.DefaultCacheBehavior.TargetOriginId);
-  const bucket=origin&&(account.buckets||[]).find(b=>origin.DomainName===b.name+'.s3.ap-south-1.amazonaws.com');
+  const origin=(cfg.Origins.Items||[]).find(o=>o.Id===(behavior || cfg.DefaultCacheBehavior).TargetOriginId);
+  const bucket=origin&&(account.buckets||[]).find(b=>origin.DomainName===b.name+'.s3.'+(b.region||'ap-south-1')+'.amazonaws.com');
   if(!bucket)return {status:502,reason:'Fixture S3 REST origin missing'};
   const cached=(distribution.edgeCache||[]).find(c=>c.path===path);
   if(cached)return {status:200,version:cached.version,source:'edge fixture'};
@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -507,6 +507,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     // shell-ish extras
     if (norm === 'help' && sim.account.costMode) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
+      return;
+    }
+    if (norm === 'help' && sim.account.pixEdge) {
+      print('sys', 'ls aur cat release.txt se shuru karo. cloudfront get-distribution-config se ETag padho. OAC, bucket policy aur distribution ke JSON files mile hain. curl ke local test commands cat viewers.txt mein hain.');
       return;
     }
     if (norm === 'help' && sim.account.pixLogs) {
@@ -2804,6 +2808,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if(op==='update-distribution'){
             const c=getDist(),match=required('if-match');if(match!==etag(c))throw Error('PreconditionFailed: The precondition in the If-Match header failed. Read get-distribution-config and merge with current ETag.');
             const cfg=doc('distribution-config');validateConfig(cfg,c);
+            if(sim.account.pixEdge)AG.pixEdge.validate(cfg,sim.account);
             if(!c.deployedConfig)c.deployedConfig=clone(config(c));c.config=clone(cfg);c.enabled=cfg.Enabled;c.status='InProgress';c.version=(c.version||1)+1;c.etag='E'+c.version;
             return resultJson({ETag:c.etag,Distribution:distJson(c)});
           }
