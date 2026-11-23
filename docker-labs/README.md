@@ -40,42 +40,42 @@ aws sts get-caller-identity     # chal gaya? "Account": "123456789012" dikhega
 
 ## 3. Lab chalao
 
-Har lab ka apna folder aur `README.md` hai: exercises, commands, aur **asli run ka output** (taaki tum compare kar sako).
+Home ke [Lab Hub](../index.html#labs) mein sabhi 41 labs, unke setup commands, emulator ki limits aur done checkboxes hain. Har lab ke folder mein README hai. Usmein exercises, commands aur **asli run ka output** milta hai.
 App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam batata hai.
 
 | Lab | Level | Kya seekhoge |
 |---|---|---|
-| `01-first-contact` | ☁️ Cloud 101 | identity, regions, AZ name vs ZoneId, pehli bucket, "invisible bill" (galat region) |
-| `02-iam-least-privilege` | 🔐 IAM | (IAM emulator) root → admin, group policy, asli AccessDenied, explicit Deny jeetta hai, role ke ASIA temporary credentials |
-| `03-ec2-lifecycle` | 🖥️ EC2 | port 22 ke bina SG, IMDSv2, user data; stop/start par IP badalna; terminate par root disk vs data volume + snapshot; khule SSH SGs ka audit |
-| `04-s3-safety` | 🪣 S3 | versioning se overwrite + delete wapas, presigned invoice link, SSE-KMS + Bucket Key, lifecycle se purane versions saaf |
-| `05-vpc-build` | 🌐 VPC basics | 2 AZs, 4 subnets, IGW route + public associations, private main table, default NACL, association repair; same layout Terraform se |
-| `06-rds-recovery` | 🗄️ RDS | Multi-AZ + 7 din ke backups, managed-password metadata, snapshot, alag reporting replica, nayi instance mein restore; asli SQL/failover emulator nahi chalata |
-| `07-alb-asg-selfheal` | ⚖️ ALB + ASG | launch template, 2-AZ ASG, desired capacity, instance replacement, health/policy/draining metadata; asli HTTP ya metric se scaling nahi |
-| `08-three-tier-terraform` | 🏆 Boss architecture | do AZ ka juda Terraform stack, scoped SG chain, instance role, ALB/ASG/RDS/S3, har AZ ka egress, API review aur destroy |
-| `09-nat-endpoint-peering` | 🌐 VPC Deep Dive | zonal NAT/EIP, managed S3 prefix routes, interface ENIs, active peer + dono routes, Flow Log metadata aur cleanup |
-| `10-route53-routing` | 📡 Route53 | asli CLI se Alias/weighted/failover JSON, primary ka health link theek karna, DNS/probe ki imaandar limits aur scoped cleanup |
-| `11-cloudfront-oac` | 🌍 CloudFront | asli OAC/config/ETag/policy requests, invalidation metadata; Moto ki attachment/ETag/status limits saaf; scoped cleanup |
-| `12-s3-lifecycle-lock-replication` | 🪣 S3 Advanced | lifecycle/CRR metadata, governance retention + legal hold + marker, restore hue bytes ka check; tiering/filter/replication ki kamiyan saaf, scoped cleanup |
-| `13-efs-shared-storage` | 📁 EFS / FSx / hybrid | target SG repair, lifecycle/access point readbacks; unsupported throughput update alag Elastic fixture se; NFS runtime nahi |
-| `14-lambda-handler-config` | ⚡ Lambda / API Gateway | host par asli SVG derivatives, version/idempotency/partial failures; asli config CLI; Docker/PC ki kami imaandari se likhi |
-| `15-dynamodb-access-patterns` | 📊 DynamoDB | 1,000 items ka migration aur poore attributes ka comparison, GSI/PITR/TTL, conditional duplicate, atomic checkout/rollback; scoped cleanup |
-| `16-cache-aside` | ⚡ Caching | host par asli cache/origin counts, TTL/invalidation/race/coalescing; alag Moto cache/DAX metadata ki limits; Docker follow-up check nahi hua |
-| `17-sqs-sns-fanout-dlq` | 📨 SQS/SNS | apne thodi der ke Moto par fan-out/body filters, har consumer ke durable intents, asli poison DLQ aur FIFO group ka rukna; policy/dedup ki kamiyan pakdi gayi |
-| `18-eventbridge-stepfunctions` | 🔔 Events | asli Classic→SQS pattern routing, Scheduler/Lambda policy metadata, SFN ki nakli history ki limit; host par DynamoDB TEST saga/crash recovery |
-| `19-kms-secrets-waf` | 🛡️ Security | host par asli AES-GCM envelope/tamper checks, secret stages, KMS/SSM/WAF/GuardDuty metadata aur runtime ki saaf kamiyan |
-| `20-mahasale-terraform` | 🏆 Mahasale boss | 18 apne Terraform objects, dikhta OAC drift, SDK Query alarm metadata/haath se SNS channel, ASG/RDS/Lambda config, network-mana 10,000 TEST intents ka 1 vs 5 worker scenario; storefront/runtime/asli email nahi |
-| `21-wellarch-risk-scan` | 🏛️ Well-Architected | 3 contracts wala scoped scanner, DB HA/backups, review kiya Query 5xx alarm, trail policy/management logging metadata aur bacha TEST saboot; Moto ki delivery/history ki kamiyan saaf, apna cleanup |
-| `22-org-scp-guardrails` | 🏢 Organizations | virtual org/accounts/nested OUs/default SCP attachments/Config delegation/member STS identity; asli mana kiya bucket dikhata hai ki Moto SCP laagu nahi karta; scoped membership/resource cleanup |
-| `23-backup-restore-failover` | 🚑 Disaster Recovery | Mumbai→Hyderabad vaults/plan ka copy rule, governance lock readback, snapshot restore, cross-Region replica ARN link, AMI copy, CRR config, failover jodi; Moto selection/job/promotion/CRR/TestDNSAnswer ki kamiyan saaf; host SQLite restore ek missing accepted order dikhata hai |
-| `24-hybrid-tgw-segments` | 🔗 Hybrid networking | segmented TGW (prod/dev/shared/on-prem tables, blackhole), TGW par VPN, Resolver inbound/outbound + rule; asli metadata par likha evaluator; Moto search/double-association/propagation ki kamiyan saaf |
-| `25-ecs-fargate-service` | 📦 Containers | ECR immutable tags (latest bahar) + scan rule + lifecycle, execution vs task role, bina NAT private pull raasta, Fargate task definitions + circuit-breaker service; asli metadata par likha start contract; Moto preview/validation/no-task ki kamiyan saaf; Docker wala hissa Docker ka wait kar raha hai |
-| `26-terraform-drift-import` | 🏗️ IaC | asli Terraform SG drift/refresh-only/import/stale plan, HCL moved + native JSON ka barabar hona, prevent_destroy, S3 conditional lock ki takkar, asli TEST data + scoped cleanup |
-| `27-cost-waste-hunter` | 💰 Cost | apne asli CLI se EBS/snapshot/EIP/retention/Budget+SNS metadata, billing/subscriber/runtime ki saaf kamiyan, lagbhag EBS+IPv4 model aur baseline bachane wala cleanup |
-| `28-logs-metrics-alarms` | 👁️ Observability | apne Moto par retention (never expire → 30 din, audit 365), JSON metric filter, Logs Insights, p99 + errors alarms, manual state test; Moto ki filter-metric/JSON pattern/stats/p99/evaluation/composite ki kamiyan saaf; average vs p99 aur M-of-N host par |
-| `29-migration-cutover` | 🚚 Migration | SQLite "on-prem" se Moto DynamoDB: full load, triggers wala change log, idempotent CDC replay, checksum validation, cutover runbook; NAS folder ka aws s3 sync (delta); Moto DMS sirf metadata (statistics/modify 500) |
-| `30-data-lake-athena` | 📊 Analytics | Firehose se raw zone, host ETL se dt= partitions (CSV; pyarrow nahi), Glue catalog + batch-create-partition, Athena workgroup scan limit; Moto ki Firehose prefix/crawler/Athena SQL kamiyan saaf, jawaab aur pruning host par |
-| `31-cognito-app-login` | 🤖 App login + AI | User pool (password policy, MFA, bina secret client), temporary password challenge, asli JWT decode + JWKS verify, host authorizer ka audience 401, `${sub}` rok; Moto ki SECRET_HASH/auth flow/identity pool roles/guest/Rekognition kamiyan saaf |
+| [01-first-contact](01-first-contact/README.md) | ☁️ Cloud 101 | identity, regions, AZ name vs ZoneId, pehli bucket, "invisible bill" (galat region) |
+| [02-iam-least-privilege](02-iam-least-privilege/README.md) | 🔐 IAM | (IAM emulator) root → admin, group policy, asli AccessDenied, explicit Deny jeetta hai, role ke ASIA temporary credentials |
+| [03-ec2-lifecycle](03-ec2-lifecycle/README.md) | 🖥️ EC2 | port 22 ke bina SG, IMDSv2, user data; stop/start par IP badalna; terminate par root disk vs data volume + snapshot; khule SSH SGs ka audit |
+| [04-s3-safety](04-s3-safety/README.md) | 🪣 S3 | versioning se overwrite + delete wapas, presigned invoice link, SSE-KMS + Bucket Key, lifecycle se purane versions saaf |
+| [05-vpc-build](05-vpc-build/README.md) | 🌐 VPC basics | 2 AZs, 4 subnets, IGW route + public associations, private main table, default NACL, association repair; same layout Terraform se |
+| [06-rds-recovery](06-rds-recovery/README.md) | 🗄️ RDS | Multi-AZ + 7 din ke backups, managed-password metadata, snapshot, alag reporting replica, nayi instance mein restore; asli SQL/failover emulator nahi chalata |
+| [07-alb-asg-selfheal](07-alb-asg-selfheal/README.md) | ⚖️ ALB + ASG | launch template, 2-AZ ASG, desired capacity, instance replacement, health/policy/draining metadata; asli HTTP ya metric se scaling nahi |
+| [08-three-tier-terraform](08-three-tier-terraform/README.md) | 🏆 Boss architecture | do AZ ka juda Terraform stack, scoped SG chain, instance role, ALB/ASG/RDS/S3, har AZ ka egress, API review aur destroy |
+| [09-nat-endpoint-peering](09-nat-endpoint-peering/README.md) | 🌐 VPC Deep Dive | zonal NAT/EIP, managed S3 prefix routes, interface ENIs, active peer + dono routes, Flow Log metadata aur cleanup |
+| [10-route53-routing](10-route53-routing/README.md) | 📡 Route53 | asli CLI se Alias/weighted/failover JSON, primary ka health link theek karna, DNS/probe ki imaandar limits aur scoped cleanup |
+| [11-cloudfront-oac](11-cloudfront-oac/README.md) | 🌍 CloudFront | asli OAC/config/ETag/policy requests, invalidation metadata; Moto ki attachment/ETag/status limits saaf; scoped cleanup |
+| [12-s3-lifecycle-lock-replication](12-s3-lifecycle-lock-replication/README.md) | 🪣 S3 Advanced | lifecycle/CRR metadata, governance retention + legal hold + marker, restore hue bytes ka check; tiering/filter/replication ki kamiyan saaf, scoped cleanup |
+| [13-efs-shared-storage](13-efs-shared-storage/README.md) | 📁 EFS / FSx / hybrid | target SG repair, lifecycle/access point readbacks; unsupported throughput update alag Elastic fixture se; NFS runtime nahi |
+| [14-lambda-handler-config](14-lambda-handler-config/README.md) | ⚡ Lambda / API Gateway | host par asli SVG derivatives, version/idempotency/partial failures; asli config CLI; Docker/PC ki kami imaandari se likhi |
+| [15-dynamodb-access-patterns](15-dynamodb-access-patterns/README.md) | 📊 DynamoDB | 1,000 items ka migration aur poore attributes ka comparison, GSI/PITR/TTL, conditional duplicate, atomic checkout/rollback; scoped cleanup |
+| [16-cache-aside](16-cache-aside/README.md) | ⚡ Caching | host par asli cache/origin counts, TTL/invalidation/race/coalescing; alag Moto cache/DAX metadata ki limits; Docker follow-up check nahi hua |
+| [17-sqs-sns-fanout-dlq](17-sqs-sns-fanout-dlq/README.md) | 📨 SQS/SNS | apne thodi der ke Moto par fan-out/body filters, har consumer ke durable intents, asli poison DLQ aur FIFO group ka rukna; policy/dedup ki kamiyan pakdi gayi |
+| [18-eventbridge-stepfunctions](18-eventbridge-stepfunctions/README.md) | 🔔 Events | asli Classic→SQS pattern routing, Scheduler/Lambda policy metadata, SFN ki nakli history ki limit; host par DynamoDB TEST saga/crash recovery |
+| [19-kms-secrets-waf](19-kms-secrets-waf/README.md) | 🛡️ Security | host par asli AES-GCM envelope/tamper checks, secret stages, KMS/SSM/WAF/GuardDuty metadata aur runtime ki saaf kamiyan |
+| [20-mahasale-terraform](20-mahasale-terraform/README.md) | 🏆 Mahasale boss | 18 apne Terraform objects, dikhta OAC drift, SDK Query alarm metadata/haath se SNS channel, ASG/RDS/Lambda config, network-mana 10,000 TEST intents ka 1 vs 5 worker scenario; storefront/runtime/asli email nahi |
+| [21-wellarch-risk-scan](21-wellarch-risk-scan/README.md) | 🏛️ Well-Architected | 3 contracts wala scoped scanner, DB HA/backups, review kiya Query 5xx alarm, trail policy/management logging metadata aur bacha TEST saboot; Moto ki delivery/history ki kamiyan saaf, apna cleanup |
+| [22-org-scp-guardrails](22-org-scp-guardrails/README.md) | 🏢 Organizations | virtual org/accounts/nested OUs/default SCP attachments/Config delegation/member STS identity; asli mana kiya bucket dikhata hai ki Moto SCP laagu nahi karta; scoped membership/resource cleanup |
+| [23-backup-restore-failover](23-backup-restore-failover/README.md) | 🚑 Disaster Recovery | Mumbai→Hyderabad vaults/plan ka copy rule, governance lock readback, snapshot restore, cross-Region replica ARN link, AMI copy, CRR config, failover jodi; Moto selection/job/promotion/CRR/TestDNSAnswer ki kamiyan saaf; host SQLite restore ek missing accepted order dikhata hai |
+| [24-hybrid-tgw-segments](24-hybrid-tgw-segments/README.md) | 🔗 Hybrid networking | segmented TGW (prod/dev/shared/on-prem tables, blackhole), TGW par VPN, Resolver inbound/outbound + rule; asli metadata par likha evaluator; Moto search/double-association/propagation ki kamiyan saaf |
+| [25-ecs-fargate-service](25-ecs-fargate-service/README.md) | 📦 Containers | ECR immutable tags (latest bahar) + scan rule + lifecycle, execution vs task role, bina NAT private pull raasta, Fargate task definitions + circuit-breaker service; asli metadata par likha start contract; Moto preview/validation/no-task ki kamiyan saaf; Docker wala hissa Docker ka wait kar raha hai |
+| [26-terraform-drift-import](26-terraform-drift-import/README.md) | 🏗️ IaC | asli Terraform SG drift/refresh-only/import/stale plan, HCL moved + native JSON ka barabar hona, prevent_destroy, S3 conditional lock ki takkar, asli TEST data + scoped cleanup |
+| [27-cost-waste-hunter](27-cost-waste-hunter/README.md) | 💰 Cost | apne asli CLI se EBS/snapshot/EIP/retention/Budget+SNS metadata, billing/subscriber/runtime ki saaf kamiyan, lagbhag EBS+IPv4 model aur baseline bachane wala cleanup |
+| [28-logs-metrics-alarms](28-logs-metrics-alarms/README.md) | 👁️ Observability | apne Moto par retention (never expire → 30 din, audit 365), JSON metric filter, Logs Insights, p99 + errors alarms, manual state test; Moto ki filter-metric/JSON pattern/stats/p99/evaluation/composite ki kamiyan saaf; average vs p99 aur M-of-N host par |
+| [29-migration-cutover](29-migration-cutover/README.md) | 🚚 Migration | SQLite "on-prem" se Moto DynamoDB: full load, triggers wala change log, idempotent CDC replay, checksum validation, cutover runbook; NAS folder ka aws s3 sync (delta); Moto DMS sirf metadata (statistics/modify 500) |
+| [30-data-lake-athena](30-data-lake-athena/README.md) | 📊 Analytics | Firehose se raw zone, host ETL se dt= partitions (CSV; pyarrow nahi), Glue catalog + batch-create-partition, Athena workgroup scan limit; Moto ki Firehose prefix/crawler/Athena SQL kamiyan saaf, jawaab aur pruning host par |
+| [31-cognito-app-login](31-cognito-app-login/README.md) | 🤖 App login + AI | User pool (password policy, MFA, bina secret client), temporary password challenge, asli JWT decode + JWKS verify, host authorizer ka audience 401, `${sub}` rok; Moto ki SECRET_HASH/auth flow/identity pool roles/guest/Rekognition kamiyan saaf |
 | [32-region-drill-terraform](32-region-drill-terraform/README.md) | 👑 Final Boss | Terraform se do Regions, local secret, replica key, pehle se rakhe servers aur DNS failover ka host test |
 | [33-compute-breakeven](33-compute-breakeven/README.md) | 🖥️ Architect · Compute | Moto par Lambda aur ECS config, laptop par ek hi photo ke pixels aur monthly bill ka crossover |
 | [34-polyglot-data](34-polyglot-data/README.md) | 🗄️ Architect · Datastore | 384 posts par Query aur filtered Scan, consumed units, S3 export aur Aurora cluster readback |
@@ -87,7 +87,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | [40-idempotent-consumer](40-idempotent-consumer/README.md) | 🛡️ Architect · Resilience | SQS redelivery, DynamoDB marker aur counter ka atomic write, conflict ka DLQ |
 | [41-pixshare-terraform](41-pixshare-terraform/README.md) | 👑 Architect · PixShare global review | Terraform core, do message paths aur duplicate par same usage |
 
-(Naye labs har level ke rewrite ke saath judte jaayenge.)
+Lab 01–08 Beginner, 09–20 Intermediate, 21–32 Advanced aur 33–41 Architect track ki hain.
 
 ## 4. Saaf karna / band karna
 

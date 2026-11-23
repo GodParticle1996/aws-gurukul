@@ -14,7 +14,7 @@ awsgurukul/
 ├── style.css               ← AWS theme + .dg-* diagram primitives
 ├── core.js                 ← AG namespace, state, XP, ranks, streak, spaced repetition, registry
 ├── data-core.js            ← RANKS[] + AG.tracks[] (4 tracks)
-├── visuals.js              ← VISUALS[id] = { t, html } — 38 concept diagrams
+├── visuals.js              ← VISUALS[id] = { t, html } — 41 concept diagrams
 ├── games.js                ← AG.renderers — bins/fill/order/match/quiz/hotspot/incident
 ├── awscli.js               ← AG.renderers.terminal — AWS CLI + Terraform simulator
 ├── data-beg-1-*.js … data-beg-8-*.js ← Track 1 (8 separate level files)
@@ -28,14 +28,14 @@ awsgurukul/
 └── PLAN.md                 ← original design doc
 ```
 
-### Load order (index.html) — KABHI bhi change mat karna
+### Load order
 
-```
-core.js → data-core.js → visuals.js → games.js → awscli.js
-       → labs.js → decisions.js → data-beg-1-*.js … data-beg-8-*.js
-       → data-int-*.js → data-adv-*.js
-       → data-arch-*.js → data-decisions-*.js → app.js
-```
+`index.html` mein browser ka order hai. `validate.js` ke `ENGINE` aur `DATA` arrays usi order mein scripts load karte hain.
+
+1. `core.js`, `data-core.js`, `visuals.js`, `games.js` aur `awscli.js`.
+2. Topic ke CLI fixtures, phir `labs.js`, `decisions.js`, navigation aur study tools. Lab Hub ke pehle `labs-index.js` load hota hai.
+3. Soch cases, har track ke numbered level files aur Decision Dojo trees.
+4. `app.js` sab data milne ke baad progress padhta hai aur pehli screen kholta hai.
 
 **Kyun?**
 - `games.js` creates `AG.renderers = {}` and top-level `const el/escapeHtml/shake`
@@ -72,80 +72,34 @@ Identifier 'el' has already been declared` → app crash.
 - Hotspot games ke liye `data-hs="uniqueid"` lagao us node pe jo clickable hona chahiye.
 - Use only `.dg-*` primitives (see §5 below) — no custom CSS classes.
 
-### Step 2 — Level object banao (data-{track}.js)
+### Step 2 — Level ka data
 
-```js
-AG.registerLevels('beginner', [
-  // ...existing levels...
-  {
-    id: 'mynewlevel',            // MUST match VISUALS key
-    icon: '🎯',
-    title: 'My New Level',
-    badge: 'Newbie Master',
-    objectives: [                  // array of HTML strings (intro par bullets)
-      '<b>Objective 1</b> — kya seekhoge',
-      '<b>Objective 2</b> — kya seekhoge',
-    ],
-    lesson: [                      // array of HTML STRINGS (objects nahi!)
-      `<h3>📖 Topic Heading</h3>
-       <p>Hinglish explanation... <code>inline code</code> bhi chalega.</p>
-       <table><tr><th>A</th><th>B</th></tr><tr><td>x</td><td>y</td></tr></table>`,
-      `<h3>⚡ Real Example</h3>
-       <p>...</p>
-       <div class="war-story"><b>⚡ Real incident:</b> production se sacchi kahani —
-       kya toota, kyun toota, kya seekha.</div>`,
-    ],
-    stages: [
-      { type: 'quiz', title: '...', questions: [...] },
-      { type: 'hotspot', title: '...', visual: 'mynewlevel', questions: [...] },
-      // see §2 for all game types
-    ],
-    interview: {
-      title: 'Interview Round — My New Level',
-      instructions: 'Round ka intro. 🎤',
-      questions: [
-        { q: 'Interview question?', choices: ['a','b','c','d'], answer: 1, explain: '...' },
-        // OR a hands-on terminal task (same shape as the `terminal` stage, §2):
-        { terminal: { goal: '...', account: {...}, tasks: [...], success: s => ..., hints: [...] } },
-      ],
-    },
-    success: [                     // completion checklist
-      'Main <concept> explain kar sakta hoon',
-      'Main <decision> justify kar sakta hoon',
-    ],
-    homework: `<p>Optional Free Tier practice (HTML string):</p><pre>aws s3 ls</pre>`,
-    cards: [                       // Revision Dojo flashcards — front/back, NOT t/b
-      { front: 'Sawal ya concept?', back: 'Jawab. <b>HTML</b> allowed.' },
-    ],
-  }
-]);
-```
+Har level ka apna numbered file hota hai, jaise `data-arch-1-compute.js`. File `AG.registerLevels(trackId, [level])` se level jodta hai. Browser aur validator ke manifests mein usi track order par file jodo. Published level ka `id` uske saved stars, cards aur resume point se juda hai.
 
-**Field-name traps (engine inhi naamo ko padhta hai):**
+| Field | Engine kya padhta hai |
+|---|---|
+| `id, icon, title, badge` | Level ki pehchaan, map aur completion |
+| `hook` | Story ke `when, title, text`. Fiction ko ShopKaro ya PixShare story bataao. |
+| `objectives, success` | Chhoti lines ki arrays |
+| `steps` | Har card ka `q`, phir `analogy, body, points, asli`. Search bhi in fields ko padhta hai. |
+| `myth, playbook, exam` | Myth mein `myth, sach`. Playbook mein `title, use, avoid, how, redflags, rule`. Exam cues mein `cue, pick` aur optional `why`. |
+| `stages` | Part 1 dry run se shuru hota hai. Pehla `triage` Part 2 ka save point hai. Dono taraf kam se kam ek challenge rakho. |
+| `interview` | `questions` mein single-choice sawaal aur `{terminal: mission}` aa sakte hain. App ise aakhri challenge banaata hai. |
+| `cards, homework` | Revision cards ke `front, back`. Optional homework mein kharcha aur cleanup bataao. |
 
-| Field | Sahi shape | Galat (kaam nahi karega) |
-|-------|-----------|--------------------------|
-| `lesson` | `['<h3>..</h3><p>..</p>', ...]` — HTML strings | `[{ h, b, callout }]` |
-| `cards` | `[{ front, back }]` | `[{ t, b }]` |
-| `objectives` / `success` | array of HTML strings | objects |
-| `homework` | ek HTML string | array |
-
-War story ke liye `<div class="war-story">` use karo — `callout:` naam ka koi
-field engine mein hai hi nahi.
+Quiz aur interview ke har MCQ ka `domain` likho. Naye sawaalon ke liye `secure`, `resilient`, `high-performing` ya `cost-optimized` chuno. SAA mock learner ke abhi tak band levels se bhi sawaal leta hai. Sahi choice ki position aur lambai ko baaki choices se milaao.
 
 ### Step 3 — Verify
-```bash
-cd awsgurukul
-node --check data-beg-8-boss1.js     # ya relevant track file
-# Combined check (catches cross-file redeclaration):
-cat core.js data-core.js visuals.js games.js awscli.js \
-    data-beg-*.js data-int-*.js data-adv-*.js data-arch-*.js app.js > /tmp/c.js
-node --check /tmp/c.js
 
-# Ya sab kuch ek saath (recommended) — syntax, duplicates, schemas,
-# saare terminal missions, fill stages, boot, CSS classes, ranks:
+Repo root se chalao.
+
+```bash
+node --check data-arch-1-compute.js
+node validate-compute.js
 node validate.js
 ```
+
+Naya validator `validate-<topic>.js` mein rakho. Achha raasta, galat input, ek zaroori step chhodna aur replay chalao. Full runner se usi suite ko bulaao. App boot, dono parts ka save point, mock domains aur Lab Hub ko bhi full runner check karta hai.
 
 ### Step 4 — Browser test
 Serve the folder (`python3 -m http.server 4040`) and open in browser. Navigate
@@ -157,6 +111,20 @@ to the new level, complete all stages + interview, verify XP + badge award.
 
 Har game `AG.renderers[type]` se render hota hai.
 
+### Interactive labs aur stage schema
+
+| Type | Zaroori fields aur learner ka kaam |
+|---|---|
+| `dryrun` | `nodes, edges, steps, lesson`. Har step ka `say` aur badli hui state do. `ask` ek choice rok kar check kar sakta hai. Intro isi data se scene chalaata hai. |
+| `flowlab` | `knobs, model(k), check(k), lesson`. Model readouts aur verdict deta hai. Kam se kam ek winning aur ek failing setting check karo. |
+| `triage` | `symptom, commands, questions`. Command mein `cmd, out, clue, note` aate hain. Clues milne ke baad learner wajah chunta hai. |
+| `docker` | `project, goal, steps, observe`. Project ka folder `docker-labs/` mein ho. Step mein `text` aur zaroorat par `cmd, expect` hote hain. `observe` ka jawab actual run se milna chahiye. |
+| `interview` | App level ke `interview` se banaata hai. Isko `stages` mein dobara mat jodo. |
+
+### Decision Dojo tree
+
+`AG.registerDecisions([tree])` se tree jodo. `id, title, icon, levels, start` aur `nodes` do. Question node ke `options` mein `{t, next}` agle node ki ID tak le jaata hai. Leaf mein `leaf: true, pick, one, when, avoid` do. `cost, exam, gotchas, iac` jaise fields aur detail dete hain. Scenario mein `s, answer, explain` rakho. `answer` start se pahunchne waali leaf ka ID hai. Search aur cheatsheet registered leaves khud padhte hain. [Compute tree examples](data-decisions-compute.js)
+
 ### `decide` — Decision Dojo ki practice level ke andar
 
 ```js
@@ -165,15 +133,9 @@ Har game `AG.renderers[type]` se render hota hai.
 
 `tree` ek registered Decision Dojo tree ka ID hai. `scenarios` 1 se tree ke total scenarios tak rakho. `decisions.js` har run mein alag scenarios chunta hai. Pehli koshish par sahi jawaab ko stage XP milta hai. Level ki practice standalone Dojo ka best score alag rakhti hai.
 
-### `quiz` — Multiple Choice
-```js
-{ type: 'quiz', questions: [
-  { q: 'Question text?', choices: ['A','B','C','D'], answer: 2, explain: 'Kyun B sahi hai',
-    context: 'optional code/policy text' }
-]}
-```
-- `answer` is **0-indexed**.
-- `context` (optional) renders as `<pre>` block above choices.
+### `quiz` — ek ya kai jawaab
+
+Har question mein `q, choices, answer, explain, domain` hote hain. Optional `context` code ya command output dikhaata hai. Ek sahi choice ke liye zero-based index do. Do sahi choices ke liye, jaise `answer: [0, 2]`, kam se kam paanch choices do. Quiz poora set milne par aage badhta hai. Mock exam mein feedback submit ke baad milta hai. [Question examples](mockexam.js)
 
 ### `fill` — Drag Tokens into Blanks (Terraform / CFN / JSON)
 ```js
@@ -290,7 +252,7 @@ Har game `AG.renderers[type]` se render hota hai.
     // poori shape awscli.js ke top wale comment mein documented hai
   },
   tasks: [                         // checklist — strings nahi, { text, check } objects
-    { text: 'aws s3 ls — buckets list', check: s => s.history.some(h => /aws s3 ls/.test(h)) },
+    { text: 'Bucket par encryption chalu hai', check: s => s.account.buckets.some(b => b.name === 'my-bucket' && b.encryption) },
   ],
   success: s => s.account.buckets.find(b => b.name === 'my-bucket').encryption === true,
   successText: '🎉 Kya seekha — HTML.',
@@ -305,15 +267,7 @@ Har game `AG.renderers[type]` se render hota hai.
 - Mission ke andar naya resource banwana ho (e.g. `aws sqs create-queue`) toh account mein
   us collection ko `[]` se initialise kar dena behtar hai — waise bhi `list()` auto-create
   kar leta hai, par explicit shape padhne mein saaf lagta hai.
-- **Terraform / file-apply missions** — `files` do:
-  ```js
-  files: {
-    'main.tf':      { desc: 'main.tf — 1 VPC', apply: sim => { sim.account.vpcs = [...]; return '1 resource created'; } },
-    'fix-sg.json':  { desc: 'SG se 0.0.0.0/0 hataata hai', apply: sim => { ...; return 'SG fixed'; } },
-  }
-  ```
-  `.tf`/`.hcl` files `terraform apply` se chalti hain; baaki koi bhi file
-  `apply -f <filename>` se. User `ls` se files dekh sakta hai.
+- Fixture files ko real CLI syntax se padho, jaise `--policy file://policy.json`. Terraform missions mein `terraform plan` aur `terraform apply` ki state check karo. `solution` mein runnable commands rakho. Intentional error ho to us step par expected error bhi do.
 - Command ko poori tarah script karna ho toh `responses: [{ re: /regex/, out, mutate, err }]`
   use karo — yeh normal parser se **pehle** match hote hain.
 
@@ -487,35 +441,12 @@ engine automatically pick up kar lega.
 
 ---
 
-## 8. Testing Checklist (naya content add karne ke baad)
+## 8. Naye content ki jaanch
 
-1. **Syntax check** (per-file):
-   ```bash
-   node --check data-newtrack.js
-   ```
-
-2. **Combined syntax check** (catches cross-file `const` redeclaration):
-   ```bash
-   cat core.js data-core.js visuals.js games.js awscli.js \
-       data-beg-*.js data-int-*.js data-adv-*.js \
-       data-newtrack.js app.js > /tmp/c.js && node --check /tmp/c.js
-   ```
-
-3. **Hotspot target cross-check**:
-   ```bash
-   # All targets must exist as data-hs in visuals.js
-   grep -oP "target: '[a-z0-9]+'" data-newtrack.js | sort -u
-   grep -oP 'data-hs="[a-z0-9]+"' visuals.js | sort -u
-   ```
-
-4. **Level ID cross-check**:
-   ```bash
-   # Level IDs must match VISUALS keys
-   grep -oP "^\s+id: '[a-z0-9]+'," data-newtrack.js
-   ```
-
-5. **Browser test**: Serve folder, open in Chrome, navigate to new levels,
-   complete all stages + interview, verify XP/badge/streak update.
+1. Badle hue file par `node --check` chalao. Topic ka focused validator chalao.
+2. `node validate.js` poora manifest ek saath parse karta hai. Level IDs, hotspot targets, quiz domains, mock forms, Lab Hub, cheatsheet aur do hisson ke save points bhi check hote hain.
+3. Browser mein naya level khelo. Part 1 par ruko, reload karo aur Part 2 poora karo. XP, badge, stars aur certificate dekho. Release sweep ki command [README](README.md) mein hai.
+4. Local lab apne emulator par chalao. README ke expected output aur aakhir ke cleanup ko actual run se milaao.
 
 ---
 
@@ -570,6 +501,8 @@ engine automatically pick up kar lega.
 Is din saare 27 labs README ke commands se dobara chalaye gaye (Moto 5.2.4, Docker ke bina; Terraform labs 05, 08, 20, 26
 local Terraform 1.17.0 + cached AWS provider 6.70.0 se). Sab chale. Ek design galti mili aur theek hui (11.1).
 Naya lab likhne ya purana badalne se pehle yeh padho.
+
+Nayi lab ka apna numbered folder, README aur scoped cleanup rakho. Jo Python runner apna Moto chalaata hai woh loopback par free port le, dummy credentials aur lab-local config use kare, aur aakhir mein apna listener band kare. README mein actual output aur Moto ki limits bataao. Har lab ke liye [lab table](docker-labs/README.md) mein link aur `labs-index.js` mein README title, pehla setup block aur ek line ki limit rakho. Setup block repo root se chalna chahiye. `node validate-labhub.js` file, folder aur stage ko milaata hai.
 
 ### 11.1 Emulator "haan" bole aur asli AWS "na" — toh lab asli AWS ka kram follow kare
 

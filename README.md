@@ -13,25 +13,24 @@ explorer.exe index.html        # WSL se
 # ya Windows Explorer mein index.html double-click
 
 # Option 2: serve karo
-cd awsgurukul
-python3 -m http.server 8000
+python3 -m http.server 8000 --bind 127.0.0.1  # repo ke root folder se
 # → http://localhost:8000
 ```
 
-Diagram gallery: [`gallery.html`](gallery.html) — saare 38 concept visuals ek page par.
+Diagram gallery: [`gallery.html`](gallery.html) — saare 41 concept visuals ek page par.
 
 ## Kya hai isme
 
-- **4 tracks, 38 levels** — sequential unlock, har track ka boss level + certificate:
+- **4 tracks, 41 levels** — sequential unlock, har track ka boss level + certificate:
   - 🌱 **Beginner (8):** Cloud 101 (regions/AZs/shared responsibility), IAM,
     EC2, S3, VPC Basics, RDS, ELB+Auto Scaling, Boss: pehla 3-tier architecture
-  - 🔥 **Intermediate (11):** VPC Deep Dive, Route 53, CloudFront, S3 Advanced,
-    **EFS/FSx/Hybrid Storage**, Lambda+API Gateway, DynamoDB, SQS/SNS/Kinesis,
+  - 🔥 **Intermediate (12):** VPC Deep Dive, Route 53, CloudFront, S3 Advanced,
+    **EFS/FSx/Hybrid Storage**, Lambda+API Gateway, DynamoDB, Caching, SQS/SNS/Kinesis,
     **EventBridge+Step Functions**, Security Deep Dive, Boss: Multi-AZ Resilient
-  - 🚀 **Advanced (10):** Well-Architected 6 Pillars, **Organizations & Multi-Account
+  - 🚀 **Advanced (12):** Well-Architected 6 Pillars, **Organizations & Multi-Account
     Governance**, Disaster Recovery, Advanced Networking, Containers (ECS/EKS/ECR),
     IaC (CloudFormation/Terraform), Cost Optimization, Observability,
-    Migration 7Rs, Final Boss: Senior Gauntlet
+    Migration, Analytics, App login aur AI services, Final Boss ka Region drill
   - 🧭 **Architect — Nirnay Path (9):** *kaunsa service KAB, aur kab NAHI* —
     Compute chuno, Data store chuno, Decoupling, **EventBridge + Pipes**,
     **Log-analytics ETL (CloudWatch→Firehose→OpenSearch)**, Edge/Network,
@@ -39,19 +38,14 @@ Diagram gallery: [`gallery.html`](gallery.html) — saare 38 concept visuals ek 
 
 - **Har level mein:**
   - 🎯 Learning objectives (intro par) + ✔ success criteria (completion par)
-  - 📖 Bite-sized Hinglish lessons + ⚡ real production-incident war stories
+  - 📖 ShopKaro aur PixShare ki kahaani, chhote lesson cards aur har choice ki wajah
   - 📊 Signature animated diagram (HTML/CSS, no images)
-  - 🎮 3–5 interactive challenges
-  - 🎤 **Interview Round** — asli interview-style sawal (MCQ + hands-on terminal)
-  - 🏋️ Optional **real AWS Free Tier homework**
+  - 🎮 Part 1 **Samjho** mein scene, dry run, flow lab aur games. Part 2 **Karo** pehle triage case se shuru hota hai. Dono ke beech rukne ka save point hai.
+  - 🎤 **Interview Round** — 41 interviews mein MCQ hain. Cloud 101 ke baad baaki 40 interviews mein terminal mission bhi hai.
+  - 🏋️ Optional AWS homework. Har lab ka local raasta aur cleanup uske README mein hai.
   - 🧘 Flashcards jo Revision Dojo mein jaate hain
 
-- **Game types (8):** 🗂️ sorting bins · 🔢 sequence builder · 🔗 matching ·
-  🧠 scenario quizzes · 📄 Terraform/CloudFormation/IAM-policy fill-in-the-blanks ·
-  🎯 diagram hotspots · 🚨 3AM-pager incident decision-trees ·
-  🖥️ **aws CLI + terraform simulator** (mock AWS account jisme tum sach mein commands
-  type karke debug karte ho — public bucket, admin policy, missing EFS mount target,
-  hot partition, target-less EventBridge rule, un-attached SCP...)
+- **Practice** mein bins, order, match, quiz, fill, hotspot, incident aur CLI terminal ke saath dry run, flow lab, triage, real-lab guide aur Decision Dojo ki choices hain. Terminal mein learner command chalaakar simulator ki state badalta hai.
 
 - **Bhoolne ka ilaaj (retention system):**
   - 🧘 **Revision Dojo** — spaced-repetition flashcards (1→3→7→16→35 din intervals);
@@ -64,8 +58,17 @@ Diagram gallery: [`gallery.html`](gallery.html) — saare 38 concept visuals ek 
   per-level badges + 1–3 stars,
   har track ka certificate.
 
-- **Progress localStorage mein save hota hai** (`awsgurukul-v1`) — tab band karo, baad
-  mein wahin se continue. Reset home screen se.
+- **Wahin se shuru karo** adhoora challenge kholta hai. Challenge ke pehle mile XP dobara nahi judte. Home ki Settings mein JSON backup download aur restore hota hai. Browser ka storage key `awsgurukul-v1` hai.
+
+## Home se kya khol sakte hain?
+
+| Tool | Kaam |
+|---|---|
+| SAA mock exam | 41 levels se 65 sawaal. 130-minute timer rok sakte hain ya bina timer ke khel sakte hain. Submit ke baad 50 scored sawaalon ka score, explanations, galti ke cards aur weak topics milte hain. Chaar topic scores Home par dikhte hain. |
+| Lab Hub | 41 local labs, setup copy karne ke buttons, Moto ki limits aur apne done marks. [Lab guide](docker-labs/README.md) |
+| Glossary aur search | 34 terms ki chhoti definitions. Lesson cards, flashcards aur Dojo ke faislon mein bhi dhoondh sakte hain. |
+| Kab kya cheatsheet | 41 playbooks aur 170 Dojo choices. Topic chuno aur list ko print ya PDF karo. |
+| Decision Dojo aur Soch Akhada | 32 decision trees aur 30 cases. Learner apni choice ka asar aur wajah dekh sakta hai. |
 
 ## 🧭 Architect Track — "kaunsa service KAB?"
 
@@ -92,23 +95,25 @@ node validate.js      # browser ke bina poori app check
 
 Yeh check karta hai: syntax + cross-file redeclaration · duplicate VISUALS keys
 aur level ids · har stage ka schema (hotspot targets vs `data-hs`, incident graph
-reachability, quiz answer indices) · **saare 66 terminal missions asli simulator
+reachability, quiz answer indices) · **saare 81 terminal missions asli simulator
 par end-to-end** · saare fill stages solvable · app boot + har screen render ·
 diagram CSS classes · rank reachability.
 
-Focused regressions: `node validate-containers.js` aur `node validate-iac.js`.
+Har `validate-*.js` suite ko alag bhi chala sakte hain. Jaise `node validate-containers.js` aur `node validate-iac.js`.
 Lab25 partial-setup cleanup tests ka command [Lab25 README](docker-labs/25-ecs-fargate-service/README.md#run) mein hai.
 
-Optional Cost browser QA: local Playwright package aur Chromium pehle se chahiye.
+Browser QA ke liye local Playwright package aur Chromium chahiye.
 
 ```bash
 node validate-cost-browser.cjs
+node validate-resume-browser.cjs
+node validate-release-browser.cjs
 ```
 
 Existing install alag folder mein ho toh `PLAYWRIGHT_MODULE` ko package ke absolute path aur
 `CHROMIUM_PATH` ko browser executable ke absolute path par set karo. Screenshots/report default
 `.overhaul-evidence/` mein save hote hain; `AWS_GURUKUL_EVIDENCE_DIR` output folder override karta hai.
-Browser test 1280px/360px, keyboard actions, final-step wins, reload aur overflow check karta hai.
+Cost aur resume suites learner ke actions check karti hain. Release sweep har level ka intro, dry run aur flow lab 360 aur 1280 px par capture karta hai. Gallery ke links aur browser errors bhi check hote hain.
 
 ## App extend karna (naya service seekha?)
 
@@ -124,12 +129,14 @@ Poora guide: [`EXTENDING.md`](EXTENDING.md)
 | `games.js` | Game renderers (bins/order/match/quiz/fill/hotspot/incident) |
 | `awscli.js` | aws CLI + terraform simulator (mock AWS account + command parser) |
 | `app.js` | Screens: home, track maps, stages, interview, Dojo, pop quiz, certificates |
-| `visuals.js` | 38 concept diagrams (`VISUALS[levelId]`) |
+| `visuals.js` | 41 concept diagrams (`VISUALS[levelId]`) |
 | `data-core.js` | Ranks + track definitions |
 | `data-beg-*.js` / `data-int-*.js` / `data-adv-*.js` | Level content |
 | `data-arch-*.js` | Track 4 — decision-first service selection (PixShare story) |
 | `validate.js` | **Offline full-app validator** — `node validate.js` |
-| `gallery.html` | Saare diagrams ek page par |
+| `labs.js`, `parts.js` | Dry run, flow lab, triage, lab guide aur do hisson ka save point |
+| `resume.js`, `mockexam.js`, `labhub.js`, `search.js`, `cheatsheet.js` | Home se khulne waale progress aur study tools |
+| `gallery.html` | 41 diagrams aur unke lesson links |
 | `PLAN.md` | Original build plan |
 
 ## Simulator mein kaunse commands chalte hain
@@ -139,6 +146,6 @@ Broadly: `sts`, `iam`, `s3`/`s3api`, `ec2`, `rds`, `lambda`, `dynamodb`, `route5
 `cloudformation`, `cloudwatch`, `kms`, `logs`, `cloudfront`, `elbv2`, `autoscaling`,
 `sqs`, `sns`, `ecr`, `efs`, `organizations`, `events` (EventBridge), `stepfunctions`,
 `kinesis`, `firehose`, `opensearch`/`es`, `pipes` (EventBridge Pipes),
-`configure` — plus `terraform init/validate/plan/apply/destroy/state list` aur
-`apply -f <file>` (mission ki JSON fix files ke liye). `ls` se files dekho,
-`hint` se madad lo (−5 XP), `clear` se screen saaf.
+`configure` aur mission ke Terraform commands bhi milte hain. `ls` se files dekho. `hint` ya madad ka button agla kadam dikhaata hai. `clear` terminal screen saaf karta hai.
+
+Poore checks aur emulator runs ka record [overhaul checkpoint](OVERHAUL-CHECKPOINT.md) mein hai.

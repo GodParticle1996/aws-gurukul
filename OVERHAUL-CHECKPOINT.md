@@ -1,5 +1,16 @@
 # AWS Gurukul deep pass
 
+## Phase 6 · Final QA aur docs (2026-11-23)
+
+Phase 5 ke chhah features aur Phase 6 ka local kaam poora hai. App mein 4 tracks, 41 levels, 319 level stages aur 41 interviews hain. Total 360 challenges aur 81 terminal missions hain. 41 local labs ke README ka link Lab Hub aur lab table dono mein hai. README aur PLAN mein current counts hain. EXTENDING mein level schema, har stage type, exam domains, Dojo trees, lab conventions aur tests ka raasta diya hai. Gallery se har diagram ka lesson khulta hai.
+
+- **Validator.** `node validate.js` ne ✅ ALL CHECKS PASSED diya. Sabhi 43 focused test suites alag chalaaye. 44va `validate-solutions.js` mission overrides ka data file hai. 81/81 terminal missions aur 173 interactive labs app mein chale. 754 single-answer sawaalon par zero length flags mile. Purane levels ke language scan mein Phase 4 ke wahi flags mile. 35 levels mein heavy-English lines flag hoti hain. [Full validator](../aws-deep-run/logs/phase6-validate.log) · [Focused runs](../aws-deep-run/logs/phase6-suites/) · [Language scan](../aws-deep-run/logs/phase6-textscan.log)
+- **Browser.** Chromium ne 360 aur 1280 px par har level ka intro, dry run aur flow lab khola. 246 captures mile. Dono widths ke sabhi 41 intro pairs dekhe. Browser walk mein har width par 444 screens khuli. Dono runs mein browser error aur horizontal page overflow zero the. Headless browser mein kuch emoji ki jagah square dikhta hai. Text labels dikhte hain. `validate-release-browser.cjs` se sweep phir chala sakte hain. [246 captures](../aws-deep-run/browser/shots-phase6/) · [Browser walk](../aws-deep-run/browser/phase6.json)
+- **Learner ke actions.** Final app par E1 backup ka actual download aur doosre profile mein restore, E2 ke 65 answers aur timeout, E3 marks aur clipboard fallback, E4 search aur study links, E5 filtered PDF aur E6 save point phir se check kiye. Cost suite ke 51 browser samples bhi pass hue. [E1 browser test](../aws-deep-run/logs/phase6-e1.log) · [E2–E6 screenshots](../aws-deep-run/browser/phase6-features/) · [Cost browser test](../aws-deep-run/logs/phase6-cost.log)
+- **Moto.** Phase 5 ne kisi individual lab ka runbook nahi badla tha. Phase 6 mein labs 28, 34 aur 40 apne alag Moto ports par phir chalaaye. README ke 16, 11 aur 9 result lines run mein milin. Lab 28 mein p99 aur alarm evaluation ki Moto limits bhi dobara milin. Lab 34 mein Query aur Scan se wahi 12 posts aur export mein 384 rows milin. Lab 40 mein duplicate delivery par seedha counter 2 aur conditional write par 1 tha. Teenon mein cleanup ke baad listener band mila. Docker ya live AWS run nahi hua. [Lab 28](../aws-deep-run/logs/phase6-lab28.log) · [Lab 34](../aws-deep-run/logs/phase6-lab34.log) · [Lab 40](../aws-deep-run/logs/phase6-lab40.log) · [README comparison](../aws-deep-run/logs/phase6-readback.log)
+
+E1 `8a5f9a5`, E2 `1f02c68`, E3 `817fe6e`, E4 `d19db0c`, E5 `6293fac`, E6 `0dde1d7`. Branch `codex/aws-deep` par local delivery hai.
+
 ## Phase 5 E6 · Part 1 Samjho aur Part 2 Karo (2026-11-23)
 
 Har level ke intro par dono hisson ke challenge numbers dikhte hain. Part 2 pehle triage se shuru hota hai. Part 1 ki aakhri game ke baad score aur agla challenge save ho jaate hain. Learner wahin se aage badh sakta hai ya Home jaakar baad mein laut sakta hai. Final interview ke baad hi badge aur stars milte hain.

@@ -11,19 +11,25 @@
   <main id="app" style="max-width:1000px;margin:0 auto;padding:24px 18px 80px">
     <section class="hero">
       <h1>📊 Concept Diagram <span class="glow">Gallery</span></h1>
-      <p>Har level ka signature visual, ek jagah. (App mein yeh level intro par aur play ke doraan toggle se dikhte hain.)</p>
+      <p><span id="total"></span> level diagrams. Diagram ke neeche se uska lesson kholo.</p>
     </section>
     <div id="g"></div>
   </main>
   <script src="visuals.js"></script>
   <script>
     const g = document.getElementById('g');
+    document.getElementById('total').textContent = Object.keys(VISUALS).length;
     for (const id in VISUALS) {
       const v = VISUALS[id];
       const sec = document.createElement('section');
       sec.innerHTML =
         '<div class="crumb" style="margin-top:26px">' + id + '</div>' +
         '<div class="diagram hero"><div class="dg-title">📊 ' + v.t + '</div>' + v.html + '</div>';
+      const lesson = document.createElement('a');
+      lesson.href = 'index.html#study/' + encodeURIComponent(id);
+      lesson.textContent = id + ' ka lesson padho →';
+      lesson.className = 'btn ghost small';
+      sec.appendChild(lesson);
       g.appendChild(sec);
     }
   </script>
