@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -510,6 +510,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     // shell-ish extras
     if (norm === 'help' && sim.account.costMode) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
+      return;
+    }
+    if (norm === 'help' && sim.account.pixResilience) {
+      print('sys','cat release.txt se shuru karo. DynamoDB ki table banao aur ready hone do. Source par SQS redrive policy aur Lambda worker par reserved concurrency lagao. Transaction ki file do baar chalao. Phir get-item se total padho.');
       return;
     }
     if (norm === 'help' && sim.account.pixBill) {
@@ -901,7 +905,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
 
     // New service handlers share an explicit, bounded JMESPath subset. Unsupported
     // expressions fail visibly; --query is never silently ignored in these handlers.
-    function resultJson(value) {
+    function resultJson(value, onDisplay) {
+      function display(text) {
+        print('ok', text);
+        if (typeof onDisplay === 'function') onDisplay(text);
+        return true;
+      }
       function query(v, expression) {
         const e = expression.trim();
         const length = e.match(/^length\((.*)\)$/);
@@ -929,10 +938,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       try { if (flag('query') != null) result = query(value, flag('query')); }
       catch (e) { print('err', 'Invalid --query for this simulator subset: ' + e.message + '. Supported: dotted paths, [0], [], length(), object projections. Omit --query for full JSON.'); return false; }
       const output = flag('output') || 'json';
-      if (output === 'json') { print('ok', prettyJson(result)); return true; }
+      if (output === 'json') return display(prettyJson(result));
       if (output === 'text') {
         const row = x => Array.isArray(x) ? x.map(z => z == null ? 'None' : String(z)).join('\t') : x && typeof x === 'object' ? Object.keys(x).sort().map(k => String(x[k])).join('\t') : x == null ? 'None' : String(x);
-        print('ok', Array.isArray(result) && result.some(x => x && typeof x === 'object') ? result.map(row).join('\n') : row(result)); return true;
+        return display(Array.isArray(result) && result.some(x => x && typeof x === 'object') ? result.map(row).join('\n') : row(result));
       }
       print('err', 'Simulator output support: --output json or text. Table/YAML formatting is not implemented.'); return false;
     }
@@ -2435,7 +2444,19 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if(op==='describe-time-to-live'){if(t.ttl&&['ENABLING','DISABLING'].includes(t.ttl.status)){t.ttl.status=t.ttl.status==='ENABLING'?'ENABLED':'DISABLED';touch(t);}return resultJson({TimeToLiveDescription:{TimeToLiveStatus:t.ttl?.status||'DISABLED',...(t.ttl?{AttributeName:t.ttl.attribute}:{})}});}
           if(['get-item','put-item','delete-item','update-item'].includes(op)){
             const put=op==='put-item',row=validateItem(t,plain(doc(put?'item':'key')),!put),old=(t.items||[]).find(x=>equalKey(t,x,row));
-            if(op==='get-item'){const proof={op,revision:t.revision||0,key:keyOf(t,row),items:old?[clone(old)]:[],consistent:toks.includes('--consistent-read')};t.lastRead=null;if(resultJson(old?{Item:ddbTyped(old)}:{})===true)t.lastRead=proof;return;}
+            if(op==='get-item'){
+              const proof={op,revision:t.revision||0,key:keyOf(t,row),items:old?[clone(old)]:[],consistent:toks.includes('--consistent-read')};
+              t.lastRead=null;
+              resultJson(old?{Item:ddbTyped(old)}:{},text=>{
+                t.lastRead=proof;
+                // Remember what this read actually showed after the latest D8 replay.
+                if(sim.account.pixResilience && t.name===AG.pixResilience.usage){
+                  proof.output=text;
+                  sim.d8ReadAfterReplay=sim.ddbLastFailedTransaction;
+                }
+              });
+              return;
+            }
             const ctx=flagContext(),c=condition(t,row,flag('condition-expression'),ctx),returnValues=flag('return-values')||'NONE';if(!['NONE','ALL_OLD',...(op==='update-item'?['ALL_NEW']:[])].includes(returnValues))invalid('Unsupported ReturnValues for operation');let next=row;if(op==='update-item')next=updateRow(t,row,required('update-expression'),ctx);
             if(!c.ok){t.lastCondition={key:keyOf(t,row),applied:false,attempted:clone(next),existing:clone(c.old||{}),revision:t.revision||0};throw Error('ConditionalCheckFailedException: The conditional request failed; existing item preserved');}
             write(t,next,op==='delete-item'?'delete':'put');if(flag('condition-expression'))t.lastCondition={key:keyOf(t,row),applied:true,attempted:clone(next),revision:t.revision||0};return resultJson(returnValues==='ALL_NEW'?{Attributes:ddbTyped(next)}:returnValues==='ALL_OLD'&&old?{Attributes:ddbTyped(old)}:{});
@@ -3092,7 +3113,18 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
         const text=n=>{let v=required(n);if(v.startsWith('file://')){const f=own(sim.files,v.slice(7))&&sim.files[v.slice(7)];if(!f||typeof f.content!=='string')throw Error('Error parsing parameter --'+n+': Unable to load paramfile; use ls/cat');v=f.content;}return v;};
         const json=(raw,label)=>{try{return JSON.parse(raw);}catch(e){throw Error('Error parsing parameter '+label+': Invalid JSON');}};
         const doc=n=>{const raw=text(n);if(!raw.startsWith('{')&&!raw.startsWith('[')&&raw.includes('=')){const pairs=raw.split(',').map(p=>p.match(/^([A-Za-z][A-Za-z0-9]*)=([^,]*)$/));if(pairs.some(p=>!p))bad('Invalid shorthand; use a JSON object/file for nested attributes');return Object.fromEntries(pairs.map(p=>[p[1],p[2]]));}return json(raw,'--'+n);};
-        const map=n=>{const v=doc(n);if(!object(v)||Object.values(v).some(x=>typeof x!=='string'))bad('--'+n+' must be a JSON string map');return v;};
+        const map=n=>{
+          // CLI shorthand can read one string-valued attribute from a local file.
+          const field=/^([A-Za-z][A-Za-z0-9]*)@=file:\/\/(.+)$/.exec(required(n));
+          if(field){
+            const file=own(sim.files,field[2]) && sim.files[field[2]];
+            if(!file || typeof file.content!=='string')throw Error('Error parsing parameter --'+n+': Unable to load paramfile');
+            return {[field[1]]:file.content};
+          }
+          const value=doc(n);
+          if(!object(value)||Object.values(value).some(x=>typeof x!=='string'))bad('--'+n+' must be a JSON string map');
+          return value;
+        };
         const integer=(v,lo,hi,label)=>{if(typeof v!=='string'||!/^\d+$/.test(v)||!Number.isSafeInteger(Number(v))||Number(v)<lo||Number(v)>hi)bad(label+' must be integer '+lo+'..'+hi);return Number(v);};
         const boolean=(v,label)=>{if(!['true','false'].includes(v))bad(label+' must be string true/false');return v==='true';};
         const bytes=v=>{let size=0;for(const c of v){const p=c.codePointAt(0);if(p>=0xd800&&p<=0xdfff)bad('Invalid Unicode surrogate');size+=p<128?1:p<2048?2:p<65536?3:4;}return size;};

@@ -600,20 +600,12 @@ const VISUALS = {
   },
 
   resilience: {
-    t: 'Resilience — fault tolerance & blast radius',
-    html: `
-      <div class="dg-ladder">
-        <div class="dg-rung g" data-hs="multiaz"><span class="lv">1</span><span class="cmd">Multi-AZ</span><span class="q">AZ fail survive — baseline for prod (RDS Multi-AZ, ASG across AZs)</span></div>
-        <div class="dg-rung a" data-hs="decouple"><span class="lv">2</span><span class="cmd">Decouple + queue</span><span class="q">consumer gira → messages SQS mein safe, retry</span></div>
-        <div class="dg-rung g" data-hs="idempotent"><span class="lv">3</span><span class="cmd">Retry + backoff + idempotency</span><span class="q">at-least-once = duplicate; idempotent bnao</span></div>
-        <div class="dg-rung a" data-hs="degrade"><span class="lv">4</span><span class="cmd">Graceful degradation</span><span class="q">recommendations down → default feed dikhao, error nahi</span></div>
-        <div class="dg-rung g" data-hs="multiregion"><span class="lv">5</span><span class="cmd">Multi-region (DR)</span><span class="q">RTO/RPO ke hisaab se: backup→pilot light→warm→active-active</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:10px">
-        <span class="dg-pill bad" data-hs="singlepoint">❌ Single-AZ prod DB, ek Lambda sab kuch, sync chain — ek fail = sab fail</span>
-        <span class="dg-pill acc" data-hs="blast">Blast radius chhota rakho — alag accounts/AZ/cell</span>
-      </div>
-      <div class="dg-cap"><b>Fault tolerance = maan lo cheezein tootengi.</b> Multi-AZ baseline, decouple taaki ek component gire toh baaki chale, retry+idempotency (at-least-once duplicates deta hai), graceful degradation (feature gaya ≠ app gaya), aur cost ke hisaab se DR strategy. <b>Blast radius</b> = ek galti kitna tod sakti hai — use chhota rakho.</div>`,
+    t: 'PixShare · retry par usage kahan rukti hai?',
+    html: `<div class="dg-flow"><div class="dg-node"><span class="nl">Standard SQS</span><span class="ns">Same p7/v1 phir mil sakta hai</span></div><div class="dg-arrow flow"></div>
+      <div class="dg-node is-accent"><span class="nl">Worker · cap 4</span><span class="ns">Har invocation mein ek call</span></div></div>
+      <div class="dg-split"><div class="dg-box is-good"><span class="bx-label">Naya operation</span><div class="dg-col"><span class="dg-pill good">Marker + counter saath</span><span class="ns">Commit ke baad ack</span></div></div>
+      <div class="dg-box"><span class="bx-label">Marker pehle se hai</span><div class="dg-col"><span class="dg-pill">Input milao</span><span class="ns">Same job par total wahi. Conflict review mein.</span></div></div></div>
+      <div class="dg-cap">Backoff aur jitter traffic ko waqt dete hain. Baar-baar fail hue message ko source ki redrive policy DLQ tak le jaati hai.</div>`
   },
 
   archboss: {

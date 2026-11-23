@@ -1,5 +1,25 @@
 # AWS Gurukul deep pass
 
+## Architect D8 · `resilience` poora hua (2026-11-22, master §5.D8)
+
+PixShare ke worker ne 100 alag thumbnail jobs ke liye 130 usage units likhin. Triage mein wahi operation do deliveries par do baar bill hua. Level `data-arch-8-resilience.js` mein hai. Saved progress ke liye ID `resilience` aur badge `Blast Radius Rakshak` wahi hain.
+
+- **Retry timeline.** 12 clients aur 2 s ki outage ke baad service 4 calls/s le sakti hai. Har chauthe client ki pehli successful write ka jawab kho jaata hai. Pehli 4 s window aur zyada se zyada 4 retries ke saath bina jitter recovery peak 12 calls/s thi. Aakhri jawab 28 s par aaya. Usi setup mein jitter ke fixed sample ki peak 4 calls/s thi. Sabko 9 s tak jawab mila. 12 writes hui aur 3 duplicate attempts par counter bacha. Board par 768 settings check hui. Ye model ke numbers hain.
+- **Worker release.** Source par paanch receives ki redrive policy aur Lambda worker par chaar slots ki limit lagaayi. Doosre feed function ki limit 8 rahi. DynamoDB mein marker ki conditional Put aur usage ka ADD ek transaction mein hue. Same write dobara chalaane par marker ki condition fail hui. Strong read mein 11 units dikhin. Interview mein pehle ka v1 marker bachakar v2 bill kiya. Naye Decision Dojo mein retry, ack, default feed aur DLQ ke paanch cases hain.
+- **Lab 40.** Moto 5.2.4 aur boto3 1.43.118 par worker ne wahi SQS MessageId do baar padha. Receive counts 1 aur 2 mile. Seedhe ADD par total 2 tha. Marker aur ADD saath likhne par total 1 raha. Producer ki nayi send par bhi wahi operation ek baar gina. Nayi version se total 2 hua. Purani key par badli photo teen receives ke baad DLQ mein mili. Counter ki condition fail hui toh naya marker bhi nahi bana. Tables aur queues zero hue aur listener band hua. Python ne visibility 0 karke retry turant karaayi. Docker, live Lambda polling aur AWS concurrency ka test baaki hai. [Lab 40 ka asli output](docker-labs/40-idempotent-consumer/README.md)
+- **Gates.** `node validate.js` pass hua. 41 levels, 316 stages, 81/81 terminal missions, 168 interactive lab stages aur 40 lab projects check hue. D8 ke 4,083 checks pass hue. 18 MCQs mein zero length flags the. Sahi option 5/18 mein sabse lamba tha. Answer positions 5/5/4/4 the. Har explanation 80 characters se lambi thi. Text scan mein heavy English aur bookish words zero the.
+- **Browser.** Chromium ne 360 aur 1280 px par 440 screens har size par kholi. Page errors aur horizontal overflow zero the. Dono sizes par retry ki doosri timeline dekhi aur calculator, Dojo aur terminal solve hue. Moto log `.overhaul-evidence/lab40-runs/run-ajkk_tqy/lab.log` aur validator log `.overhaul-evidence/lab40-runs/validate.log` mein hai. [26 screenshots](../aws-deep-run/browser/shots-resilience/)
+
+**AWS docs 2026-11-22 ko padhe**
+
+- Timeout, capped backoff aur jitter. [AWS Builders’ Library](https://aws.amazon.com/builders-library/timeouts-retries-and-backoff-with-jitter/)
+- Standard SQS delivery, visibility aur receipts. [At-least-once delivery](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues-at-least-once-delivery.html) · [MessageId aur receipt handle](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-queue-message-identifiers.html) · [Visibility timeout](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html) · [DLQ aur retention](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-dead-letter-queues.html)
+- Atomic writes, conditions, 10 minute ka request token aur marker ki expiry. [DynamoDB transactions](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/transaction-apis.html) · [Conditional Put](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/Expressions.ConditionExpressions.html) · [TTL](https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/TTL.html)
+- Worker slots, polling aur failed batches. [Reserved concurrency](https://docs.aws.amazon.com/lambda/latest/dg/configuration-concurrency.html) · [SQS mapping aur visibility](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-configure.html) · [Partial batch responses](https://docs.aws.amazon.com/lambda/latest/dg/services-sqs-errorhandling.html) · [CLI mein file se attribute value](https://docs.aws.amazon.com/cli/latest/userguide/cli-usage-shorthand.html)
+- Region ki recovery aur business targets. [DR strategies aur RTO/RPO](https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/disaster-recovery-options-in-the-cloud.html)
+
+Agla level D9 `archboss` hai. User ke “next” ke baad shuru hoga.
+
 ## Architect D7 · `costdec` poora hua (2026-11-22, master §5.D7)
 
 PixShare ke October bill mein $9,000 NAT processing, $6,000 cross-AZ transfer aur $13,000 baaki kharche the. Level ab `data-arch-7-costdec.js` mein hai. Saved progress ka ID `costdec` aur badge `Bill Bachane Wala` wahi hain.

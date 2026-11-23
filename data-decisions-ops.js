@@ -7,6 +7,34 @@
    ===================================================================== */
 AG.registerDecisions([
   {
+    id:'workerretry',icon:'🔁',short:'Worker retry',title:'Thumbnail worker ko retry, ack ya DLQ kab dena hai?',
+    levels:['resilience'],start:'result',tldr:'Pehle dekho write ka kya hua. Phir payload, saved marker aur retry budget milao.',
+    nodes:{
+      result:{q:'Worker ko kaunsa result mila?',options:[{t:'Write commit hui ya pehle se marker mila',next:'saved'},
+        {t:'Write fail hui ya jawab hi nahi mila',next:'failed'}]},
+      saved:{q:'Committed record mein operation key aur payload milte hain?',options:[{t:'Haan, same kaam hai',next:'ack'},
+        {t:'Wahi key par alag photo ya version hai',next:'review'}]},
+      failed:{q:'Job mein dikkat kya hai?',options:[{t:'Temporary timeout hai. Safe retry aur waqt bacha hai.',next:'retry'},
+        {t:'Payload galat hai ya retry budget poora ho gaya',next:'review'},
+        {t:'Sirf optional suggestions down hain. Feed ready hai.',next:'fallback'}]},
+      ack:{leaf:true,icon:'✅',pick:'Ack do',one:'Durable write aur matching input mil gaye.',when:['Committed job ya pehchaani redelivery'],
+        avoid:['Sirf timeout ya koi bhi cancel reason'],gotchas:['Latest receipt handle se delete karo.'],level:'resilience'},
+      retry:{leaf:true,icon:'⏱️',pick:'Wahi key se retry',one:'Backoff aur jitter ke baad same operation bhejo.',when:['Temporary failure aur deadline mein waqt'],
+        avoid:['Permanent payload error'],gotchas:['Timeout ke baad pehli write commit ho sakti hai.'],level:'resilience'},
+      review:{leaf:true,icon:'📥',pick:'DLQ aur review',one:'Job ko aage ki ginti se bachao aur failure ka record rakho.',when:['Key conflict ya baar-baar kharaab payload'],
+        avoid:['Matching committed duplicate'],gotchas:['Source redrive policy aur DLQ retention milao.'],level:'resilience'},
+      fallback:{leaf:true,icon:'📰',pick:'Default feed dikhao',one:'Optional service ka wait chhodo. Ready feed wapas do.',when:['Recommendations down aur feed available'],
+        avoid:['Mandatory billing write chhodna'],gotchas:['Timeout chhota rakho aur degraded responses gino.'],level:'resilience'}
+    },
+    scenarios:[
+      {s:'Worker ko p7/v1 ka marker mila. Tenant, photo aur version bhi same hain. Total pehle hi badh chuka hai.',answer:'ack',explain:'Business write pehle commit ho gayi. Matching duplicate par counter phir badhaane ki zaroorat nahi hai.'},
+      {s:'S3 call ka jawab nahi mila. Operation safe hai. Deadline mein waqt hai aur pehli retry baaki hai.',answer:'retry',explain:'Temporary timeout par bounded wait ke baad wahi stable operation key bhejo.'},
+      {s:'Producer ne demo/p7/v1 key dobara bheji. Saved photo p7 hai par naya payload p9 ke liye hai.',answer:'review',explain:'Same key par alag input conflict hai. Worker ko successful duplicate bolkar message chhupaana nahi chahiye.'},
+      {s:'Recommendations ne jawab nahi diya. User ki recent photos ka default feed pehle se ready hai.',answer:'fallback',explain:'Optional feature ki failure ko feed se alag rakho. User ko available photos dikhao.'},
+      {s:'Message mein zaroori photo ID missing hai. Paanch receives par bhi wahi parsing error mili.',answer:'review',explain:'Wahi payload phir bhejne se parsing theek nahi hogi. DLQ mein copy aur error dekhkar producer fix karo.'}
+    ]
+  },
+  {
     id:'pixlogtools',icon:'🔍',short:'PixShare logs',title:'Log ko padhna, ginna ya search mein rakhna hai?',
     levels:['logsetl'],tldr:'Data abhi kahan hai? Team ko kitni baar aur kis tarah ka jawaab chahiye? Dono dekhkar tool chuno.',start:'need',
     nodes:{
