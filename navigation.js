@@ -46,6 +46,7 @@ AG.nav = (() => {
         case 'certificate':
           if (track && AG.trackUnlocked(track) && AG.trackProgress(track).complete) return showCertificate(track);
           break;
+        case 'sheet': if (!id) return AG.cheatsheet.show(); break;
         case 'search': if (!id) return AG.search.show(); break;
         case 'labs': if (!id) return AG.labHub.show(); break;
         case 'mock': if (!id) return AG.mock.show(); break;

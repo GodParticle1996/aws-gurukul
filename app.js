@@ -138,7 +138,9 @@ function showHome(backupNotice) {
   hub.onclick = () => AG.labHub.show();
   const search = el('button', 'btn ghost', 'Glossary aur search');
   search.onclick = () => AG.search.show();
-  tools.append(hub, search);
+  const sheet = el('button', 'btn ghost', 'Kab kya · Cheatsheet');
+  sheet.onclick = () => AG.cheatsheet.show();
+  tools.append(hub, search, sheet);
   appEl.appendChild(tools);
 
   // tracks

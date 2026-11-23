@@ -1,5 +1,13 @@
 # AWS Gurukul deep pass
 
+## Phase 5 E5 · Kab kya cheatsheet (2026-11-23)
+
+Home ki cheatsheet mein 41 level playbooks aur 170 Decision Dojo choices ek jagah hain. Subject chunne par sirf uske playbooks aur choices dikhte hain. Screen aur print ek hi filtered list lete hain. Poora syllabus bhi offline print kar sakte hain.
+
+Validator ne 211 entries aur unke topics check kiye. Chromium mein dono widths par poora syllabus, topic badalna aur print layout dekha. Resilience ki filtered list se 4-page PDF banaaya. Print mein Home, filter aur XP bar hat gaye. Lab runtime is app feature ka hissa nahi tha. [Validator](../aws-deep-run/logs/e5-validate.log) · [4 screenshots aur PDF](../aws-deep-run/browser/shots-e5/) · [Browser walk](../aws-deep-run/browser/e5.json)
+
+Agla item E6 do hisson waale levels hain.
+
 ## Phase 5 E4 · Glossary aur search (2026-11-23)
 
 Home se 34 AWS terms ka chhota matlab aur sambandhit level milta hai. Search app ke data se 41 level titles, 316 lesson cards, 317 flashcards aur 170 Decision Dojo ke faisle padhta hai. Ek saath kai shabd aur content ka filter chal sakta hai. Learner result kholkar card ya poora Dojo faisla padh sakta hai. Locked level ka lesson padhne se progress nahi badalti.

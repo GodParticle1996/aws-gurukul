@@ -1216,3 +1216,18 @@ pre {
 .search-hit summary { cursor:pointer; }
 .search-hit .strip-sub { display:block; }
 .search-hit a { color:var(--gold); }
+
+.sheet-filter { max-width:100%; min-width:0; font:inherit; padding:.5rem; color:var(--text); background:var(--panel2); }
+.sheet-entry { margin:.8rem 0; padding:.8rem; border:1px solid var(--border); border-radius:.6rem; overflow-wrap:anywhere; }
+.sheet-entry :is(h3,h4,p,ul) { margin:.45rem 0; }
+@media print {
+  body:has(.cheat-sheet), .cheat-sheet, .cheat-sheet * { background:white !important; color:black !important; box-shadow:none !important; text-shadow:none !important; }
+  body:has(.cheat-sheet) #topbar, .cheat-sheet .sheet-controls { display:none !important; }
+  #app:has(.cheat-sheet), .cheat-sheet { margin:0; padding:0; max-width:none; border:0; }
+  .cheat-sheet { font:10pt/1.35 system-ui,sans-serif; }
+  .sheet-entry { break-inside:avoid-page; border:1px solid #bbb; padding:6pt; margin:0 0 6pt; }
+  .sheet-entry .playbook { margin:0; padding:0; border:0; }
+  .sheet-entry .pb-grid { display:block; }
+  .sheet-entry .pb-col { padding:0; }
+  .cheat-sheet :is(h2,h3,h4,h5) { break-after:avoid; }
+}
