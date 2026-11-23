@@ -1,5 +1,13 @@
 # AWS Gurukul deep pass
 
+## Phase 5 E3 · Lab Hub (2026-11-23)
+
+Home par Lab Hub se sabhi 41 lab khol sakte hain. Har lab mein README ka naam, repo root se setup ke commands, Moto ki ek khaas limit aur poora README milta hai. Poori waala checkbox learner khud lagaata hai. Checkbox ki list reload aur JSON backup mein bachti hai.
+
+Validator ne 41 folders ko level ke docker stages, README titles aur setup commands se milaaya. Chromium mein 360 aur 1280 px par mark, unmark, reload, copy aur clipboard band hone par command select karna chale. Browser walk mein har size par 444 screens khuli. E3 mein lab commands run nahi kiye. [Validator](../aws-deep-run/logs/e3-validate.log) · [4 screenshots](../aws-deep-run/browser/shots-e3/) · [Browser walk](../aws-deep-run/browser/e3.json)
+
+Agla item E4 glossary aur search hai.
+
 ## Phase 5 E2 · SAA mock exam aur topic ke scores (2026-11-23)
 
 Poora syllabus pehle din se milta hai. 41 levels ke quiz aur interview se 504 sawaal aaye. Chaar naye sawaalon mein do jawaab chunne hain. Har mock mein 65 sawaal hain. Score ke 50 sawaalon mein Secure 15, Resilient 13, High-performing 12 aur Cost-optimized 10 hain. Baaki 15 ke jawaab bhi review mein milte hain. Home par pichhle attempt ke chaar raw scores dikhte hain.

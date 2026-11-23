@@ -87,6 +87,7 @@ AG.resume = (() => {
     const validStreak = s => isRecord(s) && (s.last === null || (text(s.last) && /^\d{4}-\d{2}-\d{2}$/.test(s.last))) &&
       count(s.count) && count(s.best) && s.best >= s.count;
     const fields = {
+      labs: v => AG.labHub.valid(v),
       mock: v => AG.mock.valid(v),
       xp: count, completed: ids => listOfIds(ids) && ids.every(id => AG.findLevel(id)) && new Set(ids).size === ids.length,
       levelStarts: count, streak: validStreak, dojo: v => mapOf(v, validCard),

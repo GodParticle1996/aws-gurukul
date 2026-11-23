@@ -1200,3 +1200,11 @@ pre {
 .mock-review { padding:.75rem 0; border-bottom:1px solid var(--line); }
 .mock-review summary { cursor:pointer; }
 .mock-clock { display:inline-block; padding:.5rem; font-variant-numeric:tabular-nums; }
+
+.study-tools { margin:1rem 0; }
+.hub-lab { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:.55rem; align-items:start; border-top:1px solid #34415b; padding:.7rem 0; }
+.lab-guide summary { cursor:pointer; font-weight:600; padding:.4rem 0; }
+.lab-guide pre { white-space:pre-wrap; overflow-wrap:anywhere; min-width:0; }
+.lab-guide .dk-cmdrow { flex-wrap:wrap; }
+.lab-guide a { color:var(--gold); }
+.lab-check { padding:.4rem 0; white-space:nowrap; }

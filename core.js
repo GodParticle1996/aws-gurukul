@@ -43,6 +43,7 @@ AG.defaultState = function () {
     streak: { last: null, count: 0, best: 0 },
     soch: {},             // case id -> best number of first-try answers
     resume: null,
+    labs: [],
     mock: { active: null, history: [] },
     levelStarts: 0,       // for pop-quiz cadence
   };
@@ -65,6 +66,7 @@ AG.readProgress = function (saved) {
   state.xp = count(saved.xp);
   state.levelStarts = count(saved.levelStarts);
   state.resume = AG.readCheckpoint(saved.resume);
+  if (AG.labHub?.valid(saved.labs)) state.labs = saved.labs.slice();
   if (saved.mock && AG.mock?.valid(saved.mock)) state.mock = saved.mock;
   if (Array.isArray(saved.completed))
     state.completed = [...new Set(saved.completed.filter(id => typeof id === 'string' && id))];

@@ -132,6 +132,12 @@ function showHome(backupNotice) {
   appEl.appendChild(soch);
 
   appEl.appendChild(AG.mock.home());
+  const tools = el('nav', 'btnrow study-tools');
+  tools.setAttribute('aria-label', 'Padhai ke tools');
+  const hub = el('button', 'btn ghost', 'Lab Hub');
+  hub.onclick = () => AG.labHub.show();
+  tools.appendChild(hub);
+  appEl.appendChild(tools);
 
   // tracks
   const map = el('section', 'trackmap');
