@@ -20,7 +20,7 @@ awsgurukul/
 ├── data-beg-1-*.js … data-beg-8-*.js ← Track 1 (8 separate level files)
 ├── data-int-*.js           ← Track 2 (12 levels)
 ├── data-adv-*.js           ← Track 3 (12 levels)
-├── data-architect.js       ← Track 4 (9 levels — decision-first)
+├── data-arch-*.js          ← Track 4 (9 levels — decision-first)
 ├── validate.js             ← offline full-app validator (node validate.js)
 ├── app.js                  ← screens: home/track/level/interview/dojo/certs
 ├── gallery.html            ← saare diagrams ek page par
@@ -34,7 +34,7 @@ awsgurukul/
 core.js → data-core.js → visuals.js → games.js → awscli.js
        → labs.js → decisions.js → data-beg-1-*.js … data-beg-8-*.js
        → data-int-*.js → data-adv-*.js
-       → data-architect.js → data-decisions-*.js → app.js
+       → data-arch-*.js → data-decisions-*.js → app.js
 ```
 
 **Kyun?**
@@ -139,7 +139,7 @@ cd awsgurukul
 node --check data-beg-8-boss1.js     # ya relevant track file
 # Combined check (catches cross-file redeclaration):
 cat core.js data-core.js visuals.js games.js awscli.js \
-    data-beg-*.js data-int-*.js data-adv-*.js data-architect.js app.js > /tmp/c.js
+    data-beg-*.js data-int-*.js data-adv-*.js data-arch-*.js app.js > /tmp/c.js
 node --check /tmp/c.js
 
 # Ya sab kuch ek saath (recommended) — syntax, duplicates, schemas,

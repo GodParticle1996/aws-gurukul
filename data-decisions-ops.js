@@ -7,8 +7,32 @@
    ===================================================================== */
 AG.registerDecisions([
   {
+    id:'pixreview',icon:'👑',title:'Global review mein pehle kis path ko badloge?',short:'PixShare design review',
+    levels:['archboss'],start:'path',tldr:'Kiski request fail hui? Timeline, operation key aur source files se badlaav chuno.',
+    nodes:{
+      path:{q:'Kaunsa result bigda hai?',options:[{t:'Nayi upload ki receipt ya worker ka bill',next:'write'},{t:'Photo ya report ki read',next:'read'}]},
+      write:{q:'Worker ke records kya dikhaate hain?',options:[{t:'ACK thumbnail ka wait kar raha hai',next:'queue'},{t:'Same operation par units do baar judin',next:'ledger'}]},
+      read:{q:'Kis tarah ki read hai?',options:[{t:'Versioned public photo baar-baar origin tak jaati hai',next:'edge'},{t:'Country report live feed ki capacity le rahi hai',next:'lake'}]},
+      queue:{leaf:true,icon:'📨',pick:'Durable async job',one:'Job accept hone par receipt do. Thumbnail ko baad mein banao.',
+        when:['Upload aur thumbnail ke targets alag hain'],avoid:['Response mein turant final thumbnail chahiye'],gotchas:['Queue age aur worker errors dekho.'],level:'archboss'},
+      ledger:{leaf:true,icon:'🧾',pick:'Atomic usage ledger',one:'Stable operation ka marker aur counter saath commit karo.',
+        when:['Redelivery par double bill'],avoid:['Har attempt nayi billable edit hai'],gotchas:['Same key par payload milao.'],level:'resilience'},
+      edge:{leaf:true,icon:'🌐',pick:'Versioned photo cache',one:'Public bytes ko edge se do. Origin ko private rakho.',
+        when:['Kai users wahi photo maangte hain'],avoid:['Personal feed shared cache mein'],gotchas:['Miss ke liye S3 path aur permission chahiye.'],level:'edge'},
+      lake:{leaf:true,icon:'📊',pick:'S3 export aur Athena',one:'Bade report ke liye analytics copy chuno.',
+        when:['Country aur date par aggregation'],avoid:['Latest single-user feed ka online read'],gotchas:['Export ki age aur date partition milao.'],level:'datastore'}
+    },
+    scenarios:[
+      {s:'Worker band hote hi upload API timeout karti hai. User ko abhi receipt chahiye. Thumbnail das minute baad mil sakti hai.',answer:'queue',explain:'Durable job accept hone par upload ko jawab do. Worker apne recovery time par chalega.'},
+      {s:'Same p7/v1 ke do receipt handles mile. Dono attempts ne demo tenant ka total badhaaya.',answer:'ledger',explain:'Delivery handle badla, billable operation wahi hai. Marker aur usage saath likho.'},
+      {s:'Public p7/v1 ke bytes sab users ko same milte hain. Har repeat read Virginia ke S3 tak jaati hai.',answer:'edge',explain:'Versioned media par edge hit se origin trip bachta hai. S3 ko scoped OAC se padho.'},
+      {s:'Quarter ki country report sab creators scan karti hai. Feed read usi waqt throttle hoti hai. Kal tak ka data chalega.',answer:'lake',explain:'Report alag analytics copy par chalao. Feed ki online capacity users ke liye bachaao.'},
+      {s:'Producer timeout ke baad nayi message ID ke saath wahi billable edit bhejta hai. Finance ko ek hi charge chahiye.',answer:'ledger',explain:'Stable key producer retries par bhi wahi rehti hai. Naya message ID alag edit ka proof nahi hai.'}
+    ]
+  },
+  {
     id:'workerretry',icon:'🔁',short:'Worker retry',title:'Thumbnail worker ko retry, ack ya DLQ kab dena hai?',
-    levels:['resilience'],start:'result',tldr:'Pehle dekho write ka kya hua. Phir payload, saved marker aur retry budget milao.',
+    levels:['resilience','archboss'],start:'result',tldr:'Pehle dekho write ka kya hua. Phir payload, saved marker aur retry budget milao.',
     nodes:{
       result:{q:'Worker ko kaunsa result mila?',options:[{t:'Write commit hui ya pehle se marker mila',next:'saved'},
         {t:'Write fail hui ya jawab hi nahi mila',next:'failed'}]},

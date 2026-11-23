@@ -217,7 +217,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience || sim.account.pixBoss) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -229,7 +229,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   arena.append(goalBox, term, btns);
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
-  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience) }), 100);
+  setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience || sim.account.pixBoss) }), 100);
 
   const cmdHistory = [];
   let histIdx = -1;
@@ -512,6 +512,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('sys', 'Cost fixture: aws ec2 describe-volumes/create-snapshot/wait snapshot-completed/delete-volume/modify-volume/describe-volumes-modifications/describe-snapshots/delete-snapshot/describe-addresses/release-address; aws logs describe-log-groups/put-retention-policy; aws budgets create-budget/describe-budget/create-notification/describe-notifications-for-budget; aws sns get-topic-attributes/set-topic-attributes; aws ce get-cost-and-usage.\nls / cat FILE. Metadata + declared TEST preservation contracts; no real bill, disk I/O, or automatic alerts.');
       return;
     }
+    if (norm === 'help' && sim.account.pixBoss) {
+      print('sys','cat review.txt se shuru karo. Route, reader, redrive, worker handler, cap aur log subscription theek karo. Do alag receipt files se worker invoke karo. cat reset-test.txt sirf test tenant 41 ki ginti saaf karta hai.');
+      return;
+    }
     if (norm === 'help' && sim.account.pixResilience) {
       print('sys','cat release.txt se shuru karo. DynamoDB ki table banao aur ready hone do. Source par SQS redrive policy aur Lambda worker par reserved concurrency lagao. Transaction ki file do baar chalao. Phir get-item se total padho.');
       return;
@@ -723,7 +727,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.pixCompute && service === 'lambda' && flag('region') !== null && flag('region') !== sim.account.region) {
       return print('err', 'PixShare ke functions ' + sim.account.region + ' mein hain.');
     }
-    if (sim.account.pixLogs && AG.logsetlCLI({service,op,toks,flag,sim,print,resultJson})) return;
+    if ((sim.account.pixLogs || sim.account.pixBoss) && AG.logsetlCLI({service,op,toks,flag,sim,print,resultJson})) return;
     if (sim.account.pixMessaging && AG.messagingCLI({service,op,toks,flag,sim,list,print,resultJson})) return;
     if (sim.account.pixData && AG.datastoreCLI({service,op,toks,flag,sim,list,print,resultJson,putObject})) return;
     // Scoped DR fixture owns its documented flags (copy-image, image waiter, cross-Region replica) before the shared guard.
@@ -731,7 +735,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     if (sim.account.hybridMode && AG.hybridCLI && AG.hybridCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     // Scoped container fixture owns ecr/ecs plus its read-only iam/elbv2 views (its target groups are not the ALB lab's).
     if (sim.account.containerMode && AG.containerCLI && AG.containerCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
-    if (sim.account.pixBill && AG.costdecCLI({service,op,toks,flag,flags,sim,print,resultJson})) return;
+    if ((sim.account.pixBill || sim.account.pixBoss) && AG.costdecCLI({service,op,toks,flag,flags,sim,print,resultJson})) return;
     if ((sim.account.costMode || sim.account.pixBill && ['budgets','ce'].includes(service)) && AG.costCLI && AG.costCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.obsMode && AG.obsCLI && AG.obsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
     if (sim.account.dmsMode && AG.dmsCLI && AG.dmsCLI({service,op,toks,flag,flags,sim,list,print,resultJson})) return;
@@ -2306,7 +2310,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
             };
             try {
               if(duration>(target.timeout||3)*1000)throw Error('Sandbox.Timedout: '+requestId+' Task timed out after '+Number(target.timeout||3).toFixed(2)+' seconds');
-              if(target.sagaOperation)body=AG.sagaWorker(sim.account,target,payload);
+              if(sim.account.pixBoss && fn.name===AG.pixResilience.worker)body=AG.pixBoss.invoke(sim.account,target,payload);
+              else if(target.sagaOperation)body=AG.sagaWorker(sim.account,target,payload);
               else if(!target.workload){try{body=JSON.parse(target.invokeResult||'{"status":"ok"}');}catch(e){body=target.invokeResult;}}
               else {
                 if(!object(payload)||!Array.isArray(payload.Records)||!payload.Records.length)throw Error('ValueError: Invoke payload must contain nonempty Records');

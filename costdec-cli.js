@@ -129,5 +129,23 @@
       reader:reader?.id||'unavailable',az:reader?.az,appAZ:az,writer:writer?.id,writerAZ:writer?.az,
       fallback:!!fallback,fallbackAZ:fallback?.az,version:a.readerSetting.version};
   }
-  AG.pixBill={region,account,vpc,service,group,local,remote,parameter,address,budget,notice,subscribers,assets,seed,pathState};
+  function routes(a){
+    const p=pathState(a), endpoints=a.vpcEndpoints.filter(e=>e.state==='available' && e.type==='Gateway' && e.vpcId===vpc && e.serviceName===service);
+    return endpoints.some(e=>a.prefixLists.some(pl=>pl.id===e.prefixListId && pl.name===service) &&
+      ['a','b'].every((zone,index)=>{
+        const table=a.routeTables.find(t=>t.vpcId===vpc && t.associations.some(x=>x.subnetId==='subnet-'+zone));
+        const nat='nat-'+zone;
+        return table && e.routeTableIds.includes(table.id) &&
+          table.routes.some(r=>r.prefixListId===e.prefixListId && r.state==='active' && r.target===e.id) &&
+          table.routes.some(r=>r.destination==='0.0.0.0/0' && r.state==='active' && r.target===nat) &&
+          p.s3[index]===e.id && p.other[index]===nat &&
+          a.natGateways.some(n=>n.id===nat && n.state==='available' && n.subnetId==='subnet-pub-'+zone);
+      }));
+  }
+  function cache(a){
+    const g=a.cacheGroups.find(g=>g.id===group),p=pathState(a);
+    return g?.status==='available' && g.multiAZ && g.automaticFailover && p.appAZ===region+'a' && p.az===p.appAZ &&
+      p.reader===local && p.writer==='pix-writer-c' && p.writerAZ===region+'c' && p.fallback && p.fallbackAZ===region+'b';
+  }
+  AG.pixBill={region,account,vpc,service,group,local,remote,parameter,address,budget,notice,subscribers,assets,seed,pathState,routes,cache};
 })();

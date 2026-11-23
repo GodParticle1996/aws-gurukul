@@ -609,30 +609,13 @@ const VISUALS = {
   },
 
   archboss: {
-    t: 'Final Boss — PixShare global architecture',
-    html: `
-      <div class="dg-flow">
-        <div class="dg-node" data-hs="user"><span class="ni">📱</span><span class="nl">Users (global)</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-good"><span class="ni">🌍</span><span class="nl">CloudFront + S3</span><span class="ns">media/static</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-accent"><span class="ni">🚪</span><span class="nl">API GW / ALB</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-gold"><span class="ni">⚡</span><span class="nl">Lambda / Fargate</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:10px">
-        <div class="dg-node"><span class="ni">🖼️</span><span class="nl">S3 upload</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-good"><span class="ni">📢</span><span class="nl">SNS/EventBridge</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-accent"><span class="ni">📨</span><span class="nl">SQS → thumbnails</span></div>
-        <div class="dg-arrow flow"></div>
-        <div class="dg-node is-gold"><span class="ni">🗄️</span><span class="nl">DynamoDB + Aurora + ElastiCache</span></div>
-      </div>
-      <div class="dg-flow" style="margin-top:10px">
-        <span class="dg-pill acc">Logs → Firehose → OpenSearch + S3</span>
-        <span class="dg-pill good">Multi-AZ · Savings Plans + Spot · Well-Architected</span>
-      </div>
-      <div class="dg-cap">Sab kuch ek saath: <b>compute + storage/DB + messaging + events + observability + edge + cost + resilience</b>. Har layer ka service <b>requirement, cost aur blast-radius</b> ke hisaab se chuna gaya. Yehi Decision Architect ka kaam hai.</div>`,
+    t: 'PixShare · photo ki read aur upload ki receipt',
+    html: `<div class="dg-split"><div class="dg-box is-good"><span class="bx-label">Public photo</span><div class="dg-col">
+      <span class="dg-pill good">Viewer → CloudFront</span><span class="dg-pill">Miss → OAC → private S3</span></div></div>
+      <div class="dg-box is-accent"><span class="bx-label">Personal feed</span><div class="dg-col"><span class="dg-pill">API → local reader</span><span class="dg-pill">Miss → DynamoDB Query</span></div></div></div>
+      <div class="dg-flow"><div class="dg-node"><span class="nl">Upload API</span><span class="ns">Durable job → ACK</span></div><div class="dg-arrow flow"></div>
+      <div class="dg-node"><span class="nl">SNS → SQS</span><span class="ns">Worker · cap 4</span></div><div class="dg-arrow flow"></div>
+      <div class="dg-node is-good"><span class="nl">Usage ledger</span><span class="ns">Marker aur +1 saath</span></div></div>
+      <div class="dg-cap">EventBridge sirf matching uploads review ko deta hai. Audit sab logs rakhta hai. Report date ke S3 export se chalti hai.</div>`
   },
 };

@@ -615,8 +615,11 @@ pre {
 }
 .cert-crown { font-size: 3.4rem; }
 .cert-inner h1 { letter-spacing: 8px; color: var(--gold); margin: 8px 0 2px; }
+@media (max-width: 480px) {
+  .cert-inner h1 { font-size: 1.65rem; letter-spacing: 2px; }
+}
 .cert-sub { color: var(--muted); letter-spacing: 2px; text-transform: uppercase; font-size: .8rem; }
-.cert-stars { color: var(--gold); margin: 12px 0; }
+.cert-stars { color: var(--gold); margin: 12px 0; overflow-wrap: anywhere; }
 .cert-stars span { color: var(--muted); font-size: .85rem; }
 .cert-badges { font-size: 1.7rem; letter-spacing: 10px; margin: 10px 0; }
 .cert-formula { color: var(--accent); font-weight: 600; }

@@ -85,6 +85,7 @@ App mein jis level ka "🐳 Real lab" stage aata hai, woh isi folder ka naam bat
 | [38-edge-entry-points](38-edge-entry-points/README.md) | 🌍 Architect · Edge | CloudFront ke do routes, private ALB listener, S3 aur WAF ka readback |
 | [39-nat-vs-endpoint-bill](39-nat-vs-endpoint-bill/README.md) | 💰 Architect · Hidden costs | Do private tables, S3 prefix aur default NAT ke raaste ka kharcha |
 | [40-idempotent-consumer](40-idempotent-consumer/README.md) | 🛡️ Architect · Resilience | SQS redelivery, DynamoDB marker aur counter ka atomic write, conflict ka DLQ |
+| [41-pixshare-terraform](41-pixshare-terraform/README.md) | 👑 Architect · PixShare global review | Terraform core, do message paths aur duplicate par same usage |
 
 (Naye labs har level ke rewrite ke saath judte jaayenge.)
 

@@ -127,7 +127,7 @@ Poora guide: [`EXTENDING.md`](EXTENDING.md)
 | `visuals.js` | 38 concept diagrams (`VISUALS[levelId]`) |
 | `data-core.js` | Ranks + track definitions |
 | `data-beg-*.js` / `data-int-*.js` / `data-adv-*.js` | Level content |
-| `data-architect.js` | Track 4 — decision-first service selection (PixShare story) |
+| `data-arch-*.js` | Track 4 — decision-first service selection (PixShare story) |
 | `validate.js` | **Offline full-app validator** — `node validate.js` |
 | `gallery.html` | Saare diagrams ek page par |
 | `PLAN.md` | Original build plan |

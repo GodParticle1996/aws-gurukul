@@ -20,24 +20,7 @@
         '\nFeed app: '+p.appAZ+' · chuna reader: '+p.reader+' · '+(p.az||'unavailable')+'\nWriter: '+p.writer+' · remote fallback ready: '+p.fallback;
     }}};
   const task=(text,check)=>({text,check:s=>check(s.account)});
-  function routes(a){
-    const p=B.pathState(a), endpoints=a.vpcEndpoints.filter(e=>e.state==='available' && e.type==='Gateway' && e.vpcId===B.vpc && e.serviceName===B.service);
-    return endpoints.some(e=>a.prefixLists.some(pl=>pl.id===e.prefixListId && pl.name===B.service) &&
-      ['a','b'].every((zone,index)=>{
-        const table=a.routeTables.find(t=>t.vpcId===B.vpc && t.associations.some(x=>x.subnetId==='subnet-'+zone));
-        const nat='nat-'+zone;
-        return table && e.routeTableIds.includes(table.id) &&
-          table.routes.some(r=>r.prefixListId===e.prefixListId && r.state==='active' && r.target===e.id) &&
-          table.routes.some(r=>r.destination==='0.0.0.0/0' && r.state==='active' && r.target===nat) &&
-          p.s3[index]===e.id && p.other[index]===nat &&
-          a.natGateways.some(n=>n.id===nat && n.state==='available' && n.subnetId==='subnet-pub-'+zone);
-      }));
-  }
-  function cache(a){
-    const g=a.cacheGroups.find(g=>g.id===B.group),p=B.pathState(a);
-    return g?.status==='available' && g.multiAZ && g.automaticFailover && p.appAZ===B.region+'a' && p.az===p.appAZ &&
-      p.reader===B.local && p.writer==='pix-writer-c' && p.writerAZ===B.region+'c' && p.fallback && p.fallbackAZ===B.region+'b';
-  }
+  const {routes,cache}=B;
   function guard(a){
     const i=a.instances.find(i=>i.id===B.assets[0]),v=a.volumes.find(v=>v.id===B.assets[1]);
     const b=a.budgets.find(b=>b.definition.BudgetName==='pix-month'),d=b?.definition;
