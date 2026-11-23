@@ -1,10 +1,10 @@
 /* A bookmark opens a screen. A level bookmark always opens its lesson. */
-AG.levelOpen = function (level) {
+AG.levelOpen = function (level, state = AG.state) {
   const track = AG.trackOf(level);
-  if (!track || !AG.trackUnlocked(track)) return false;
+  if (!track || !AG.trackUnlocked(track, state)) return false;
   const levels = AG.levelsOf(track);
   const i = levels.indexOf(level);
-  return i === 0 || AG.state.completed.includes(level.id) || AG.state.completed.includes(levels[i - 1].id);
+  return i === 0 || state.completed.includes(level.id) || state.completed.includes(levels[i - 1].id);
 };
 
 AG.nextLevel = function () {

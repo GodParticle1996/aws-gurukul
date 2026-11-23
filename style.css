@@ -1186,3 +1186,8 @@ pre {
 .term-palette summary { cursor: pointer; color: var(--gold); }
 .term-palette code { display: inline-block; overflow-wrap: anywhere; margin: 6px 6px 0 0; padding: 3px 7px; background: var(--panel2); border-radius: 5px; }
 .terminal ~ .stage-summary { overflow-wrap: anywhere; }
+
+.backup-settings { margin: 28px 0 12px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.backup-settings summary { cursor: pointer; color: var(--gold); font-weight: 600; }
+.backup-status { overflow-wrap: anywhere; }
+.backup-status:empty, .backup-settings .btnrow:empty { display: none; }

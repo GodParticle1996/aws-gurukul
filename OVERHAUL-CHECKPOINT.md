@@ -1,5 +1,15 @@
 # AWS Gurukul deep pass
 
+## Phase 5 E1 · Adhoora challenge aur progress ka backup (2026-11-23)
+
+Home par **Wahin se shuru karo** level aur challenge ka naam dikhaata hai. Challenge beech mein chhodein to uski shuruaat phir khulti hai. Pehle mile XP dobara nahi judte. Poora hua challenge save ho jaata hai, tab bhi jab learner ne abhi Agla button na dabaaya ho.
+
+Settings se JSON download hota hai. Import se pehle learner XP aur poore levels dekhkar file chun sakta hai. Purane saves padhe jaate hain. File kharaab ho ya browser save na kar paaye to pehli progress bachi rehti hai.
+
+- Validator ne 41 levels ke 360 challenge save points, XP, stars, replay aur 20 galat backups check kiye. [Validator](../aws-deep-run/logs/e1-validate.log)
+- Chromium mein 360 aur 1280 px par file download karke doosre browser profile mein waapas laayi. Dono sizes par adhoora challenge khula. Browser walk mein har size par 444 screens par zero errors aur zero overflow mile. [8 screenshots](../aws-deep-run/browser/shots-e1/) · [Browser walk](../aws-deep-run/browser/e1.json)
+- E1 sirf app ka feature hai. AWS ya Docker lab ka run nahi tha. Agla item E2 mock exam hai.
+
 ## Phase 4 · Terminal ki madad, lesson links aur Soch Akhada (2026-11-23)
 
 Architect ke baad user ne Phase 4 jaari rakhne ko kaha. Ab Home ka **Agla kadam** pehla khula, adhoora level kholta hai. Track, lesson, certificate, dono Dojo aur Soch case ka apna link hai. Back, Forward aur reload usi jagah le jaate hain. Level ka link lesson ke shuru mein khulta hai. Adhoore challenge ka save point Phase 5 ka hissa hai.

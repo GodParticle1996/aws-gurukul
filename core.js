@@ -42,8 +42,17 @@ AG.defaultState = function () {
     dojo: {},             // cardId -> { box, due (ms), front, back, tag }
     streak: { last: null, count: 0, best: 0 },
     soch: {},             // case id -> best number of first-try answers
+    resume: null,
     levelStarts: 0,       // for pop-quiz cadence
   };
+};
+
+AG.readCheckpoint = function (point) {
+  if (!point || typeof point.levelId !== 'string' || !point.levelId ||
+      ![point.stageIdx, point.firstTry, point.total, point.earnedXP].every(n => Number.isSafeInteger(n) && n >= 0) ||
+      point.firstTry > point.total || typeof point.replay !== 'boolean' || typeof point.ready !== 'boolean') return null;
+  const { levelId, stageIdx, firstTry, total, earnedXP, replay, ready } = point;
+  return { levelId, stageIdx, firstTry, total, earnedXP, replay, ready };
 };
 
 // Purane save mein ek kharab field ho toh baaki progress bacha lo.
@@ -54,6 +63,7 @@ AG.readProgress = function (saved) {
   if (!record(saved)) return state;
   state.xp = count(saved.xp);
   state.levelStarts = count(saved.levelStarts);
+  state.resume = AG.readCheckpoint(saved.resume);
   if (Array.isArray(saved.completed))
     state.completed = [...new Set(saved.completed.filter(id => typeof id === 'string' && id))];
   if (record(saved.stars))
@@ -84,11 +94,14 @@ AG.loadState = function () {
   try { return AG.readProgress(JSON.parse(localStorage.getItem(AG.STORE_KEY))); }
   catch (e) { return AG.defaultState(); }
 };
-AG.saveState = function () {
+AG.saveState = function (state = AG.state) {
   // private window / storage full / blocked site data mein setItem throw karta hai —
   // progress save na ho toh bhi app chalti rahe
-  try { localStorage.setItem(AG.STORE_KEY, JSON.stringify(AG.state)); }
-  catch (e) { if (!AG._saveWarned) { AG._saveWarned = true; console.warn('progress save nahi hua:', e.message); } }
+  try { localStorage.setItem(AG.STORE_KEY, JSON.stringify(state)); return true; }
+  catch (e) {
+    if (!AG._saveWarned) { AG._saveWarned = true; console.warn('progress save nahi hua:', e.message); }
+    return false;
+  }
 };
 AG.state = AG.loadState();
 
@@ -125,13 +138,21 @@ AG.currentRank = function () {
 };
 AG.nextRank = function () { return RANKS.find(r => r.xp > AG.state.xp) || null; };
 AG.addXP = function (n) {
-  if (AG.session && AG.session.replay) return;
-  if (n <= 0) return;
+  if (AG.session && AG.session.replay) return 0;
+  if (AG.session?.stagePoint && AG.session.stagePoint === AG.state.resume) {
+    // A reopened challenge starts fresh. Only award points above its previous total.
+    const point = AG.session.stagePoint;
+    AG.session.attemptXP += n;
+    n = Math.max(0, AG.session.attemptXP - point.earnedXP);
+    point.earnedXP += n;
+  }
+  if (n <= 0) return 0;
   AG.state.xp += n;
   AG.touchStreak();
   AG.saveState();
   if (typeof renderTopbar === 'function') renderTopbar();
   AG.floatXP(n);
+  return n;
 };
 AG.floatXP = function (n) {
   const bar = document.getElementById('topbar');
@@ -239,13 +260,13 @@ AG.findLevel = function (id) {
   for (const t of AG.tracks) { const l = (AG.levelSets[t.id] || []).find(x => x.id === id); if (l) return l; }
   return null;
 };
-AG.trackProgress = function (track) {
+AG.trackProgress = function (track, state = AG.state) {
   const levels = AG.levelsOf(track);
-  const done = levels.filter(l => AG.state.completed.includes(l.id)).length;
+  const done = levels.filter(l => state.completed.includes(l.id)).length;
   return { done, total: levels.length, complete: done === levels.length && levels.length > 0 };
 };
-AG.trackUnlocked = function (track) {
+AG.trackUnlocked = function (track, state = AG.state) {
   const idx = AG.tracks.indexOf(track);
   if (idx <= 0) return true;
-  return AG.trackProgress(AG.tracks[idx - 1]).complete;
+  return AG.trackProgress(AG.tracks[idx - 1], state).complete;
 };

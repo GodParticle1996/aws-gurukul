@@ -41,7 +41,7 @@ function diagramFor(id, hero) {
 /* ============================================================
    HOME
    ============================================================ */
-function showHome() {
+function showHome(backupNotice) {
   AG.nav.set('');
   AG.session = null;
   renderTopbar();
@@ -54,7 +54,15 @@ function showHome() {
 
   const nextLevel = AG.nextLevel();
   const nextCard = el('section', 'next-card');
-  if (nextLevel) {
+  const point = AG.resume.current();
+  if (point) {
+    const level = AG.findLevel(point.levelId);
+    nextCard.classList.add('resume-card');
+    nextCard.appendChild(el('div', '', '<b>Wahin se shuru karo</b><div>' + level.title + ' · ' + AG.resume.label(point, level) + '</div>'));
+    const resume = el('button', 'btn', point.ready ? 'Nateeja dekho →' : 'Challenge kholo →');
+    resume.onclick = () => AG.resume.open(level);
+    nextCard.appendChild(resume);
+  } else if (nextLevel) {
     const track = AG.trackOf(nextLevel);
     nextCard.appendChild(el('div', '', '<b>Agla kadam</b><div>' + track.name + ' · ' + nextLevel.title + '</div>'));
     const open = el('button', 'btn', 'Level kholo →');
@@ -142,6 +150,7 @@ function showHome() {
   });
   appEl.appendChild(map);
 
+  appEl.appendChild(AG.resume.settings(typeof backupNotice === 'string' ? backupNotice : ''));
   const foot = el('div', 'home-foot');
   const reset = el('button', 'btn ghost small', '↺ Saara progress reset karo');
   reset.onclick = () => {
@@ -264,7 +273,10 @@ function showIntro(level) {
   const back = el('button', 'btn ghost', '← Level map');
   back.onclick = () => showTrack(track);
   const start = el('button', 'btn big', `🎮 Shuru karo (${totalStages} challenges)`);
+  const saved = AG.resume.current();
+  if (saved?.levelId === level.id) start.textContent = AG.resume.label(saved, level) + ' →';
   start.onclick = () => {
+    if (AG.resume.open(level)) return;
     AG.state.levelStarts++;
     AG.saveState();
     const begin = () => {
@@ -436,6 +448,7 @@ function runStage() {
   const { level, stageIdx } = session;
   const stages = allStages(level);
   const stage = stages[stageIdx];
+  AG.resume.startStage(session);
   appEl.innerHTML = '';
   window.scrollTo(0, 0);
 
@@ -481,16 +494,20 @@ function stageDone(stats, wrap) {
   AG.session.total += stats.total;
   const stages = allStages(AG.session.level);
   const perfect = stats.total > 0 && stats.firstTry === stats.total;
-  if (perfect) AG.addXP(AG.PERFECT_BONUS);
+  const bonus = perfect ? AG.addXP(AG.PERFECT_BONUS) : 0;
+  AG.resume.finishStage(AG.session, stages.length);
 
   const sum = el('div', 'stage-summary pop');
   sum.innerHTML = `
     <div class="sum-emoji">${perfect ? '🌟' : stats.firstTry / (stats.total || 1) >= 0.6 ? '✅' : '😅'}</div>
-    <div class="sum-title">${perfect ? (AG.session.replay ? 'PERFECT!' : 'PERFECT! +' + AG.PERFECT_BONUS + ' XP bonus') : 'Challenge complete'}</div>
+    <div class="sum-title">${perfect ? (bonus ? 'PERFECT! +' + bonus + ' XP bonus' : 'PERFECT!') : 'Challenge complete'}</div>
     <div class="sum-detail">${stats.firstTry}/${stats.total} first-try sahi</div>`;
   const btn = el('button', 'btn big',
     AG.session.stageIdx + 1 < stages.length ? 'Agla challenge →' : 'Level khatam karo 🏁');
+  const session = AG.session;
   btn.onclick = () => {
+    if (btn.disabled || session !== AG.session || wrap.isConnected === false) return;
+    btn.disabled = true;
     AG.session.stageIdx++;
     if (AG.session.stageIdx < stages.length) runStage();
     else levelComplete();
@@ -585,6 +602,7 @@ function levelComplete() {
   const acc = total ? firstTry / total : 1;
   const stars = acc >= 0.9 ? 3 : acc >= 0.7 ? 2 : 1;
 
+  if (AG.state.resume?.levelId === level.id) AG.state.resume = null;
   const firstClear = !AG.state.completed.includes(level.id);
   if (firstClear) {
     AG.state.completed.push(level.id);
@@ -688,13 +706,13 @@ function showDojo() {
     const fc = el('div', 'flashcard pop');
     const inner = el('div', 'fc-inner');
     inner.append(
-      el('div', 'fc-tag', c.tag || 'Flashcard'),
-      el('div', 'fc-front', c.front),
+      el('div', 'fc-tag', escapeHtml(c.tag || 'Flashcard')),
+      el('div', 'fc-front', AG.resume.cardHtml(c.front)),
     );
     const revealBtn = el('button', 'btn', '🔍 Jawab dikhao');
     revealBtn.onclick = () => {
       revealBtn.remove();
-      inner.appendChild(el('div', 'fc-back', c.back));
+      inner.appendChild(el('div', 'fc-back', AG.resume.cardHtml(c.back)));
       const row = el('div', 'btnrow center');
       const nope = el('button', 'btn danger', '😅 Bhool gaya');
       const yep = el('button', 'btn good', '😎 Yaad tha!');

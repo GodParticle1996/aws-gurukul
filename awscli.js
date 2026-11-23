@@ -551,11 +551,11 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       showHelpButton();
       input.disabled = true;
       const xp = Math.max(10, AG.TERMINAL_XP - sim.hintsUsed * AG.HINT_COST);
-      AG.addXP(xp);
+      const awarded = AG.addXP(xp);
       const win = AG.el('div', 'stage-summary pop');
       win.innerHTML = `
         <div class="sum-emoji">🎉</div>
-        <div class="sum-title">Mission complete!${AG.session && AG.session.replay ? '' : ' +' + xp + ' XP'}${sim.hintsUsed ? ` (${sim.hintsUsed} hint use hue)` : ' — bina hint ke! 🔥'}</div>
+        <div class="sum-title">Mission complete!${awarded ? ' +' + awarded + ' XP' : ''}${sim.hintsUsed ? ` (${sim.hintsUsed} hint use hue)` : ' — bina hint ke! 🔥'}</div>
         <div class="sum-detail" style="text-align:left;line-height:1.6;margin-top:8px">${stage.successText || ''}</div>`;
       arena.appendChild(win);
       win.scrollIntoView({ behavior: 'smooth', block: 'center' });
