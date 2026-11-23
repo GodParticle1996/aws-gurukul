@@ -46,6 +46,8 @@ AG.nav = (() => {
         case 'certificate':
           if (track && AG.trackUnlocked(track) && AG.trackProgress(track).complete) return showCertificate(track);
           break;
+        case 'mock': if (!id) return AG.mock.show(); break;
+        case 'study': if (AG.findLevel(id)) return showIntro(AG.findLevel(id), true); break;
         case 'dojo': if (!id) return showDojo(); break;
         case 'decisions': if (!id) return showDecisionDojo(); break;
         case 'decision': if (AG.findDecision(id)) return showDecisionTree(AG.findDecision(id)); break;

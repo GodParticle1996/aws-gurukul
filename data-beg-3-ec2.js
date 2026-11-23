@@ -481,49 +481,49 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
         title: '📝 SAA-style quick-fire — EC2',
         questions: [
           {
-            q: 'HPC application ke nodes ke beech sabse kam latency aur sabse zyada network throughput chahiye.',
+            domain: 'high-performing', q: 'HPC application ke nodes ke beech sabse kam latency aur sabse zyada network throughput chahiye.',
             choices: ['Cluster placement group', 'Spread placement group', 'Partition placement group', 'Har node alag AZ mein'],
             answer: 0,
             explain: 'Cluster = ek AZ mein paas-paas. Multi-AZ latency badhata hai.',
           },
           {
-            q: 'Ek app ko raat ko band karna hai par subah RAM mein loaded cache ke saath turant wapas chalna hai.',
+            domain: 'resilient', q: 'Ek app ko raat ko band karna hai par subah RAM mein loaded cache ke saath turant wapas chalna hai.',
             choices: ['EC2 Hibernate', 'Stop/start', 'Reboot', 'Instance store'],
             answer: 0,
             explain: 'Hibernate RAM ko encrypted root EBS par save karta hai aur start par wapas load.',
           },
           {
-            q: 'Video transcoding ke liye temporary scratch space chahiye — sabse zyada IOPS, data kho jaaye toh chalega.',
+            domain: 'high-performing', q: 'Video transcoding ke liye temporary scratch space chahiye — sabse zyada IOPS, data kho jaaye toh chalega.',
             choices: ['Instance store (NVMe)', 'EBS io2 (Block Express)', 'EFS (Max I/O mode)', 'S3 Express One Zone'],
             answer: 0,
             explain: 'Temporary + max I/O + data loss OK = instance store.',
           },
           {
-            q: 'Security team chahti hai engineers servers par shell lein bina port 22 khole aur bina bastion host ke, aur har session ka log rahe.',
+            domain: 'secure', q: 'Security team chahti hai engineers servers par shell lein bina port 22 khole aur bina bastion host ke, aur har session ka log rahe.',
             choices: ['AWS Systems Manager Session Manager', 'SSH key rotation', 'Security group mein office IP', 'EC2 Instance Connect public endpoint'],
             answer: 0,
             explain: 'Session Manager: IAM-based, koi inbound port nahi, logging S3/CloudWatch mein.',
           },
           {
-            q: 'Naye EC2 instances launch hote hi khud web server install karein, bina manual login ke.',
+            domain: 'resilient', q: 'Naye EC2 instances launch hote hi khud web server install karein, bina manual login ke.',
             choices: ['User data script (launch template mein)', 'AMI ko har baar haath se update karo', 'CloudWatch alarm jo install trigger kare', 'Elastic IP ke saath SSH script'],
             answer: 0,
             explain: 'User data pehli boot par chalta hai. Aur bhi tez: pre-baked AMI + chhota user data.',
           },
           {
-            q: 'Kaunsa setting SSRF ke through instance metadata se role credentials churane ka risk sabse zyada kam karta hai?',
+            domain: 'secure', q: 'Kaunsa setting SSRF ke through instance metadata se role credentials churane ka risk sabse zyada kam karta hai?',
             choices: ['IMDSv2 required (HttpTokens=required)', 'Security group ka outbound band karo', 'Bada instance type, alag host par', 'Termination protection aur EBS encryption'],
             answer: 0,
             explain: 'IMDSv2 token-based hai — simple GET forward karne wala SSRF metadata nahi pad paata.',
           },
           {
-            q: 'EBS volume ap-south-1a mein hai. Isse ap-south-1b ke instance par chahiye.',
+            domain: 'resilient', q: 'EBS volume ap-south-1a mein hai. Isse ap-south-1b ke instance par chahiye.',
             choices: ['Snapshot lo, phir ap-south-1b mein snapshot se naya volume', 'Volume ko seedha 1b ke instance se attach karo', 'Volume ko S3 mein copy karo, phir 1b mein attach', 'Possible nahi — EBS volume apna AZ kabhi nahi chhodti'],
             answer: 0,
             explain: 'EBS AZ-scoped; snapshot regional.',
           },
           {
-            q: 'Do critical domain controllers ek hi hardware failure mein ek saath nahi girne chahiye (ek AZ ke andar).',
+            domain: 'resilient', q: 'Do critical domain controllers ek hi hardware failure mein ek saath nahi girne chahiye (ek AZ ke andar).',
             choices: ['Spread placement group', 'Cluster placement group', 'Same instance type', 'Dedicated Instance'],
             answer: 0,
             explain: 'Spread = har instance alag rack/hardware.',
@@ -536,7 +536,7 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
       instructions: 'EC2 round — har jawab mein "kya bachta hai, kya marta hai" aur security bolo. 🎤',
       questions: [
         {
-          q: '"Stop aur terminate mein kya farak hai?"',
+          domain: 'resilient', q: '"Stop aur terminate mein kya farak hai?"',
           choices: [
             'Stop: instance rehta hai, EBS data bachta hai, compute bill band, public IP chala jaata hai, instance store saaf. Terminate: instance khatam, root EBS default delete, extra volumes bachte hain',
             'Dono same hain: dono mein instance band hota hai aur bill ruk jaata hai; terminate bas naam alag hai. Dono ke baad instance ko wapas start kar sakte ho, EBS data aur public IP bhi wahi rehte hain, kuch nahi badalta',
@@ -547,7 +547,7 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
           explain: 'Bonus: "data root disk par mat rakho, aur users ko IP nahi, load balancer do."',
         },
         {
-          q: '"Security group stateful hai — iska practical matlab?"',
+          domain: 'secure', q: '"Security group stateful hai — iska practical matlab?"',
           choices: [
             'Andar aayi allowed request ka jawab apne aap bahar jaata hai; return traffic ke liye alag rule nahi. NACL stateless hai — dono taraf rule',
             'Har request ka poora state AWS ek database mein save karta hai, taaki baad mein audit ho sake; return traffic ke liye phir bhi alag rule chahiye',
@@ -558,7 +558,7 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
           explain: 'SG = instance/ENI level, allow-only, stateful. NACL = subnet level, allow+deny, stateless.',
         },
         {
-          q: '"API server ka average CPU 75% hai, t3.large par hai, aur peak par slow ho jaata hai. Kya karoge?"',
+          domain: 'high-performing', q: '"API server ka average CPU 75% hai, t3.large par hai, aur peak par slow ho jaata hai. Kya karoge?"',
           choices: [
             'Credit balance aur mode check; steady load hai toh m7g/c7g family par shift (Graviton = sasta) — T-family baseline ke upar mehenga/throttle',
             'Sabse bada instance lo (t3.2xlarge), kyunki bade T-instance mein credits kabhi khatam nahi hote aur peak par bhi poora CPU hamesha milta rehta hai',
@@ -569,7 +569,7 @@ aws ec2 modify-instance-metadata-options --instance-id i-0abc --http-tokens requ
           explain: 'Right family > bada size. Data se baat karo: CPUCreditBalance, CPUUtilization flat line.',
         },
         {
-          q: '"IMDSv2 kya hai aur kyun?"',
+          domain: 'secure', q: '"IMDSv2 kya hai aur kyun?"',
           choices: [
             'Metadata service ka token-based version: pehle PUT se session token, phir token ke saath GET. SSRF se role credentials churana mushkil — Capital One 2019 isi raaste se hua tha',
             'Naya instance type hai jo Nitro par chalta hai: pehle se zyada network speed aur IOPS deta hai. SSRF se iska koi lena-dena nahi, yeh sirf performance ke liye hai',

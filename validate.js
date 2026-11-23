@@ -14,7 +14,7 @@
    ===================================================================== */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const DIR = __dirname;
-const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'decisions.js', 'navigation.js', 'resume.js', 'soch.js', 'data-soch.js'];
+const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'soch.js', 'data-soch.js'];
 const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-int-3-cloudfront.js', 'data-int-4-s3adv.js', 'data-int-5-efs.js', 'data-int-6-lambda.js', 'data-int-7-dynamodb.js', 'data-int-8-caching.js', 'data-int-9-sqssns.js', 'data-int-10-events.js', 'data-int-11-security.js', 'data-int-12-boss2.js', 'data-adv-1-wellarch.js', 'data-adv-2-orgs.js', 'data-adv-3-dr.js', 'data-adv-4-advnet.js', 'data-adv-5-containers.js', 'data-adv-6-iac.js', 'data-adv-7-cost.js', 'data-adv-8-observability.js', 'data-adv-9-migration.js', 'data-adv-10-analytics.js', 'data-adv-11-appai.js', 'data-adv-12-finalboss.js', 'data-arch-1-compute.js', 'data-arch-2-datastore.js', 'data-arch-3-messaging.js', 'data-arch-4-eventbridge.js', 'data-arch-5-logsetl.js', 'data-arch-6-edge.js', 'data-arch-7-costdec.js', 'data-arch-8-resilience.js', 'data-arch-9-archboss.js',
   'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js'];
 const ALL = [...ENGINE, ...DATA, 'app.js'];
@@ -165,7 +165,7 @@ function chk(s, S) {
       s.questions.forEach((q, i) => {
         if (!q.q) w(S, `q${i} no text`);
         if (!q.choices || q.choices.length < 2) w(S, `q${i} <2 choices`);
-        else if (typeof q.answer !== 'number' || q.answer < 0 || q.answer >= q.choices.length) w(S, `q${i} BAD answer index ${q.answer}`);
+        else if (!AG.validAnswer(q)) w(S, `q${i} BAD answer index ${q.answer}`);
         if (!q.explain) w(S, `q${i} no explain`);
         if (q.choices && new Set(q.choices).size !== q.choices.length) w(S, `q${i} duplicate choices`);
       }); break;
@@ -718,6 +718,9 @@ if (fs.existsSync(DL)) {
 console.log('\nPractice · terminal help, lesson scenes and Soch Akhada');
 try { require('./validate-practice.js'); }
 catch (e) { bad('Practice controls: ' + e.stack); }
+
+try { require('./validate-mockexam.js'); }
+catch (e) { bad('Mock exam: ' + e.message); }
 
 try { require('./validate-resume.js'); }
 catch (e) { bad('Resume and backup: ' + e.stack); }

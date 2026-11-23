@@ -1191,3 +1191,12 @@ pre {
 .backup-settings summary { cursor: pointer; color: var(--gold); font-weight: 600; }
 .backup-status { overflow-wrap: anywhere; }
 .backup-status:empty, .backup-settings .btnrow:empty { display: none; }
+
+.mock-domains { display:grid; grid-template-columns:repeat(auto-fit,minmax(115px,1fr)); gap:.65rem; margin:1rem 0; }
+.mock-domains > div { padding:.6rem; border:1px solid var(--line); border-radius:.6rem; }
+.mock-panel .btn { margin:.25rem; white-space:normal; }
+.mock-choice { text-align:left; }
+.mock-choice[aria-pressed="true"], .choice[aria-pressed="true"] { outline:2px solid var(--gold); background:#392a18; color:#fff4dd; }
+.mock-review { padding:.75rem 0; border-bottom:1px solid var(--line); }
+.mock-review summary { cursor:pointer; }
+.mock-clock { display:inline-block; padding:.5rem; font-variant-numeric:tabular-nums; }

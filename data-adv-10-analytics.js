@@ -314,49 +314,49 @@
       title: '🎓 Analytics ke faisle',
       questions: [
         {
-          q: 'S3 mein pade logs par kabhi-kabhi SQL chalana hai, koi server ya cluster manage nahi karna. Kya chunoge?',
+          domain: 'high-performing', q: 'S3 mein pade logs par kabhi-kabhi SQL chalana hai, koi server ya cluster manage nahi karna. Kya chunoge?',
           choices: ['Redshift provisioned cluster, hamesha chalu', 'EMR cluster, din-raat chalu', 'Athena, seedha S3 par SQL', 'RDS mein import karke query'],
           answer: 2,
           explain: 'Athena serverless hai aur S3 par seedha SQL chalata hai, bill scan par. Cluster ya import is kaam ke liye zyada bhaari hain.'
         },
         {
-          q: 'Athena ka bill kam karne ke liye sabse asardaar teen kadam?',
+          domain: 'cost-optimized', q: 'Athena ka bill kam karne ke liye sabse asardaar teen kadam?',
           choices: ['Partition, columnar format (Parquet/ORC), sirf zaroori columns', 'Bada workgroup, zyada results aur har query par LIMIT', 'CSV mein compression band karna, taaki CPU kam lage', 'Har query ke baad crawler chalana, taaki catalog taaza rahe'],
           answer: 0,
           explain: 'Partition din chhodta hai, columnar format column chhodta hai, aur column projection dono ka fayda leta hai. LIMIT scan kam nahi karta.'
         },
         {
-          q: 'Analysts ko lake ke orders table mein customer_id column nahi dikhna chahiye. Kya lagaoge?',
+          domain: 'secure', q: 'Analysts ko lake ke orders table mein customer_id column nahi dikhna chahiye. Kya lagaoge?',
           choices: ['S3 bucket policy mein column ka naam', 'IAM policy se sirf Athena access', 'Glue crawler ko us column par band karna', 'Lake Formation column-level permission'],
           answer: 3,
           explain: 'Lake Formation table/column/row level par access deta hai. Bucket policy ya IAM column nahi samajhte, aur crawler band karna data nahi chhupata.'
         },
         {
-          q: 'App clickstream ko har minute S3 mein files banakar daalna hai, koi consumer code nahi likhna. Kya chunoge?',
+          domain: 'high-performing', q: 'App clickstream ko har minute S3 mein files banakar daalna hai, koi consumer code nahi likhna. Kya chunoge?',
           choices: ['Kinesis Data Streams + apna consumer', 'Amazon Data Firehose', 'SQS + Lambda jo S3 likhe', 'MSK cluster'],
           answer: 1,
           explain: 'Firehose bina code ke buffer karke S3 mein deliver karta hai (format conversion bhi). Baaki options mein consumer ya cluster chalana padta hai.'
         },
         {
-          q: 'Aurora ke orders data par BI warehouse chahiye, bina ETL pipeline banaye. Aaj kya dekhoge?',
+          domain: 'high-performing', q: 'Aurora ke orders data par BI warehouse chahiye, bina ETL pipeline banaye. Aaj kya dekhoge?',
           choices: ['Har ghante CSV export aur manual load', 'Athena federated query hamesha', 'DMS full load roz', 'Aurora zero-ETL integration se Redshift'],
           answer: 3,
           explain: 'Zero-ETL Aurora/RDS/DynamoDB ka data Redshift mein lagbhag real-time laata hai, bina pipeline ke. Export/DMS roz chalana pipeline hi hai.'
         },
         {
-          q: 'Naye din ka data S3 mein dt=2026-11-20 folder mein aa gaya, par Athena query 0 rows deti hai. Kya karoge?',
+          domain: 'high-performing', q: 'Naye din ka data S3 mein dt=2026-11-20 folder mein aa gaya, par Athena query 0 rows deti hai. Kya karoge?',
           choices: ['MSCK REPAIR TABLE ya naya partition add karo (ya crawler/partition projection)', 'Table delete karke naya banao, naya table saare folders padhega', 'Bucket public kar do, Athena ko folder dikhne lagega', 'Workgroup ka scan limit hata do, kyunki wahi limit naye din ka data rok rahi hai'],
           answer: 0,
           explain: 'Catalog mein naya partition nahi hai. MSCK REPAIR/ADD PARTITION (ya crawler, partition projection) jodta hai. Table delete, public bucket ya limit hatana wajah nahi.'
         },
         {
-          q: 'Real-time mein payment events par 3 alag teams apna code chalayengi, aur replay bhi chahiye. Kya?',
+          domain: 'high-performing', q: 'Real-time mein payment events par 3 alag teams apna code chalayengi, aur replay bhi chahiye. Kya?',
           choices: ['Amazon Data Firehose', 'Athena', 'Glue crawler', 'Kinesis Data Streams'],
           answer: 3,
           explain: 'Kinesis Data Streams kai consumers, ordering aur retention/replay deta hai. Firehose delivery ke liye hai, Athena aur Glue streaming nahi.'
         },
         {
-          q: 'Galti se koi analyst SELECT * chala de toh bill na phate. Kya lagaoge?',
+          domain: 'cost-optimized', q: 'Galti se koi analyst SELECT * chala de toh bill na phate. Kya lagaoge?',
           choices: ['Glue crawler ka schedule har ghante ka karo, taaki catalog hamesha taaza rahe', 'S3 lifecycle rule, purana data Glacier mein bhejo', 'CloudTrail data events on karo, har query record hogi', 'Athena workgroup mein per-query scan limit (BytesScannedCutoffPerQuery)'],
           answer: 3,
           explain: 'Workgroup ka per-query limit badi query ko beech mein rok deta hai. Lifecycle, CloudTrail ya crawler is bill ko nahi rokte.'
@@ -370,25 +370,25 @@
     instructions: 'Chaar faisle, phir terminal mein kal ka gayab partition wapas lao.',
     questions: [
       {
-        q: 'Interviewer: "OLTP aur OLAP mein farak?"',
+        domain: 'high-performing', q: 'Interviewer: "OLTP aur OLAP mein farak?"',
         choices: ['OLTP chhote, tez transactions (checkout); OLAP bade scans aur reports (analytics)', 'OLTP sirf NoSQL databases hain aur OLAP sirf SQL databases; bas itna hi farak hai dono mein', 'OLTP hamesha mehenga hai aur OLAP hamesha free, isliye reports OLAP par', 'Dono same hain, bas naam alag; ek hi DB par dono chala sakte ho'],
         answer: 0,
         explain: 'OLTP har order jaise chhote reads/writes ke liye hai; OLAP bade scans, GROUP BY aur reports ke liye. Engine type ya free hona farak nahi.'
       },
       {
-        q: '"Data lake mein raw, clean aur curated zones kyun?"',
+        domain: 'high-performing', q: '"Data lake mein raw, clean aur curated zones kyun?"',
         choices: ['Taaki har zone alag Region mein rahe aur ek Region band ho toh data bache', 'Raw asli copy bachata hai; clean/curated query ke liye sudhara hua, partitioned format', 'Taaki teen copies se apne aap backup ban jaaye, chahe bill teen guna ho', 'Kyunki Athena ek zone ke andar sirf ek hi table padh sakta hai, isse zyada kabhi nahi'],
         answer: 1,
         explain: 'Raw asli data hai jise dobara process kar sakte ho; curated query ke liye saaf, partitioned aur columnar hota hai. Region, bill ya Athena ki limit wajah nahi.'
       },
       {
-        q: '"Athena vs Redshift kab?"',
+        domain: 'cost-optimized', q: '"Athena vs Redshift kab?"',
         choices: ['Athena hamesha sasta hai, isliye Redshift ki kabhi zaroorat hi nahi padti', 'Redshift sirf streaming data ke liye hai, reports aur joins ke liye nahi', 'Athena kabhi-kabhi ki S3 queries; Redshift bhaari, baar-baar wali BI aur joins', 'Dono mein koi farak nahi, dono ka bill aur speed bilkul ek jaisa hai'],
         answer: 2,
         explain: 'Kabhi-kabhi ki queries ke liye Athena (per TB). Lagatar BI, bade joins aur concurrency ke liye Redshift. Redshift streaming tool nahi.'
       },
       {
-        q: '"Glue crawler kya karta hai?"',
+        domain: 'high-performing', q: '"Glue crawler kya karta hai?"',
         choices: ['S3 data ka schema aur partitions padh kar Data Catalog mein table banata/update karta hai', 'Data ko CSV se Parquet mein badalta hai aur naye partitions folder bana deta hai', 'Athena queries ka bill kam karta hai, kyunki woh har query ko pehle se chala kar rakhta hai', 'S3 mein naya data likhta hai, jaise roz ka export'],
         answer: 0,
         explain: 'Crawler catalog likhta hai. Format badalna ETL job ka kaam hai, bill layout se kam hota hai, aur crawler data nahi likhta.'

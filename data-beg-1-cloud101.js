@@ -458,31 +458,31 @@ aws ec2 describe-availability-zones --region ap-south-1   # Mumbai ke AZs`,
         title: '📝 SAA-style quick-fire — Cloud basics',
         questions: [
           {
-            q: 'Ek company ka traffic Black Friday par 15× hota hai aur baaki saal flat. Kaunsa cloud benefit sabse zyada bachat dega?',
+            domain: 'cost-optimized', q: 'Ek company ka traffic Black Friday par 15× hota hai aur baaki saal flat. Kaunsa cloud benefit sabse zyada bachat dega?',
             choices: ['Elasticity — peak capacity sirf peak ke din', 'Global reach — duniya bhar ke users tak pahunch', 'Managed databases — patching ka kaam AWS ka', 'Shared responsibility — security AWS ke saath'],
             answer: 0,
             explain: 'Peak ke liye pehle se khareedi capacity saal bhar khaali rehti. Elasticity se capacity load ke saath badhti-ghatti hai.',
           },
           {
-            q: 'Application ko ek datacenter ki failure jhelni hai, MINIMUM extra cost mein. Kya karoge?',
+            domain: 'resilient', q: 'Application ko ek datacenter ki failure jhelni hai, MINIMUM extra cost mein. Kya karoge?',
             choices: ['Ek region ke andar 2+ Availability Zones mein deploy', 'Do regions mein active-active deploy, poora double setup', 'Ek bada instance type lo jo kabhi fail na ho', 'Teen edge locations par app ki copy chalao'],
             answer: 0,
             explain: 'Datacenter failure = AZ failure. Multi-AZ sabse sasta sahi jawab. Multi-region zyada mehenga — regional failure ke liye.',
           },
           {
-            q: 'Indian fintech app ka payment data niyam ke hisaab se India mein hi rehna chahiye. Region?',
+            domain: 'secure', q: 'Indian fintech app ka payment data niyam ke hisaab se India mein hi rehna chahiye. Region?',
             choices: ['ap-south-1 (Mumbai) / ap-south-2 (Hyderabad)', 'us-east-1 (N. Virginia), kyunki sabse sasta hai', 'Koi bhi region — AWS global hai, data sab jagah', 'eu-west-1 (Ireland), kyunki GDPR wala region hai'],
             answer: 0,
             explain: 'Region choice ka pehla sawal law/compliance hai. AWS data ko region ke bahar apne aap nahi le jaata.',
           },
           {
-            q: 'EC2 par chal rahe MySQL database ka engine patch kaun lagayega?',
+            domain: 'secure', q: 'EC2 par chal rahe MySQL database ka engine patch kaun lagayega?',
             choices: ['Customer — EC2 par software tumhara hai', 'AWS — kyunki database AWS par chal raha hai', 'Dono milke — AWS aur customer aadha-aadha', 'Koi nahi — EC2 par patch apne aap lagta hai'],
             answer: 0,
             explain: 'EC2 par khud install kiya MySQL tumhara. RDS MySQL hota toh AWS patch lagata.',
           },
           {
-            q: 'Kaunsi cheez Availability Zone ke baare mein SAHI hai?',
+            domain: 'resilient', q: 'Kaunsi cheez Availability Zone ke baare mein SAHI hai?',
             choices: [
               'Ek region mein kai AZs hote hain, har AZ ki alag power aur network, aur AZs low-latency links se jude hote hain',
               'AZ ek poora desh hota hai, aur har desh mein AWS ka sirf ek hi datacenter hota hai jo sab sambhalta hai',
@@ -493,19 +493,19 @@ aws ec2 describe-availability-zones --region ap-south-1   # Mumbai ke AZs`,
             explain: 'Region ⊃ AZs. AZs ka isolation failure se bachata hai, low-latency links synchronous replication (Multi-AZ DB) possible banate hain.',
           },
           {
-            q: 'Startup ke paas upfront paisa nahi hai, product-market fit pata nahi. Sabse seedha cloud fayda?',
+            domain: 'cost-optimized', q: 'Startup ke paas upfront paisa nahi hai, product-market fit pata nahi. Sabse seedha cloud fayda?',
             choices: ['Koi upfront investment nahi — pay-as-you-go, fail ho toh band karo', 'Cloud har haal mein hamesha sasta hota hai, chahe load kaisa bhi ho', 'Startup par koi security zimmedari nahi, sab AWS ka kaam', 'Unlimited free tier — startup ko kabhi bill nahi aata'],
             answer: 0,
             explain: 'CapEx nahi, experiment sasta. "Hamesha sasta" myth hai, aur security IN the cloud tumhari hi rehti hai.',
           },
           {
-            q: 'Console mein kuch nahi dikh raha par bill aa raha hai. Sabse pehle kya check karoge?',
+            domain: 'cost-optimized', q: 'Console mein kuch nahi dikh raha par bill aa raha hai. Sabse pehle kya check karoge?',
             choices: ['Doosre regions (Cost Explorer region breakdown / region scan)', 'Browser cache saaf karo, purana console page dikh raha hai', 'AWS support ko complain karo ki bill galat aa raha hai', 'Free tier page dekho, shayad free limit khatam ho gayi'],
             answer: 0,
             explain: 'EC2 ki yeh list chune hue Region ke instances dikhati hai. Bhoole hue resources aksar doosre region mein hote hain.',
           },
           {
-            q: 'Global users ke liye static images ki latency kam karni hai, kam se kam effort mein.',
+            domain: 'high-performing', q: 'Global users ke liye static images ki latency kam karni hai, kam se kam effort mein.',
             choices: ['CloudFront (edge locations par cache)', 'Har desh mein ek EC2 server chalao', 'Ek bada S3 bucket, zyada storage ke saath', 'Images ke liye Multi-AZ setup'],
             answer: 0,
             explain: 'Edge locations user ke paas cache rakhte hain — origin ek hi region mein rahe.',
@@ -518,7 +518,7 @@ aws ec2 describe-availability-zones --region ap-south-1   # Mumbai ke AZs`,
       instructions: 'Pehla mock interview. Jawab mein numbers aur "kyun" bolna — interviewer wahi sunna chahta hai. 🎤',
       questions: [
         {
-          q: 'Manager poochta hai: "Hum apne do server wale setup ko cloud par kyun le jaayein?" Sabse strong business reason?',
+          domain: 'cost-optimized', q: 'Manager poochta hai: "Hum apne do server wale setup ko cloud par kyun le jaayein?" Sabse strong business reason?',
           choices: [
             'Elasticity + pay-as-you-go: sale ke din capacity badhao, baaki din ghatao; upfront hardware nahi (CapEx → OpEx); naya server minutes mein',
             'Cloud naya aur modern hai, isliye purane servers se hamesha better hai; saari badi companies bhi isliye cloud par ja rahi hain',
@@ -529,7 +529,7 @@ aws ec2 describe-availability-zones --region ap-south-1   # Mumbai ke AZs`,
           explain: 'Achha jawab numbers ke saath: "Diwali par 20× traffic ke liye on-prem 40 server khareedne padte, average use 6%. Cloud mein peak capacity sirf 3 din."',
         },
         {
-          q: '"Shared Responsibility Model" ek line mein — aur EC2 vs RDS ka farak?',
+          domain: 'secure', q: '"Shared Responsibility Model" ek line mein — aur EC2 vs RDS ka farak?',
           choices: [
             'AWS = security OF the cloud (datacenter, hardware, managed service ka andar); customer = IN the cloud (data, IAM, network rules). EC2 par OS customer ka, RDS par OS + DB engine patch AWS ka',
             'AWS sab kuch sambhalta hai: datacenter, hardware, OS, data, IAM aur network rules bhi. EC2 aur RDS dono par customer ko kuch nahi karna, sirf bill dena hai',
@@ -540,7 +540,7 @@ aws ec2 describe-availability-zones --region ap-south-1   # Mumbai ke AZs`,
           explain: 'Service jitni managed, customer ka hissa utna chhota — par data, IAM aur access hamesha customer ka.',
         },
         {
-          q: 'Interviewer: "Multi-AZ aur multi-region mein kya farak hai? Kab kaunsa?"',
+          domain: 'resilient', q: 'Interviewer: "Multi-AZ aur multi-region mein kya farak hai? Kab kaunsa?"',
           choices: [
             'Multi-AZ ek region ke andar AZ failure se bachata hai (har production ka default, sasta). Multi-region regional outage/DR ke liye — mehenga, RTO/RPO ki zaroorat dekh ke',
             'Dono same hain: dono ek hi region ke andar data ki copy rakhte hain, bas naam alag hai. Kharcha bhi barabar, isliye koi bhi ek chun lo, farak nahi padta',
@@ -551,7 +551,7 @@ aws ec2 describe-availability-zones --region ap-south-1   # Mumbai ke AZs`,
           explain: 'Example bolo: "2017 mein us-east-1 ki S3 outage mein Multi-AZ apps bhi giri — kyunki failure regional thi."',
         },
         {
-          q: 'Naye account mein pehle din kaunse 3 kaam karoge?',
+          domain: 'secure', q: 'Naye account mein pehle din kaunse 3 kaam karoge?',
           choices: [
             'Root user par MFA + root ko roz use na karna, budget alarm, aur roz ke kaam ke liye alag IAM identity',
             'Saare regions mein ek-ek EC2 chalana, root ki access key banana aur billing alerts band rakhna',

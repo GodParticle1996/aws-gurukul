@@ -420,49 +420,49 @@
       title: '🎓 Observability ke faisle',
       questions: [
         {
-          q: 'Checkout ka average 0.4 s hai, par 1% users 8 s dekhte hain. SLO p99 < 2 s hai. Alarm kis statistic par?',
+          domain: 'high-performing', q: 'Checkout ka average 0.4 s hai, par 1% users 8 s dekhte hain. SLO p99 < 2 s hai. Alarm kis statistic par?',
           choices: ['Average, kyunki woh sab requests ka sach batata hai', 'Maximum, kyunki sabse dheemi request hi zaroori hai', 'p99 (ExtendedStatistic), kyunki SLO bhi p99 par hai', 'SampleCount, kyunki zyada requests matlab dheemapan'],
           answer: 2,
           explain: 'SLO p99 par hai, toh alarm bhi p99 par. Average tail chhupata hai, Maximum ek akeli request par bajega, aur SampleCount latency nahi naapta.'
         },
         {
-          q: 'Team ko EC2 instances ki memory usage par alarm chahiye. Pehla kadam?',
+          domain: 'high-performing', q: 'Team ko EC2 instances ki memory usage par alarm chahiye. Pehla kadam?',
           choices: ['Detailed monitoring on karo; usme memory metric aata hai', 'CloudWatch agent install karke memory metric bhejo', 'CloudTrail data events on karo, woh memory record karte hain', 'VPC Flow Logs on karo, unme har instance ki memory hoti hai'],
           answer: 1,
           explain: 'Memory/disk hypervisor se nahi dikhti, isliye default metrics mein nahi. CloudWatch agent bhejta hai. Detailed monitoring sirf granularity 1 minute karta hai.'
         },
         {
-          q: 'Kal ek metric filter banaya. Ab pichhle hafte ke errors ki ginti chahiye. Kya karoge?',
+          domain: 'high-performing', q: 'Kal ek metric filter banaya. Ab pichhle hafte ke errors ki ginti chahiye. Kya karoge?',
           choices: ['Metric filter ka metric dekho; woh pichhle hafte ke logs bhi gin leta hai', 'Metric filter dobara same naam se banao, taaki woh purane logs bhi gine', 'Log group ki retention badha do, isse purane errors metric mein aa jaate hain', 'Logs Insights query chalao, pichhle hafte ki sahi time range ke saath'],
           answer: 3,
           explain: 'Metric filter sirf banne ke baad ke events ginta hai, dobara banane se bhi backfill nahi hota. Purane logs ke liye Logs Insights query chalao. Retention se metric nahi banta.'
         },
         {
-          q: 'Saare log groups "never expire" par hain aur bill badh raha hai. Audit logs 365 din rakhne ki policy hai. Sahi kadam?',
+          domain: 'cost-optimized', q: 'Saare log groups "never expire" par hain aur bill badh raha hai. Audit logs 365 din rakhne ki policy hai. Sahi kadam?',
           choices: ['App log groups par tay retention (jaise 30 din), audit par 365 din hi', 'Saare log groups par 1 din retention, taaki bill turant kam ho jaaye', 'Saare log groups delete karke naye bana do, purana bill isse khatam hota hai', 'Retention ko 31 din karo; yeh 30 se thoda zyada aur safe hai'],
           answer: 0,
           explain: 'App logs ko zaroorat jitni retention do, audit ki policy wali retention rakho. 1 din audit todta hai, delete se saboot jaata hai, aur 31 din valid value hi nahi.'
         },
         {
-          q: 'Security team jaanna chahti hai ki kisne invoices bucket ki ek file padhi. Trail sirf default settings par tha. Kya milega?',
+          domain: 'secure', q: 'Security team jaanna chahti hai ki kisne invoices bucket ki ek file padhi. Trail sirf default settings par tha. Kya milega?',
           choices: ['Kuch nahi, kyunki CloudTrail kabhi bhi S3 ki activity record nahi karta', 'Poora GetObject record, kyunki trail har S3 object read default mein bhi likhta hai', 'Sirf management events; object read ke liye data events pehle se on hone chahiye the', 'Config history mein har object read ka user aur time milta hai, alag setup ke bina'],
           answer: 2,
           explain: 'Default trail management events likhta hai. S3 GetObject ek data event hai, jo alag se on karna padta hai; baad mein on karne se purana record nahi banta. Config reads record nahi karta.'
         },
         {
-          q: 'Microservices mein ek request dheemi hai. Naya instrumentation shuru karna hai. Kya chunoge?',
+          domain: 'high-performing', q: 'Microservices mein ek request dheemi hai. Naya instrumentation shuru karna hai. Kya chunoge?',
           choices: ['OpenTelemetry (ADOT/CloudWatch agent) se traces, X-Ray mein dekho', 'Naye project mein bhi X-Ray SDK lagao, kyunki uska koi end date nahi hai', 'Sirf VPC Flow Logs, kyunki unme har request ki latency hoti hai', 'CloudTrail, kyunki woh har HTTP request ka time likhta hai'],
           answer: 0,
           explain: 'X-Ray SDKs maintenance mode mein hain aur 25 Feb 2027 ko support khatam hai; naye kaam ke liye OpenTelemetry. Flow Logs aur CloudTrail request ki latency nahi naapte.'
         },
         {
-          q: 'Raat mein traffic zero hota hai, par checkout page ka chalna har 5 minute check karna hai. Kya lagaoge?',
+          domain: 'resilient', q: 'Raat mein traffic zero hota hai, par checkout page ka chalna har 5 minute check karna hai. Kya lagaoge?',
           choices: ['RUM, kyunki woh raat mein bhi asli users ka data deta hai', 'CloudWatch Synthetics canary jo script se page chalaye', 'Average latency alarm, kyunki zero traffic par woh 0 dikhata hai', 'Logs Insights ki ek baar ki query, raat ke shuru mein'],
           answer: 1,
           explain: 'Canary bina asli users ke bhi script se page chalata hai. RUM ko asli users chahiye, zero traffic par latency metric aata hi nahi, aur ek baar ki query lagatar check nahi.'
         },
         {
-          q: 'Teen alarms (p99, errors, 5xx) ek hi incident par teen pages bhejte hain. Noise kam karne ka sahi tareeka?',
+          domain: 'resilient', q: 'Teen alarms (p99, errors, 5xx) ek hi incident par teen pages bhejte hain. Noise kam karne ka sahi tareeka?',
           choices: ['Teeno alarms delete karo aur sirf CPU alarm rakho', 'Har alarm ka threshold double kar do taaki kam bajein', 'Har alarm par set-alarm-state OK chala do, jab bhi page aaye', 'Child alarms bina action, ek composite alarm (OR) on-call ko'],
           answer: 3,
           explain: 'Composite alarm signals ko jodta hai aur ek hi page bhejta hai. Delete ya double threshold asli incidents chhupa dete hain, aur set-alarm-state sirf test hai.'
@@ -476,25 +476,25 @@
     instructions: 'Chaar faisle, phir terminal mein woh heartbeat alarm theek karo jo outage mein OK rahi.',
     questions: [
       {
-        q: 'Interviewer: "Metrics, logs aur traces mein se on-call ko page kis par jaana chahiye?"',
+        domain: 'resilient', q: 'Interviewer: "Metrics, logs aur traces mein se on-call ko page kis par jaana chahiye?"',
         choices: ['Har log line par, taaki koi bhi error chhoot na jaaye', 'User ke SLI wale metric alarms par; logs aur traces wajah dhoondhne ke liye', 'Sirf traces par, kyunki traces har request ka poora sach batate hain, sab ke liye', 'Sirf CloudTrail par, kyunki har outage kisi API call se hota hai'],
         answer: 1,
         explain: 'Page user ke dard (SLI) par jaaye. Logs aur traces diagnosis ke liye hain; har log line par page noise hai, traces sampled hote hain, aur har outage API call nahi.'
       },
       {
-        q: '"Average latency alarm kabhi nahi bajta, phir bhi shikayatein aati hain. Kyun?"',
+        domain: 'high-performing', q: '"Average latency alarm kabhi nahi bajta, phir bhi shikayatein aati hain. Kyun?"',
         choices: ['Average tail chhupata hai; p99 jaisa percentile SLO ke hisaab se dekho', 'Average alarm ko CloudWatch evaluate hi nahi karta, sirf store karta hai', 'Average sirf errors par chalta hai, latency par nahi', 'Average ko high-resolution par rakhne se tail apne aap dikhne lagti hai'],
         answer: 0,
         explain: 'Kam dheemi requests average ko mushkil se hilaati hain. Percentile alarm tail ko pakadta hai; resolution badhane se average ka swabhaav nahi badalta.'
       },
       {
-        q: '"Logs ka bill ₹80,000 mahina hai. Pehla kadam?"',
+        domain: 'cost-optimized', q: '"Logs ka bill ₹80,000 mahina hai. Pehla kadam?"',
         choices: ['Saare logs band kar do; observability ka bill zero aur dashboard bhi saaf ho jaayega', 'Har log line ko custom metric bana do, kyunki metrics logs se hamesha sasti hoti hain', 'Retention aur log volume dekho: app logs par tay retention, zaroorat ho toh IA class', 'Audit logs ki retention 1 din kar do, woh sabse zyada jagah lete hain'],
         answer: 2,
         explain: 'Never-expire retention aur zyada DEBUG logs bill badhate hain. Tay retention, kam volume aur jahan theek ho wahan Infrequent Access. Logs band karna ya audit todna galat hai.'
       },
       {
-        q: '"Composite alarm kab use karoge?"',
+        domain: 'resilient', q: '"Composite alarm kab use karoge?"',
         choices: ['Jab ek hi metric ka average aur maximum dono ek saath dekhna ho', 'Jab logs ko S3 mein near real-time stream karke rakhna ho', 'Jab metric filter bina kisi log group ke seedha banana ho', 'Jab kai signals ko jod kar on-call ko ek hi kaam ka page bhejna ho'],
         answer: 3,
         explain: 'Composite alarm kai alarms ko AND/OR se jodta hai aur noise kam karta hai. Statistics, streaming aur metric filter alag cheezein hain.'

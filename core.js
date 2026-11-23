@@ -43,6 +43,7 @@ AG.defaultState = function () {
     streak: { last: null, count: 0, best: 0 },
     soch: {},             // case id -> best number of first-try answers
     resume: null,
+    mock: { active: null, history: [] },
     levelStarts: 0,       // for pop-quiz cadence
   };
 };
@@ -64,6 +65,7 @@ AG.readProgress = function (saved) {
   state.xp = count(saved.xp);
   state.levelStarts = count(saved.levelStarts);
   state.resume = AG.readCheckpoint(saved.resume);
+  if (saved.mock && AG.mock?.valid(saved.mock)) state.mock = saved.mock;
   if (Array.isArray(saved.completed))
     state.completed = [...new Set(saved.completed.filter(id => typeof id === 'string' && id))];
   if (record(saved.stars))
@@ -103,7 +105,7 @@ AG.saveState = function (state = AG.state) {
     return false;
   }
 };
-AG.state = AG.loadState();
+AG.state = AG.defaultState(); // Load saved progress after the question bank is registered.
 
 /* ---------------- DOM helpers ---------------- */
 AG.el = function (tag, cls, html) {
@@ -194,20 +196,20 @@ AG.streakAlive = function () {
    - review wrong    -> box = 0, due tomorrow                      */
 AG.DAY = 24 * 60 * 60 * 1000;
 
-AG.addCard = function (id, front, back, tag) {
+AG.addCard = function (id, front, back, tag, persist = true) {
   if (AG.state.dojo[id]) return; // already in the deck
   AG.state.dojo[id] = { box: 0, due: Date.now() + AG.DAY, front, back, tag: tag || '' };
-  AG.saveState();
+  if (persist) AG.saveState();
 };
 
 /* called by game renderers on a wrong answer — turns the mistake into a card */
-AG.noteMistake = function (front, back, tag) {
+AG.noteMistake = function (front, back, tag, persist = true) {
   if (AG.session && AG.session.replay) return;
   if (!front || !back) return;
   // stable id from the front text so the same mistake never duplicates
   let h = 0;
   for (let i = 0; i < front.length; i++) h = ((h << 5) - h + front.charCodeAt(i)) | 0;
-  AG.addCard('mistake-' + Math.abs(h), front, back, tag || '🙈 Galti se seekho');
+  AG.addCard('mistake-' + Math.abs(h), front, back, tag || '🙈 Galti se seekho', persist);
 };
 
 AG.enrollLevelCards = function (level) {
@@ -235,12 +237,24 @@ AG.reviewCard = function (id, remembered) {
   AG.saveState();
 };
 
+AG.answerIndices = q => Array.isArray(q.answer) ? q.answer : [q.answer];
+AG.answerMatches = (q, picks) => {
+  const expected = AG.answerIndices(q);
+  return picks.length === expected.length && expected.every(i => picks.includes(i));
+};
+AG.answerText = q => AG.answerIndices(q).map(i => q.choices[i]).join(' + ');
+AG.validAnswer = q => {
+  const ids = AG.answerIndices(q);
+  return (!Array.isArray(q.answer) || (ids.length >= 2 && ids.length < q.choices.length && q.choices.length >= 5)) &&
+    new Set(ids).size === ids.length && ids.every(i => Number.isInteger(i) && i >= 0 && i < q.choices.length);
+};
+
 /* ---------------- pop-quiz question harvesting ----------------
    Pulls MCQs from already-completed levels (quiz stages + interview). */
-AG.harvestQuestions = function () {
+AG.harvestQuestions = function (fullSyllabus = false) {
   const qs = [];
   AG.tracks.forEach(t => (AG.levelSets[t.id] || []).forEach(lvl => {
-    if (!AG.state.completed.includes(lvl.id)) return;
+    if (!fullSyllabus && !AG.state.completed.includes(lvl.id)) return;
     (lvl.stages || []).forEach(st => {
       if (st.type === 'quiz') (st.questions || []).forEach(q => qs.push({ ...q, from: lvl }));
     });

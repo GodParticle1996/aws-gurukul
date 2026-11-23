@@ -361,49 +361,49 @@
       title: '🎓 Migration ke faisle',
       questions: [
         {
-          q: '40 Linux/Windows VMs ko 3 mahine mein EC2 par le jaana hai, code badle bina, kam downtime ke saath. Kya chunoge?',
+          domain: 'high-performing', q: '40 Linux/Windows VMs ko 3 mahine mein EC2 par le jaana hai, code badle bina, kam downtime ke saath. Kya chunoge?',
           choices: ['DMS, kyunki woh poore server copy karta hai', 'Sirf AMI export, bina replication ke', 'Har server ko haath se dobara banana', 'Application Migration Service (MGN) se rehost'],
           answer: 3,
           explain: 'MGN servers ko lagatar block-level replicate karta hai aur test/cutover instances launch karta hai. DMS sirf databases ke liye hai; haath se banana dheema aur galti wala; bina replication ka export downtime badhata hai.'
         },
         {
-          q: 'Oracle se Aurora PostgreSQL, downtime minutes mein. Sahi jodi?',
+          domain: 'resilient', q: 'Oracle se Aurora PostgreSQL, downtime minutes mein. Sahi jodi?',
           choices: ['MGN + snapshot restore, engine wahi rehta hai', 'DataSync + S3 sync, phir Aurora mein import', 'DMS Schema Conversion + DMS full load + CDC', 'Transfer Family se SFTP par dump upload'],
           answer: 2,
           explain: 'Alag engine ke liye schema conversion aur data ke liye DMS full load + CDC. MGN/snapshot engine nahi badalte, DataSync files ke liye hai, aur Transfer Family file upload ka raasta hai.'
         },
         {
-          q: '20 VMware VMs ko VMware platform par hi AWS mein chalana hai, hypervisor ya app badle bina. Yeh kaunsa R hai?',
+          domain: 'high-performing', q: '20 VMware VMs ko VMware platform par hi AWS mein chalana hai, hypervisor ya app badle bina. Yeh kaunsa R hai?',
           choices: ['Relocate (jaise Amazon EVS par chalana)', 'Rehost, har VM EC2 instance banta hai', 'Refactor, platform badal raha hai', 'Repurchase, VMware ek product hai'],
           answer: 0,
           explain: 'VMware jaisa hai waisa AWS par chalana relocate hai. VM ko EC2 instance banana rehost hota; design badalna refactor; SaaS lena repurchase.'
         },
         {
-          q: '30 TB data, 1 Gbps link par 40% din-raat. Lagbhag kitne din?',
+          domain: 'high-performing', q: '30 TB data, 1 Gbps link par 40% din-raat. Lagbhag kitne din?',
           choices: ['Lagbhag 1 din', 'Lagbhag 30 din', 'Lagbhag 2 ghante', 'Lagbhag 7 din'],
           answer: 3,
           explain: '30 TB × 8 = 240 Tb. 1 Gbps × 40% = 0.4 Gbps ≈ 34.6 Tb/din. 240 ÷ 34.6 ≈ 6.9 din. Ek din ya 2 ghante ke liye link 10 guna se zyada tez chahiye hota.'
         },
         {
-          q: 'GodamTech ke partners roz SFTP se files bhejte hain, aur files S3 mein chahiye. Kya lagaoge?',
+          domain: 'high-performing', q: 'GodamTech ke partners roz SFTP se files bhejte hain, aur files S3 mein chahiye. Kya lagaoge?',
           choices: ['AWS Transfer Family (SFTP endpoint, S3 backend)', 'DataSync agent har partner ke office mein', 'DMS task jo SFTP ko source maane', 'CloudFront distribution upload ke liye'],
           answer: 0,
           explain: 'Transfer Family managed SFTP/FTPS/FTP/AS2 deta hai aur S3/EFS mein likhta hai. DataSync partner ke office mein nahi lagta, DMS SFTP nahi padhta, CloudFront upload server nahi.'
         },
         {
-          q: 'DMS task running hai par Oracle ke naye changes target tak nahi aa rahe. Task full-load-and-cdc hai. Pehle kya check karoge?',
+          domain: 'resilient', q: 'DMS task running hai par Oracle ke naye changes target tak nahi aa rahe. Task full-load-and-cdc hai. Pehle kya check karoge?',
           choices: ['Aurora ka instance size badha do, taaki changes tezi se apply ho sakein', 'Oracle par supplemental logging aur archive logs (CDC ki zarooratein)', 'Replication instance ko public subnet mein le jao, taaki Oracle tak pahunch sake', 'Task delete karke naya full-load task banao, woh changes bhi le aayega'],
           answer: 1,
           explain: 'Oracle CDC ke liye supplemental logging aur archivelog chahiye. Size badhana ya public subnet wajah nahi; naya full-load task CDC nahi laata.'
         },
         {
-          q: 'Naye AWS account mein migration ki discovery aur planning shuru karni hai (2026). Aaj kya dekhoge?',
+          domain: 'high-performing', q: 'Naye AWS account mein migration ki discovery aur planning shuru karni hai (2026). Aaj kya dekhoge?',
           choices: ['Sirf Migration Hub, kyunki 2025 ke baad bhi naye customers ke liye wahi khula hai', 'Snowball Edge mangwao, kyunki discovery aur server inventory bhi wahi device karta hai', 'AWS Transform; Migration Hub aur Application Discovery Service naye customers ke liye band hain', 'CloudTrail on karo, kyunki on-prem servers aur unki dependencies ki list wahi deta hai'],
           answer: 2,
           explain: 'Migration Hub aur Application Discovery Service 7 Nov 2025 se naye customers ke liye band hain; AWS Transform unki jagah hai. Snowball transfer device hai (woh bhi naye customers ke liye band), aur CloudTrail AWS API calls likhta hai.'
         },
         {
-          q: 'Cutover ke baad Oracle ka kya karoge?',
+          domain: 'resilient', q: 'Cutover ke baad Oracle ka kya karoge?',
           choices: ['Usi raat delete karo, taaki licence ka paisa turant bache', 'Read-only rakho, rollback window aur sign-off ke baad retire', 'Dono DBs mein writes hamesha chalu rakho, dono jagah data rahe', 'Usse naye DMS task ka target bana kar data wapas bhejo'],
           answer: 1,
           explain: 'Source rollback ka raasta hai; sign-off ke baad hi retire karo. Usi raat delete risk hai, dono jagah writes data ko alag kar dete hain, aur source ko target banana gadbad karta hai.'
@@ -417,25 +417,25 @@
     instructions: 'Chaar faisle, phir terminal mein woh task theek karo jo full load ke baad ruk gaya.',
     questions: [
       {
-        q: 'Interviewer: "200 apps hain. Sabko ek hi strategy se migrate karein?"',
+        domain: 'resilient', q: 'Interviewer: "200 apps hain. Sabko ek hi strategy se migrate karein?"',
         choices: ['Haan, sab rehost karo; sabse tez aur sabse sasta raasta yahi hai har app ke liye', 'Haan, sab refactor karo; cloud ka poora fayda isi se milta hai, deadline chahe jo ho', 'Nahi; har app ke liye 7 Rs mein se R, waves mein, business value ke hisaab se', 'Nahi; pehle saari apps retire karo, phir dekhenge kya bacha'],
         answer: 2,
         explain: 'Portfolio mein har app alag hai: kuch retire, kuch rehost, kuch replatform/refactor. Ek hi R sab par lagana ya sab retire karna sahi nahi.'
       },
       {
-        q: '"DMS ke CDC ka fayda kya hai?"',
+        domain: 'resilient', q: '"DMS ke CDC ka fayda kya hai?"',
         choices: ['Schema apne aap convert ho jaata hai, isliye Schema Conversion ki zaroorat nahi', 'Full load ke baad naye changes lagte rehte hain, isliye cutover window chhoti', 'Network bandwidth zero lagti hai, kyunki CDC sirf metadata bhejta hai', 'Source database ki zaroorat khatam ho jaati hai, load ke turant baad'],
         answer: 1,
         explain: 'CDC source ke changes lagatar target par lagata hai, isliye downtime sirf lag drain karne jitna. Schema conversion alag tool hai, bandwidth lagti hai, aur source cutover tak chahiye.'
       },
       {
-        q: '"80 TB, 100 Mbps link, 2 hafte. Online ho jaayega?"',
+        domain: 'high-performing', q: '"80 TB, 100 Mbps link, 2 hafte. Online ho jaayega?"',
         choices: ['Haan, 100 Mbps par 80 TB lagbhag ek din mein chala jaata hai', 'Haan, DataSync compression se link 10 guna tez ho jaata hai', 'Nahi pata, kyunki transfer ka andaaza maths se nahi lagta', 'Nahi; lagbhag 74 din lagenge, physical ya bada link socho'],
         answer: 3,
         explain: '80 TB × 8 = 640 Tb; 100 Mbps poore din ≈ 8.64 Tb/din ≈ 74 din. Do hafte mein online nahi hoga.'
       },
       {
-        q: '"Cutover se pehle kya pakka hona chahiye?"',
+        domain: 'resilient', q: '"Cutover se pehle kya pakka hona chahiye?"',
         choices: ['Writes ruke, CDC lag 0, validation theek, rollback plan likha', 'Source DB pehle hi delete ho chuka ho, taaki confusion na rahe', 'Saare alarms band hon, taaki cutover ke dauran noise na ho', 'Target par koi test na chala ho, taaki data bilkul saaf rahe'],
         answer: 0,
         explain: 'Cutover tab jab target poora aur jaancha hua ho, aur wapas jaane ka raasta ho. Source delete, alarms band ya bina test switch risk badhate hain.'

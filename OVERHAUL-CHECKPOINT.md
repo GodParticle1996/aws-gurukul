@@ -1,5 +1,17 @@
 # AWS Gurukul deep pass
 
+## Phase 5 E2 · SAA mock exam aur topic ke scores (2026-11-23)
+
+Poora syllabus pehle din se milta hai. 41 levels ke quiz aur interview se 504 sawaal aaye. Chaar naye sawaalon mein do jawaab chunne hain. Har mock mein 65 sawaal hain. Score ke 50 sawaalon mein Secure 15, Resilient 13, High-performing 12 aur Cost-optimized 10 hain. Baaki 15 ke jawaab bhi review mein milte hain. Home par pichhle attempt ke chaar raw scores dikhte hain.
+
+130-minute timer ko rok sakte hain ya bina timer ke khel sakte hain. Reload par selection aur timer bachte hain. Waqt khatam ho toh attempt submit hota hai. Galat ya chhoota sawaal Revision Dojo mein aata hai. Review se locked level ka lesson bhi padh sakte hain. Attempt history E1 ke JSON backup mein jaati hai.
+
+Validator ne 65 alag forms ka weight, sawaalon ki ginti, sahi choice ki jagah, score, cards aur backup check kiya. Chaar naye choose-two sawaalon par zero length flags the. Chromium mein phone aur desktop par 65 sawaal click karke submit kiye. Pause, reload, timeout, weak topic, readiness aur quiz mein dobara koshish bhi chale. E2 mein koi AWS ya Docker lab nahi chali. [Validator](../aws-deep-run/logs/e2-validate.log) · [6 screenshots](../aws-deep-run/browser/shots-e2/) · [Browser walk](../aws-deep-run/browser/e2.json)
+
+Exam ka time aur chaaron domain weights AWS se jaanche. [Exam overview](https://aws.amazon.com/certification/certified-solutions-architect-associate/) · [SAA-C03 guide](https://docs.aws.amazon.com/aws-certification/latest/solutions-architect-associate-03/solutions-architect-associate-03.html) · [IAM roles aur permissions](https://docs.aws.amazon.com/IAM/latest/UserGuide/best-practices.html) · [SQS redelivery](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/standard-queues-at-least-once-delivery.html) · [Athena scan](https://docs.aws.amazon.com/athena/latest/ug/performance-tuning-data-optimization-techniques.html) · [S3 gateway endpoint](https://docs.aws.amazon.com/vpc/latest/privatelink/vpc-endpoints-s3.html)
+
+Agla item E3 Lab Hub hai.
+
 ## Phase 5 E1 · Adhoora challenge aur progress ka backup (2026-11-23)
 
 Home par **Wahin se shuru karo** level aur challenge ka naam dikhaata hai. Challenge beech mein chhodein to uski shuruaat phir khulti hai. Pehle mile XP dobara nahi judte. Poora hua challenge save ho jaata hai, tab bhi jab learner ne abhi Agla button na dabaaya ho.

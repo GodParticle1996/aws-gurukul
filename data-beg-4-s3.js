@@ -342,31 +342,31 @@
         title: 'S3 quick-fire — mechanism samjho',
         questions: [
           {
-            q: 'Versioning ON bucket mein <code>aws s3 rm s3://b/a.jpg</code> chalaya. Kya hua?',
+            domain: 'resilient', q: 'Versioning ON bucket mein <code>aws s3 rm s3://b/a.jpg</code> chalaya. Kya hua?',
             choices: ['a.jpg par delete marker laga; purane versions pade hain', 'a.jpg ke saare versions permanent delete', 'Command fail — versioning bucket mein delete nahi hota', 'a.jpg Glacier mein gaya'],
             answer: 0,
             explain: 'Bina version-id delete = delete marker. Marker hatane se file wapas.',
           },
           {
-            q: 'Bucket par Block Public Access (BlockPublicPolicy = true) ON hai. Koi Principal "*" wali policy lagata hai. Kya hoga?',
+            domain: 'secure', q: 'Bucket par Block Public Access (BlockPublicPolicy = true) ON hai. Koi Principal "*" wali policy lagata hai. Kya hoga?',
             choices: ['PutBucketPolicy AccessDenied se fail', 'Policy lag jayegi aur bucket public', 'Policy lagegi par 24 ghante baad', 'Sirf GET public hoga'],
             answer: 0,
             explain: 'BlockPublicPolicy public policy lagne hi nahi deta. RestrictPublicBuckets pehle se lagi public policy ko bekaar karta hai.',
           },
           {
-            q: '"images/" folder rename karke "photos/" karna hai, 50,000 objects. S3 mein kya hota hai?',
+            domain: 'resilient', q: '"images/" folder rename karke "photos/" karna hai, 50,000 objects. S3 mein kya hota hai?',
             choices: ['Har object copy hota hai naye key par aur purana delete — 50,000 copy + 50,000 delete requests', 'Ek metadata change hota hai, turant — S3 sirf folder ka naam badal deta hai', 'Folder rename API hai: ek call mein 50,000 objects ka prefix badal jaata hai, free', 'Impossible — S3 mein folder ka naam ek baar banne ke baad kabhi badal nahi sakta'],
             answer: 0,
             explain: 'Folders nahi hain, sirf keys. Prefix badalna = har object ka naya key.',
           },
           {
-            q: 'S3 Standard ki 11 nines durability kis cheez se NAHI bachati?',
+            domain: 'resilient', q: 'S3 Standard ki 11 nines durability kis cheez se NAHI bachati?',
             choices: ['Tumhare apne (ya attacker ke) delete/overwrite se', 'Disk failure se, ek disk kharab ho toh data gaya', 'Ek AZ mein aag lagne se, poora data wahan hota hai', 'Rack ke power failure se, jab poora rack band ho'],
             answer: 0,
             explain: 'Valid API delete ko S3 follow karta hai. Versioning/Object Lock/backup chahiye.',
           },
           {
-            q: 'Ek prefix par 12,000 GET/second aa rahe hain aur 503 Slow Down errors aate hain. Pehla design fix?',
+            domain: 'high-performing', q: 'Ek prefix par 12,000 GET/second aa rahe hain aur 503 Slow Down errors aate hain. Pehla design fix?',
             choices: ['Objects ko kai prefixes mein baanto (har prefix ~5,500 GET/s) aur CloudFront cache lagao', 'Bucket ka naam badlo, naye naam par S3 naya aur bada server deta hai', 'Versioning off karo, kyunki har GET par S3 saare versions padhta hai aur slow hota hai', 'Glacier mein daalo, wahan read ki koi limit nahi hoti aur 503 kabhi nahi aata'],
             answer: 0,
             explain: 'S3 per-prefix scale karta hai. Cache se requests hi kam.',
@@ -506,49 +506,49 @@
         title: '📝 SAA-style quick-fire — S3',
         questions: [
           {
-            q: 'Company ko compliance ke liye log files 5 saal tak aise rakhni hain ki koi bhi (root bhi) delete na kar sake.',
+            domain: 'secure', q: 'Company ko compliance ke liye log files 5 saal tak aise rakhni hain ki koi bhi (root bhi) delete na kar sake.',
             choices: ['S3 Object Lock in compliance mode, retention 5 years', 'Versioning + MFA Delete, root ka MFA band rakho', 'Bucket policy mein DeleteObject par Deny, sab par', 'Glacier Deep Archive mein 5 saal ke liye rakho'],
             answer: 0,
             explain: 'Compliance mode retention ko koi bypass nahi kar sakta. Bucket policy admin badal sakta hai.',
           },
           {
-            q: 'Static website S3 mein hai. Requirement: HTTPS, custom domain, bucket public nahi honi chahiye.',
+            domain: 'secure', q: 'Static website S3 mein hai. Requirement: HTTPS, custom domain, bucket public nahi honi chahiye.',
             choices: ['CloudFront distribution + Origin Access Control + ACM certificate', 'S3 website endpoint + public bucket, HTTPS apne aap milta hai', 'EC2 par nginx, bucket ko public karke files wahan se serve karo', 'Route 53 alias seedha bucket par, ACM certificate bucket par laga do'],
             answer: 0,
             explain: 'S3 website endpoint HTTP-only aur public maangta hai. CloudFront + OAC = HTTPS + private bucket.',
           },
           {
-            q: 'Mobile app users ko seedha S3 par badi videos upload karni hain, app ke servers se guzare bina, aur bucket private rahe.',
+            domain: 'high-performing', q: 'Mobile app users ko seedha S3 par badi videos upload karni hain, app ke servers se guzare bina, aur bucket private rahe.',
             choices: ['Backend presigned PUT URLs (ya multipart presigned parts) generate kare', 'Bucket public write kar do, upload ke baad app file ko private bana de', 'Har user ko ek IAM access key do, app mein login ke baad download ho jaaye', 'EC2 par upload server lagao, sab videos pehle wahan aayengi phir S3'],
             answer: 0,
             explain: 'Presigned URL temporary write permission deta hai bina credentials share kiye.',
           },
           {
-            q: 'Ek bucket ke objects ko sirf HTTPS par hi access hone dena hai.',
+            domain: 'secure', q: 'Ek bucket ke objects ko sirf HTTPS par hi access hone dena hai.',
             choices: ['Bucket policy: Deny s3:* jab "aws:SecureTransport": "false"', 'SSE-S3 encryption on karo, phir HTTP request apne aap fail', 'Versioning on karo, versioning sirf HTTPS par kaam karta hai', 'CloudTrail on karo, woh HTTP wali requests ko block kar dega'],
             answer: 0,
             explain: 'Encryption in transit enforce karne ka standard pattern.',
           },
           {
-            q: 'Galti se delete hue objects wapas laane hain. Bucket par versioning on thi. Kya karoge?',
+            domain: 'resilient', q: 'Galti se delete hue objects wapas laane hain. Bucket par versioning on thi. Kya karoge?',
             choices: ['Delete markers hata do (list-object-versions → delete-object --version-id <marker>)', 'AWS support ko ticket do, woh backup se delete hue objects wapas daal denge', 'CloudTrail se restore karo, CloudTrail har delete hua object apne paas copy rakhta hai', 'Possible nahi — delete ke baad versioning on ho tab bhi object wapas nahi aata'],
             answer: 0,
             explain: 'Delete marker hatao → previous version current.',
           },
           {
-            q: 'Organization ke kisi bhi account mein koi bhi bucket kabhi public na ho, aur koi admin yeh setting band na kar sake.',
+            domain: 'secure', q: 'Organization ke kisi bhi account mein koi bhi bucket kabhi public na ho, aur koi admin yeh setting band na kar sake.',
             choices: ['Har account mein account-level Block Public Access + SCP jo s3:PutAccountPublicAccessBlock deny kare', 'Har bucket par alag bucket policy lagao jo public access deny kare, aur har mahine haath se check karo', 'CloudWatch alarm lagao jo bucket public hote hi email bheje, phir admin use band kar de', 'Sab buckets par encryption on karo; encrypted bucket kabhi public nahi ho sakti, admin bhi nahi kar sakta'],
             answer: 0,
             explain: 'BPA guardrail + SCP lock = admin bhi band nahi kar sakta.',
           },
           {
-            q: 'Versioning on karne ke baad S3 bill badhta ja raha hai.',
+            domain: 'cost-optimized', q: 'Versioning on karne ke baad S3 bill badhta ja raha hai.',
             choices: ['Lifecycle rule: noncurrent versions N din baad expire (ya sasti class mein)', 'Versioning off karke saare purane versions bhool jao, woh apne aap hat jaayenge', 'Bucket delete karke naya bucket banao, naye mein purane versions nahi aate', 'CloudFront lagao, cache hone se S3 versions ka storage bill kam ho jaata hai'],
             answer: 0,
             explain: 'Har overwrite ki purani copy ka storage bill lagta hai — lifecycle se saaf.',
           },
           {
-            q: 'Sensitive objects ko encrypt karna hai aur security team ko har decrypt request ka audit chahiye, key policy bhi apni.',
+            domain: 'secure', q: 'Sensitive objects ko encrypt karna hai aur security team ko har decrypt request ka audit chahiye, key policy bhi apni.',
             choices: ['SSE-KMS with customer managed key', 'SSE-S3', 'SSE-C', 'Koi encryption nahi, sirf IAM'],
             answer: 0,
             explain: 'KMS decrypt calls CloudTrail mein dikhte hain; key policy customer control karta hai.',
@@ -561,7 +561,7 @@
       instructions: 'S3 round — security aur "galti se bachav" par focus. 🎤',
       questions: [
         {
-          q: '"Website ki images S3 mein hain. Bucket public kiye bina kaise serve karoge?"',
+          domain: 'secure', q: '"Website ki images S3 mein hain. Bucket public kiye bina kaise serve karoge?"',
           choices: [
             'CloudFront distribution + Origin Access Control; bucket policy mein sirf us distribution ko s3:GetObject (sirf images prefix); BPA ON',
             'Bucket public kar do, simple hai; images waise bhi sabko dikhni hain, isliye private rakhne ka koi fayda nahi, bas invoices alag rakho',
@@ -572,7 +572,7 @@
           explain: 'Bonus bolo: HTTPS + ACM, cache se S3 request bill kam, WAF option.',
         },
         {
-          q: '"Versioning on bucket mein delete karne par kya hota hai, aur restore kaise?"',
+          domain: 'resilient', q: '"Versioning on bucket mein delete karne par kya hota hai, aur restore kaise?"',
           choices: [
             'Delete marker lagta hai, versions bachte hain; marker ko version-id se delete karo → pichla version current. Version-id wala delete permanent hai',
             'File hamesha ke liye jaati hai; versioning sirf overwrite par purana version rakhta hai, delete par nahi. Restore ke liye backup se file dobara upload karo',
@@ -583,7 +583,7 @@
           explain: 'Plus: attacker se bachav ke liye Object Lock / MFA Delete; bill ke liye lifecycle.',
         },
         {
-          q: '"S3 bucket se data leak hua, encryption on thi. Kaise?"',
+          domain: 'secure', q: '"S3 bucket se data leak hua, encryption on thi. Kaise?"',
           choices: [
             'Encryption at rest disk-level chori se bachata hai; public ya galat IAM/bucket policy se authorized request ko S3 decrypt karke deta hai. Fix access control mein hai: BPA, private, presigned URLs',
             'Encryption toot gayi: SSE-S3 ki key sab customers ke liye ek hi hai, attacker ne woh key nikaal li aur files decrypt kar li. Fix yeh hai ki har file par alag password lagao aur KMS ki jagah apni key rakho',
@@ -594,7 +594,7 @@
           explain: 'Access control ≠ encryption. Dono layers chahiye.',
         },
         {
-          q: '"Ek prefix par heavy read traffic se 503 SlowDown aa raha hai. Kya karoge?"',
+          domain: 'high-performing', q: '"Ek prefix par heavy read traffic se 503 SlowDown aa raha hai. Kya karoge?"',
           choices: [
             'Keys ko kai prefixes mein baanto (S3 per-prefix scale karta hai ~5,500 GET/s), CloudFront cache lagao, client par exponential backoff retry',
             'Bucket badal do: naya bucket banao aur saare objects wahan copy karo, kyunki har bucket ki apni alag limit hoti hai aur naya bucket fresh hota hai',

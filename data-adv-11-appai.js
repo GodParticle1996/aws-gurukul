@@ -300,49 +300,49 @@
       title: '🎓 Login aur AI ke faisle',
       questions: [
         {
-          q: 'App users ko sign-up, sign-in aur MFA chahiye. Kya?',
+          domain: 'secure', q: 'App users ko sign-up, sign-in aur MFA chahiye. Kya?',
           choices: ['Cognito identity pool', 'Cognito user pool', 'IAM users har customer ke liye', 'IAM Identity Center'],
           answer: 1,
           explain: 'User pool app users ki directory aur login hai. Identity pool AWS credentials deta hai, IAM users customers ke liye nahi, aur Identity Center employees ke liye hai.'
         },
         {
-          q: 'Logged-in app users ko seedha S3 mein apne folder mein upload karna hai, bina backend ke. Kya?',
+          domain: 'secure', q: 'Logged-in app users ko seedha S3 mein apne folder mein upload karna hai, bina backend ke. Kya?',
           choices: ['App mein ek IAM access key', 'Bucket public write', 'Identity pool + ${sub} prefix wala role', 'User pool ka ID token seedha S3 ko'],
           answer: 2,
           explain: 'Identity pool thodi der ke credentials deta hai aur role policy apne prefix tak rokti hai. Access key ya public bucket khatarnaak hain, aur S3 ID token nahi samajhta.'
         },
         {
-          q: 'Seller ki invoice photo se GSTIN aur total nikaalna hai. Kaunsi service?',
+          domain: 'high-performing', q: 'Seller ki invoice photo se GSTIN aur total nikaalna hai. Kaunsi service?',
           choices: ['Amazon Textract', 'Amazon Rekognition', 'Amazon Comprehend', 'Amazon Polly'],
           answer: 0,
           explain: 'Textract documents se text, forms aur tables nikaalta hai (AnalyzeExpense invoices ke liye). Rekognition images, Comprehend text ka matlab, Polly awaaz.'
         },
         {
-          q: 'Naye account mein (2026) apne company docs par search/Q&A chahiye. Aaj kya dekhoge?',
+          domain: 'high-performing', q: 'Naye account mein (2026) apne company docs par search/Q&A chahiye. Aaj kya dekhoge?',
           choices: ['Amazon Kendra, naye index ke saath', 'Amazon Rekognition', 'Amazon Polly', 'Bedrock Knowledge Bases'],
           answer: 3,
           explain: 'Amazon Kendra 30 Jul 2026 se naye customers ke liye band hai; AWS Bedrock Knowledge Bases ki salah deta hai. Exam purana jawaab "Kendra" de sakta hai.'
         },
         {
-          q: 'Apna custom model train karna hai, apne data aur algorithm ke saath. Kya?',
+          domain: 'high-performing', q: 'Apna custom model train karna hai, apne data aur algorithm ke saath. Kya?',
           choices: ['Amazon Bedrock prompt hi kaafi', 'Amazon SageMaker AI', 'Amazon Translate', 'Cognito'],
           answer: 1,
           explain: 'SageMaker AI custom models ki training aur deployment ke liye hai. Bedrock ready foundation models deta hai; Translate aur Cognito alag kaam ke hain.'
         },
         {
-          q: 'Mobile app ke Cognito client ke liye kaunsi setting sahi hai?',
+          domain: 'secure', q: 'Mobile app ke Cognito client ke liye kaunsi setting sahi hai?',
           choices: ['Client secret ke saath, secret app mein', 'Bina secret, SRP ya managed login (PKCE)', 'Plain USER_PASSWORD_AUTH, kyunki simple hai', 'Har user ke liye alag client'],
           answer: 1,
           explain: 'Public client mein secret chhup nahi sakta, isliye bina secret aur SRP/PKCE. Plain password flow kam secure hai, aur har user ka client nahi banta.'
         },
         {
-          q: 'Product photo moderation mein model kabhi galat bhi hoga. Sahi design?',
+          domain: 'resilient', q: 'Product photo moderation mein model kabhi galat bhi hoga. Sahi design?',
           choices: ['Sirf ek threshold rakho: upar block, neeche sab publish', 'Kuch mat karo, kyunki model hamesha 100% sahi jawaab hi deta hai', 'Har photo insaan haath se dekhe, aur model band kar do', 'Pakke cases block, beech wale insaan dekhe, baaki publish'],
           answer: 3,
           explain: 'Do thresholds ke saath human review band galtiyaan kam karta hai. Ek threshold dono taraf galti karta hai, model kabhi 100% nahi, aur sab haath se karna bahut dheema.'
         },
         {
-          q: 'API Gateway HTTP API ko Cognito tokens se bachana hai. Kya lagaoge?',
+          domain: 'secure', q: 'API Gateway HTTP API ko Cognito tokens se bachana hai. Kya lagaoge?',
           choices: ['JWT authorizer (issuer + audience)', 'Sirf WAF ka IP allow-list rule', 'CloudFront signed cookies har user ko', 'Har user ke liye ek alag API key'],
           answer: 0,
           explain: 'HTTP API ka JWT authorizer token ka issuer aur audience jaanchta hai. WAF, signed cookies ya API keys user ki pehchaan nahi jaanchte.'
@@ -356,25 +356,25 @@
     instructions: 'Chaar faisle, phir terminal mein woh authorizer theek karo jo mobile users ko 401 deta hai.',
     questions: [
       {
-        q: 'Interviewer: "ID token aur access token mein farak?"',
+        domain: 'secure', q: 'Interviewer: "ID token aur access token mein farak?"',
         choices: ['ID: user kaun hai (aud = client); access: scopes/permissions (client_id)', 'Dono bilkul same hain; bas naam alag hai, kaam ek hi hai', 'ID token AWS ka access key hai, aur access token user ka password', 'Access token sirf naye tokens lene ke liye hota hai, API ke liye nahi'],
         answer: 0,
         explain: 'ID token pehchaan ke claims deta hai; access token API ke scopes. Koi bhi AWS credentials ya password nahi, aur refresh ka kaam refresh token ka hai.'
       },
       {
-        q: '"Cognito ke Lite aur Essentials plan mein kya farak padta hai?"',
+        domain: 'secure', q: '"Cognito ke Lite aur Essentials plan mein kya farak padta hai?"',
         choices: ['Lite plan mein user login hi nahi hota, sirf sign-up', 'Koi farak nahi; dono ka kaam aur daam bilkul same hai', 'Managed login, passwordless waghera Essentials se shuru', 'Essentials mein sirf SAML login chalta hai, password nahi'],
         answer: 2,
         explain: 'Lite basic sign-in aur classic hosted UI deta hai; managed login aur naye features Essentials se. Lite mein login hota hai, aur Essentials mein sirf SAML nahi.'
       },
       {
-        q: '"Bedrock vs SageMaker AI kab?"',
+        domain: 'high-performing', q: '"Bedrock vs SageMaker AI kab?"',
         choices: ['Bedrock hamesha sasta hai, isliye SageMaker kabhi mat chuno', 'SageMaker AI sirf images aur video ke models ke liye bana hai', 'Dono ek hi service ke naam hain; koi bhi chuno', 'Ready models par app: Bedrock; apna model train: SageMaker AI'],
         answer: 3,
         explain: 'Bedrock managed foundation models (aur Knowledge Bases, Guardrails) deta hai; SageMaker AI apne models ki training/deployment. Daam aur kaam use-case par depend karte hain.'
       },
       {
-        q: '"Moderation model ka confidence 70 aaya. Kya karoge?"',
+        domain: 'resilient', q: '"Moderation model ka confidence 70 aaya. Kya karoge?"',
         choices: ['Hamesha publish karo, kyunki 70 toh kam number hai', 'Apne data par tay band dekho: shayad human review', 'Hamesha block karo, kyunki 70 toh bada number hai', 'Model ko hi band kar do, woh bharose ka nahi'],
         answer: 1,
         explain: 'Threshold apne labelled data par naap kar tay hota hai. Beech wale confidence par insaan ka review sabse theek raasta hai; hamesha publish ya hamesha block dono galtiyaan badhate hain.'

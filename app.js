@@ -131,6 +131,8 @@ function showHome(backupNotice) {
   soch.onclick = () => AG.showSoch();
   appEl.appendChild(soch);
 
+  appEl.appendChild(AG.mock.home());
+
   // tracks
   const map = el('section', 'trackmap');
   AG.tracks.forEach(track => {
@@ -210,9 +212,9 @@ function showTrack(track) {
 /* ============================================================
    LEVEL INTRO — objectives + lesson
    ============================================================ */
-function showIntro(level) {
+function showIntro(level, studyOnly = false) {
   AG.session = null;
-  AG.nav.set('level/' + level.id);
+  AG.nav.set((studyOnly ? 'study/' : 'level/') + level.id);
   appEl.innerHTML = '';
   const track = AG.trackOf(level);
   const levels = AG.levelsOf(track);
@@ -258,6 +260,15 @@ function showIntro(level) {
     wrap.appendChild(box);
   }
 
+  if (studyOnly) {
+    const back = el('button', 'btn ghost', '← Home');
+    back.onclick = () => showHome();
+    wrap.appendChild(back);
+    appEl.appendChild(wrap);
+    window.scrollTo(0, 0);
+    return;
+  }
+
   const totalStages = allStages(level).length;
   const bonusCount = level.stages.filter(s => s.bonus).length;
   if (bonusCount) wrap.appendChild(el('p', 'bonus-note',
@@ -284,7 +295,7 @@ function showIntro(level) {
       runStage();
     };
     // Surprise pop quiz: har ~2nd level start par, purane concepts ka quick check
-    const pool = AG.harvestQuestions().filter(q => q.from.id !== level.id);
+    const pool = AG.harvestQuestions().filter(q => q.from.id !== level.id && !Array.isArray(q.answer));
     if (!replay && AG.state.completed.length >= 2 && AG.state.levelStarts % 2 === 0 && pool.length >= 3)
       showPopQuiz(pool, begin);
     else begin();
@@ -772,5 +783,6 @@ function showCertificate(track) {
 }
 
 /* ---------------- boot ---------------- */
+AG.state = AG.loadState();
 renderTopbar();
 AG.nav.start();

@@ -369,7 +369,7 @@
         title: 'Policy JSON padho — faisla kya hoga?',
         questions: [
           {
-            q: 'Is policy ke saath user <code>aws s3 ls s3://photos/</code> chalata hai (bucket ke andar list). Kya hoga?',
+            domain: 'secure', q: 'Is policy ke saath user <code>aws s3 ls s3://photos/</code> chalata hai (bucket ke andar list). Kya hoga?',
             context: '{\n  "Version": "2012-10-17",\n  "Statement": [{\n    "Effect": "Allow",\n    "Action": ["s3:ListBucket", "s3:GetObject"],\n    "Resource": "arn:aws:s3:::photos/*"\n  }]\n}',
             choices: [
               'AccessDenied — s3:ListBucket bucket ke ARN (arn:aws:s3:::photos) par lagta hai, photos/* par nahi',
@@ -381,14 +381,14 @@
             explain: 'Classic galti. ListBucket = bucket resource; GetObject = object resource (/*). Dono ARNs alag statements mein ya Resource array mein dono do.',
           },
           {
-            q: 'User par yeh do policies hain. User <code>s3:DeleteObject</code> on <code>arn:aws:s3:::logs/a.txt</code> karta hai. Faisla?',
+            domain: 'secure', q: 'User par yeh do policies hain. User <code>s3:DeleteObject</code> on <code>arn:aws:s3:::logs/a.txt</code> karta hai. Faisla?',
             context: 'Policy A: { "Effect": "Allow", "Action": "s3:*", "Resource": "*" }\nPolicy B: { "Effect": "Deny",  "Action": "s3:Delete*", "Resource": "arn:aws:s3:::logs/*" }',
             choices: ['Deny — explicit Deny jeetta hai', 'Allow — s3:* sab cover karta hai', 'Policy A pehle hai isliye Allow', 'Dono cancel, error'],
             answer: 0,
             explain: 'Deny > Allow. Logs ko delete se bachane ka yahi tareeka hai — chahe kisi ke paas s3:* ho.',
           },
           {
-            q: 'Yeh condition kya karti hai?',
+            domain: 'secure', q: 'Yeh condition kya karti hai?',
             context: '{\n  "Effect": "Deny",\n  "Action": ["ec2:TerminateInstances", "iam:*"],\n  "Resource": "*",\n  "Condition": { "BoolIfExists": { "aws:MultiFactorAuthPresent": "false" } }\n}',
             choices: [
               'Bina MFA ke login kiya hai toh instances terminate karna aur IAM changes block',
@@ -400,13 +400,13 @@
             explain: 'Sensitive actions ke liye MFA zaroori banane ka standard pattern. BoolIfExists isliye ki kuch requests (access keys) mein MFA key hoti hi nahi — unhe bhi block maana jaaye.',
           },
           {
-            q: 'Policy mein <code>"Resource": "arn:aws:s3:::reports*"</code> likha hai. Kaunsi bucket bhi match ho jayegi jo shayad tum nahi chahte?',
+            domain: 'secure', q: 'Policy mein <code>"Resource": "arn:aws:s3:::reports*"</code> likha hai. Kaunsi bucket bhi match ho jayegi jo shayad tum nahi chahte?',
             choices: ['reports-archive-old aur reportsXYZ bhi — * prefix ke baad kuch bhi match karta hai', 'Sirf reports naam ki bucket — * yahan sirf usi ek bucket ka matlab hai', 'Koi nahi — bucket ARN mein * ka koi matlab nahi, AWS use ignore karta hai', 'Sirf reports/ folder ke andar ke objects; koi doosri bucket is pattern se kabhi match nahi hoti'],
             answer: 0,
             explain: 'Wildcard ka matlab "kuch bhi". Exact ARN likho — reports aur reports/* — taaki naye buckets galti se cover na hon.',
           },
           {
-            q: 'EC2 app ko S3 se file padhni hai. Best practice?',
+            domain: 'secure', q: 'EC2 app ko S3 se file padhni hai. Best practice?',
             choices: [
               'EC2 par IAM role (instance profile) jisme sirf zaroori S3 actions — app ko key file nahi',
               'Access key EC2 ke environment variable mein rakho, taaki code mein key na dikhe',
@@ -544,49 +544,49 @@
         title: '📝 SAA-style quick-fire — IAM',
         questions: [
           {
-            q: 'EC2 par ek application ko S3 bucket mein objects likhne hain. MOST secure tareeka?',
+            domain: 'secure', q: 'EC2 par ek application ko S3 bucket mein objects likhne hain. MOST secure tareeka?',
             choices: ['IAM role banao jisme s3:PutObject us bucket par, aur EC2 instance profile se attach karo', 'IAM user ki access key application config mein rakho aur har 90 din mein rotate karo', 'Bucket policy mein Principal "*" do, taaki EC2 bina key ke seedha likh sake', 'Root access key EC2 par rakho, kyunki root ke paas har bucket par likhne ka haq hai'],
             answer: 0,
             explain: 'Instance profile = temporary credentials. Baaki options permanent keys ya public access.',
           },
           {
-            q: 'Company chahti hai ki koi bhi user, admin bhi, CloudTrail band na kar sake. Single account. Kaise?',
+            domain: 'secure', q: 'Company chahti hai ki koi bhi user, admin bhi, CloudTrail band na kar sake. Single account. Kaise?',
             choices: ['IAM policy mein cloudtrail:StopLogging aur DeleteTrail par explicit Deny, sab users/groups par', 'Sirf admins ko email se batao ki CloudTrail band mat karna, aur unpar bharosa rakho', 'CloudTrail trail ka naam chhupa do, taaki kisi ko pata hi na chale ki kaunsa trail band karna hai', 'Sab users par MFA laga do; MFA ke baad koi bhi CloudTrail band nahi kar sakta'],
             answer: 0,
             explain: 'Explicit Deny Allow ko kaat deta hai. Multi-account mein yahi kaam SCP karta hai (aur SCP admin par bhi lagta hai).',
           },
           {
-            q: 'Developers khud IAM roles banate hain (Lambda ke liye). Kaise ensure karoge ki developer kisi role ko apne se zyada power na de sake?',
+            domain: 'secure', q: 'Developers khud IAM roles banate hain (Lambda ke liye). Kaise ensure karoge ki developer kisi role ko apne se zyada power na de sake?',
             choices: ['Permissions boundary — developer sirf boundary attach karke hi role bana sake', 'Developers ko IAM se poori tarah rok do, aur har Lambda role security team banaye', 'Har naya role manually review karo, aur tab tak Lambda deploy hone hi mat do', 'Developers par MFA laga do; MFA ke saath role zyada power nahi le sakta'],
             answer: 0,
             explain: 'Permissions boundary maximum limit hai. Boundary ke bahar ki permission kaam nahi karti.',
           },
           {
-            q: 'Auditor (doosri company, apna AWS account) ko tumhare account ke resources read-only dekhne hain. Best?',
+            domain: 'secure', q: 'Auditor (doosri company, apna AWS account) ko tumhare account ke resources read-only dekhne hain. Best?',
             choices: ['Tumhare account mein read-only role, trust policy mein auditor ka account + ExternalId; auditor AssumeRole kare', 'Auditor ke liye ek IAM user + access key banao, ReadOnlyAccess policy do aur key unhe secure email par bhej do, audit ke baad hata dena', 'Root password auditor ke saath share karo, aur audit khatam hone ke baad turant password badal do', 'Saare resources public kar do, taaki auditor bina login ke sab kuch padh sake'],
             answer: 0,
             explain: 'Cross-account role = koi permanent key share nahi. ExternalId third-party ke case mein confused-deputy rokta hai.',
           },
           {
-            q: '200 employees, 15 AWS accounts. Login aur permissions centrally manage karne hain, company ke existing identity provider ke saath.',
+            domain: 'secure', q: '200 employees, 15 AWS accounts. Login aur permissions centrally manage karne hain, company ke existing identity provider ke saath.',
             choices: ['IAM Identity Center + permission sets', 'Har account mein 200 IAM users banao', 'Ek shared admin user sabke liye', 'Cognito user pool + IAM groups'],
             answer: 0,
             explain: 'Workforce SSO = Identity Center. Cognito app ke customers ke liye hai.',
           },
           {
-            q: 'Ek IAM policy mein Allow s3:* hai aur doosri mein Deny s3:DeleteBucket. User DeleteBucket karta hai.',
+            domain: 'secure', q: 'Ek IAM policy mein Allow s3:* hai aur doosri mein Deny s3:DeleteBucket. User DeleteBucket karta hai.',
             choices: ['Denied', 'Allowed', 'Pehli policy ke hisaab se', 'Error'],
             answer: 0,
             explain: 'Explicit Deny wins.',
           },
           {
-            q: 'Security team jaanna chahti hai ki kaunse roles/users ke paas permissions hain jo 90 din se use nahi hui.',
+            domain: 'secure', q: 'Security team jaanna chahti hai ki kaunse roles/users ke paas permissions hain jo 90 din se use nahi hui.',
             choices: ['IAM Access Analyzer (unused access) / last accessed information', 'CloudWatch metrics se har role ki API calls dekho', 'AWS Config se EC2 ki list aur unke tags nikaalo', 'S3 inventory report se har user aur role ki permissions dekho'],
             answer: 0,
             explain: 'Access Analyzer unused access findings + "last accessed" data se permissions trim karte hain.',
           },
           {
-            q: 'Mobile app ke users ko apni-apni S3 folder mein photo upload karni hai, app mein AWS keys rakhe bina.',
+            domain: 'secure', q: 'Mobile app ke users ko apni-apni S3 folder mein photo upload karni hai, app mein AWS keys rakhe bina.',
             choices: ['Cognito (user pool + identity pool) se temporary credentials, policy mein ${cognito-identity.amazonaws.com:sub} folder', 'App mein ek IAM user ki key daal do, aur har user ke liye alag folder naam code mein rakho', 'Bucket ko public write kar do, aur har user ko upload ke liye apne folder ka naam bata do', 'Har mobile user ke liye ek naya IAM user banao, aur uski permanent access key app mein login ke baad server se bhej do'],
             answer: 0,
             explain: 'Customer identity = Cognito. Identity pool har user ko temporary, scoped credentials deta hai.',
@@ -599,7 +599,7 @@
       instructions: 'Security round. Har jawab mein "kyun" aur "blast radius" bolo. 🎤',
       questions: [
         {
-          q: '"IAM policy evaluation logic samjhao" — interviewer.',
+          domain: 'secure', q: '"IAM policy evaluation logic samjhao" — interviewer.',
           choices: [
             'Default deny; agar kahin explicit Deny match ho toh Deny; warna koi Allow match ho toh Allow; kuch match na ho toh implicit deny. Upar se SCP/permission boundary limit lagate hain',
             'Jo policy sabse nayi ho woh jeetti hai; purani policies ignore hoti hain, aur agar kuch match na ho toh request allow ho jaati hai. SCP sirf billing par lagta hai, permissions par nahi',
@@ -610,7 +610,7 @@
           explain: 'Order bolo, phir example: "Developer ke paas s3:* hai par prod bucket par Deny hai — Deny jeetega."',
         },
         {
-          q: '"EC2 app ke liye access key kyun galat hai, role kyun sahi?"',
+          domain: 'secure', q: '"EC2 app ke liye access key kyun galat hai, role kyun sahi?"',
           choices: [
             'Key permanent hai — git, logs, laptop se leak hoti hai, rotate manually. Role temporary credentials deta hai (ASIA…), auto-rotate, CloudTrail mein role ke naam se audit',
             'Keys EC2 par kaam hi nahi karti; EC2 sirf role samajhta hai. Isliye key lagane par har call fail hoti hai, security ka koi lena-dena nahi',
@@ -621,7 +621,7 @@
           explain: 'Blast radius ki baat karo: permanent key ki umar mahine, temporary ki ghante.',
         },
         {
-          q: '"Developer ka laptop chori hua, usme access key thi. Pehle 30 minute mein kya karoge?"',
+          domain: 'secure', q: '"Developer ka laptop chori hua, usme access key thi. Pehle 30 minute mein kya karoge?"',
           choices: [
             'Key Inactive/delete → CloudTrail mein us key ke calls → attacker ke banaye users/keys/resources hatao → nayi scoped credentials (ya role) issue',
             'Kuch nahi, laptop encrypted tha; key ko waisa hi chalne do aur agle hafte ke security review mein is baat ko uthao, tab tak sab normal chalne do',
@@ -632,7 +632,7 @@
           explain: 'Containment pehle, investigation saath mein, persistence hatana mat bhoolna.',
         },
         {
-          q: '"IAM user, group aur role mein kab kya?"',
+          domain: 'secure', q: '"IAM user, group aur role mein kab kya?"',
           choices: [
             'User = ek identity with long-term credentials (insaan/legacy tool); group = users par common permissions; role = temporary credentials — apps, cross-account, elevated access',
             'Teeno same hain: teeno ke paas long-term password aur access key hoti hai; bas group mein zyada log hote hain aur role ka naam admin ke liye rakha jaata hai',

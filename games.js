@@ -351,6 +351,44 @@ AG.renderers.quiz = function renderQuiz(stage, arena, onDone) {
     const choices = el('div', 'choices');
 
     const order = shuffle(q.choices.map((c, i) => ({ c, i })));
+    if (Array.isArray(q.answer)) {
+      arena.appendChild(el('p', '', q.answer.length + ' jawab chuno'));
+      const picked = new Set();
+      const check = el('button', 'btn small', 'Jawab jaancho');
+      check.disabled = true;
+      for (const { c, i } of order) {
+        const b = el('button', 'choice', c);
+        b.dataset.i = String(i);
+        b.setAttribute('aria-pressed', 'false');
+        b.onclick = () => {
+          if (picked.has(i)) picked.delete(i); else picked.add(i);
+          for (const opt of choices.querySelectorAll('.choice')) {
+            const selected = picked.has(Number(opt.dataset.i));
+            opt.setAttribute('aria-pressed', String(selected));
+            opt.disabled = !selected && picked.size >= q.answer.length;
+          }
+          check.disabled = picked.size !== q.answer.length;
+        };
+        choices.appendChild(b);
+      }
+      check.onclick = () => {
+        if (!AG.answerMatches(q, [...picked])) {
+          if (!mistake) AG.noteMistake(q.q, AG.answerText(q) + '<br>' + q.explain);
+          mistake = true;
+          feedback.textContent = 'In jawaabon ko phir dekho. Ek choice hataakar doosri chuno.';
+          return;
+        }
+        if (!mistake) { firstTry++; AG.addXP(AG.XP_PER_ITEM); }
+        choices.querySelectorAll('.choice').forEach(b => b.disabled = true);
+        feedback.innerHTML = q.explain;
+        check.remove();
+        const next = el('button', 'btn', qi + 1 < stage.questions.length ? 'Agla sawal →' : 'Ho gaya ✓');
+        next.onclick = () => { if (++qi < stage.questions.length) renderQuestion(); else onDone({ firstTry, total: qi }); };
+        arena.appendChild(next);
+      };
+      arena.append(choices, check, feedback);
+      return;
+    }
     order.forEach(({ c, i }) => {
       const btn = el('button', 'choice', c);
       btn.onclick = () => {
