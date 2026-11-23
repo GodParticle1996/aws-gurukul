@@ -202,8 +202,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   const hints = stage.hints || [];
   // The first seven levels store their command sequences in the hints.
   const solution = stage.solution || hints.flatMap(line => line.split(/\s+phir\s+/).map(cmd => cmd.split(' — ')[0].trim()));
-  let hintIndex = 0, commandIndex = 0, offeredIndex = -1;
+  let hintIndex = 0, commandIndex = 0, offeredIndex = -1, failedIndex = -1;
   let stalled = 0, commandError = '';
+  const sameCommand = (a, b) => String(a || '').replace(/\s+/g, ' ').trim() === String(b || '').replace(/\s+/g, ' ').trim();
   let previousChecks = [];
 
   /* ---------- UI ---------- */
@@ -238,6 +239,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     sim.hintsUsed = used;
     commandIndex = 0;
     offeredIndex = -1;
+    failedIndex = -1;
     stalled = 0;
     previousChecks = [];
     cmdHistory.length = 0;
@@ -309,6 +311,17 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('hint', '💡 ' + hints[hintIndex++]);
       sim.hintsUsed++;
     } else if (commandIndex < solution.length) {
+      // The learner may have done this step in their own words, so the same command now fails.
+      if (failedIndex === commandIndex) {
+        commandIndex++;
+        failedIndex = -1;
+        print('hint', 'Pichla command fail hua. Shayad yeh kaam pehle ho chuka hai. Isliye agla command de raha hoon.');
+        if (commandIndex >= solution.length) {
+          print('hint', 'Saare commands chale. Adhoora kaam dekho ya mission phir se shuru karo.');
+          showHelpButton();
+          return;
+        }
+      }
       if (offeredIndex !== commandIndex) sim.hintsUsed++;
       offeredIndex = commandIndex;
       input.value = solution[commandIndex];
@@ -564,8 +577,10 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       print('err', `simulator error: ${e.message} — command dobara try karo ya 'help' dekho`);
     }
     const expectedError = stage.solutionErrors?.[commandIndex];
-    if (raw.trim() === solution[commandIndex] &&
-      (expectedError ? commandError.startsWith(expectedError + ':') : !commandError)) commandIndex++;
+    if (commandIndex < solution.length && sameCommand(norm, solution[commandIndex])) {
+      if (expectedError ? commandError.startsWith(expectedError + ':') : !commandError) { commandIndex++; failedIndex = -1; }
+      else failedIndex = commandIndex;
+    }
     const attempt = !['help', 'hint', 'clear'].includes(norm);
     if (attempt) stalled++;
     showHelpButton();

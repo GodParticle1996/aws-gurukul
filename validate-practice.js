@@ -61,6 +61,25 @@ for (const level of levels) {
   assert.ok(new Set(slides).size > 1, 'diagram changes ' + level.id);
 }
 
+// A learner may type the offered command with different spacing. The helper must still move on.
+for (const level of levels) {
+  for (const stage of [...level.stages, ...level.interview.questions.map(q => q.terminal)].filter(s => s && s.account)) {
+    let won = 0;
+    const arena = mkNode('div');
+    AG.renderers.terminal(stage, arena, () => won++);
+    const prompt = arena.querySelector('.terminal').querySelector('input');
+    const hint = arena.querySelector('.term-btns').children[0];
+    for (const _ of stage.hints) hint.click();
+    hint.click();
+    prompt.value = '  ' + prompt.value.replace(' ', '   ') + ' ';
+    prompt.fire('keydown', { key: 'Enter' });
+    for (let tries = 0; tries < 55 && !won; tries++) {
+      hint.click();
+      prompt.fire('keydown', { key: 'Enter' });
+    }
+    assert.equal(won, 1, level.id + ' helper stuck after extra spaces');
+  }
+}
 assert.equal(new Set(AG.sochCases.map(c => c.id)).size, 30);
 const positions = [0, 0, 0, 0];
 let longest = 0;
