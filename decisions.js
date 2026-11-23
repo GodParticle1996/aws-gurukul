@@ -93,6 +93,8 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
     return card;
   }
 
+  AG.decisionLeafCard = leafCard;
+
   /* ---------- 🗺️ poora map (nested flowchart) ---------- */
   function mapView(tree, path, leafId) {
     const onPath = new Set(path.map(p => p.id));

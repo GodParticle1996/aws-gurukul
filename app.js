@@ -136,7 +136,9 @@ function showHome(backupNotice) {
   tools.setAttribute('aria-label', 'Padhai ke tools');
   const hub = el('button', 'btn ghost', 'Lab Hub');
   hub.onclick = () => AG.labHub.show();
-  tools.appendChild(hub);
+  const search = el('button', 'btn ghost', 'Glossary aur search');
+  search.onclick = () => AG.search.show();
+  tools.append(hub, search);
   appEl.appendChild(tools);
 
   // tracks

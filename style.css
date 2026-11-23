@@ -1208,3 +1208,11 @@ pre {
 .lab-guide .dk-cmdrow { flex-wrap:wrap; }
 .lab-guide a { color:var(--gold); }
 .lab-check { padding:.4rem 0; white-space:nowrap; }
+
+.search-panel label { display:grid; gap:.35rem; font-weight:600; }
+.search-panel input,.search-panel select { background:#162035; color:#f4f6fa; border:1px solid #62718a; border-radius:.4rem; padding:.6rem; font:inherit; max-width:100%; }
+.search-panel select { margin:.6rem 0; }
+.search-hit { border-top:1px solid #34415b; padding:.6rem 0; overflow-wrap:anywhere; }
+.search-hit summary { cursor:pointer; }
+.search-hit .strip-sub { display:block; }
+.search-hit a { color:var(--gold); }

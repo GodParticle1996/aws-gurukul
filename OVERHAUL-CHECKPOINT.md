@@ -1,5 +1,13 @@
 # AWS Gurukul deep pass
 
+## Phase 5 E4 · Glossary aur search (2026-11-23)
+
+Home se 34 AWS terms ka chhota matlab aur sambandhit level milta hai. Search app ke data se 41 level titles, 316 lesson cards, 317 flashcards aur 170 Decision Dojo ke faisle padhta hai. Ek saath kai shabd aur content ka filter chal sakta hai. Learner result kholkar card ya poora Dojo faisla padh sakta hai. Locked level ka lesson padhne se progress nahi badalti.
+
+Validator ne index ki ginti, har link, alag-alag jagah ke matches aur bina result waali search check ki. Chromium mein phone aur desktop par term, flashcard, Dojo result, reload aur agle 25 results chale. Browser walk mein har size par 444 screens khuli. App offline chali. Koi AWS ya Docker lab run nahi tha. [Validator](../aws-deep-run/logs/e4-validate.log) · [4 screenshots](../aws-deep-run/browser/shots-e4/) · [Browser walk](../aws-deep-run/browser/e4.json)
+
+Terms ke liye [AWS glossary](https://docs.aws.amazon.com/glossary/latest/reference/glos-chap.html), [Route 53 concepts](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/route-53-concepts.html) aur [RTO/RPO](https://docs.aws.amazon.com/whitepapers/latest/disaster-recovery-workloads-on-aws/recovery-objectives-rto-and-rpo.html) dekhe. Agla item E5 printable cheatsheet hai.
+
 ## Phase 5 E3 · Lab Hub (2026-11-23)
 
 Home par Lab Hub se sabhi 41 lab khol sakte hain. Har lab mein README ka naam, repo root se setup ke commands, Moto ki ek khaas limit aur poora README milta hai. Poori waala checkbox learner khud lagaata hai. Checkbox ki list reload aur JSON backup mein bachti hai.
