@@ -241,6 +241,88 @@
                lesson }
      Node aur panel ki state PICHLE steps se chalti aati hai jab tak badle nahi.
      ===================================================================== */
+  function sceneFrame(steps, index) {
+    const nodes = {}, panels = {};
+    let clock = '';
+    for (let i = 0; i <= index; i++) {
+      const step = steps[i];
+      Object.assign(nodes, step.nodes || {});
+      Object.assign(panels, step.panels || {});
+      if (step.clock) clock = step.clock;
+    }
+    return { nodes, panels, clock, flows: steps[index].flows || [] };
+  }
+
+  AG.scenePlayer = function (level, overview) {
+    const scene = level.stages.find(stage => stage.type === 'dryrun');
+    if (!scene) return overview || el('div');
+    const wrap = el('section', 'scene-player');
+    wrap.appendChild(el('h3', '', scene.title));
+    const status = el('div', 'scene-status');
+    const canvas = el('div', 'scene-canvas');
+    const mobile = el('div', 'scene-mobile');
+    const say = el('div', 'scene-say');
+    say.setAttribute('aria-live', 'polite');
+    const readout = el('details', 'scene-readout');
+    readout.appendChild(el('summary', '', 'Is kadam ke numbers aur raaste'));
+    const lines = el('div', 'scene-lines');
+    readout.appendChild(lines);
+    const nav = el('div', 'scene-nav');
+    const prev = el('button', 'btn small ghost scene-prev', '← Pichhla');
+    const next = el('button', 'btn small scene-next');
+    let index = 0;
+    prev.onclick = () => { if (index > 0) { index--; paint(); } };
+    next.onclick = () => { index = (index + 1) % scene.steps.length; paint(); };
+    nav.append(prev, next);
+    wrap.append(status, canvas, mobile, say, nav, readout);
+    if (overview) {
+      const all = el('details', 'scene-overview');
+      all.append(el('summary', '', 'Poora diagram dekho'), overview);
+      wrap.appendChild(all);
+    }
+    function paint() {
+      const frame = sceneFrame(scene.steps, index);
+      status.textContent = 'Kadam ' + (index + 1) + ' / ' + scene.steps.length + (frame.clock ? ' · ' + frame.clock : '');
+      canvas.innerHTML = AG.viz.svg(scene.nodes, scene.edges, frame, scene.groups);
+      say.innerHTML = scene.steps[index].say;
+      lines.innerHTML = '';
+      const labels = new Map(scene.nodes.map(n => [n.id, n.label]));
+      mobile.innerHTML = '';
+      for (const flow of frame.flows) {
+        const path = [labels.get(flow.from), labels.get(flow.to)].filter(Boolean).join(' → ');
+        const route = el('div');
+        route.textContent = [path, flow.label].filter(Boolean).join(' · ');
+        if (route.textContent) {
+          lines.appendChild(route);
+          const chip = el('div', 'scene-path');
+          chip.textContent = route.textContent;
+          mobile.appendChild(chip);
+        }
+      }
+      if (!mobile.children.length) {
+        for (const [id, node] of Object.entries(scene.steps[index].nodes || {})) {
+          if (!labels.get(id)) continue;
+          const chip = el('div', 'scene-path');
+          chip.textContent = [labels.get(id), node.badge].filter(Boolean).join(' · ');
+          mobile.appendChild(chip);
+        }
+      }
+      for (const panel of scene.panels || []) {
+        const rows = frame.panels[panel.id] || [];
+        if (rows.length) lines.appendChild(el('div', '', '<b>' + panel.title + '</b><br>' + rows.join('<br>')));
+      }
+      if (!mobile.children.length && lines.children.length) {
+        const panel = (scene.panels || []).find(p => frame.panels[p.id]?.length);
+        if (panel) mobile.appendChild(el('div', 'scene-path', panel.title + ' · ' + frame.panels[panel.id][0]));
+      }
+      readout.hidden = !lines.children.length;
+      prev.disabled = index === 0;
+      next.textContent = index === scene.steps.length - 1 ? '↺ Shuru se dekho' : 'Agla kadam →';
+    }
+    paint();
+    return wrap;
+  };
+
   AG.renderers.dryrun = function renderDryrun(stage, arena, onDone) {
     const steps = stage.steps || [];
     const answered = {};           /* stepIndex -> firstTry bool (LOCAL) */
@@ -266,27 +348,15 @@
     wrap.append(top, stageBox, say, askSlot, nav, endSlot);
     arena.appendChild(wrap);
 
-    function stateAt(k) {
-      const nodes = {}, pans = {};
-      let clk = '';
-      for (let j = 0; j <= k; j++) {
-        const s = steps[j];
-        Object.assign(nodes, s.nodes || {});
-        Object.assign(pans, s.panels || {});
-        if (s.clock) clk = s.clock;
-      }
-      return { nodes, pans, clk, flows: steps[k].flows || [] };
-    }
-
     function paint() {
       const s = steps[i];
-      const st = stateAt(i);
+      const st = sceneFrame(steps, i);
       counter.innerHTML = `Step <b>${i + 1}</b> / ${steps.length}` +
         `<span class="dr-dots">${steps.map((_, k) => `<i class="${k < i ? 'seen' : k === i ? 'on' : ''}"></i>`).join('')}</span>`;
-      clock.textContent = st.clk ? '⏱ ' + st.clk : '';
+      clock.textContent = st.clock ? '⏱ ' + st.clock : '';
       diagram.innerHTML = AG.viz.svg(stage.nodes || [], stage.edges || [], { nodes: st.nodes, flows: st.flows }, stage.groups);
       panels.innerHTML = (stage.panels || []).map(p => {
-        const lines = st.pans[p.id] || [];
+        const lines = st.panels[p.id] || [];
         return `<div class="dr-panel"><div class="dr-ptitle">${p.title}</div>` +
           (lines.length ? lines.map(l => `<div class="dr-pline">${l}</div>`).join('') : '<div class="dr-pline muted">—</div>') +
           '</div>';

@@ -42,6 +42,7 @@ function diagramFor(id, hero) {
    HOME
    ============================================================ */
 function showHome() {
+  AG.nav.set('');
   AG.session = null;
   renderTopbar();
   appEl.innerHTML = '';
@@ -50,6 +51,22 @@ function showHome() {
     <h1>AWS Solutions Architect seekho, <span class="glow">khel khel</span> mein</h1>
     <p>Cloud ka pehla word bhi nahi aata? Perfect. Ab AWS ki duniya — level by level, hands-on, Hinglish mein.</p>`);
   appEl.appendChild(hero);
+
+  const nextLevel = AG.nextLevel();
+  const nextCard = el('section', 'next-card');
+  if (nextLevel) {
+    const track = AG.trackOf(nextLevel);
+    nextCard.appendChild(el('div', '', '<b>Agla kadam</b><div>' + track.name + ' · ' + nextLevel.title + '</div>'));
+    const open = el('button', 'btn', 'Level kholo →');
+    open.onclick = () => showIntro(nextLevel);
+    nextCard.appendChild(open);
+  } else {
+    nextCard.appendChild(el('div', '', '<b>Saare levels poore hue</b><div>Ab ek case mein apna faisla aazmao.</div>'));
+    const practice = el('button', 'btn', 'Soch Akhada kholo →');
+    practice.onclick = () => AG.showSoch();
+    nextCard.appendChild(practice);
+  }
+  appEl.appendChild(nextCard);
 
   // dojo + streak strip
   const due = AG.dueCards();
@@ -101,6 +118,11 @@ function showHome() {
     appEl.appendChild(dd);
   }
 
+  const soch = el('button', 'feat-card soch-link', '<span class="strip-icon">🧠</span><span><b>Soch Akhada</b><span class="strip-sub">' +
+    AG.sochCases.length + ' cases · Saboot dekho, faisla lo, phir nayi shart par dobara chuno.</span></span>');
+  soch.onclick = () => AG.showSoch();
+  appEl.appendChild(soch);
+
   // tracks
   const map = el('section', 'trackmap');
   AG.tracks.forEach(track => {
@@ -137,6 +159,7 @@ function showHome() {
    TRACK — level map
    ============================================================ */
 function showTrack(track) {
+  AG.nav.set('track/' + track.id);
   AG.session = null;
   appEl.innerHTML = '';
   window.scrollTo(0, 0);
@@ -152,7 +175,7 @@ function showTrack(track) {
   const map = el('section', 'levelmap');
   levels.forEach((lvl, i) => {
     const done = AG.state.completed.includes(lvl.id);
-    const unlocked = i === 0 || AG.state.completed.includes(levels[i - 1].id);
+    const unlocked = AG.levelOpen(lvl);
     const stars = AG.state.stars[lvl.id] || 0;
     const card = el('div', 'levelcard' + (done ? ' done' : '') + (unlocked ? '' : ' locked'));
     card.innerHTML = `
@@ -179,6 +202,8 @@ function showTrack(track) {
    LEVEL INTRO — objectives + lesson
    ============================================================ */
 function showIntro(level) {
+  AG.session = null;
+  AG.nav.set('level/' + level.id);
   appEl.innerHTML = '';
   const track = AG.trackOf(level);
   const levels = AG.levelsOf(track);
@@ -201,8 +226,7 @@ function showIntro(level) {
       <ul>${level.objectives.map(o => `<li>${o}</li>`).join('')}</ul>`));
   }
 
-  const hero = diagramFor(level.id, true);
-  if (hero) wrap.appendChild(hero);
+  wrap.appendChild(AG.scenePlayer(level, diagramFor(level.id, true)));
 
   if (level.steps && level.steps.length) wrap.appendChild(renderSteps(level.steps));
   (level.lesson || []).forEach(html => wrap.appendChild(el('div', 'lesson-card', html)));
@@ -624,6 +648,7 @@ function levelComplete() {
    🧘 REVISION DOJO — spaced-repetition flashcards
    ============================================================ */
 function showDojo() {
+  AG.nav.set('dojo');
   AG.session = null;
   appEl.innerHTML = '';
   window.scrollTo(0, 0);
@@ -705,6 +730,7 @@ function showDojo() {
    CERTIFICATE
    ============================================================ */
 function showCertificate(track) {
+  AG.nav.set('certificate/' + track.id);
   appEl.innerHTML = '';
   const levels = AG.levelsOf(track);
   const totalStars = levels.reduce((s, l) => s + (AG.state.stars[l.id] || 0), 0);
@@ -729,4 +755,4 @@ function showCertificate(track) {
 
 /* ---------------- boot ---------------- */
 renderTopbar();
-showHome();
+AG.nav.start();

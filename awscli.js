@@ -55,6 +55,8 @@
      tasks: [ { text, check(sim) -> bool } ],                    // checklist (optional)
      success: fn(sim) -> bool,  successText: 'HTML',
      hints: ['pehla hint', 'doosra hint', ...],
+     solution: [command, ...],  // ordered commands, including intentional repeats
+     solutionErrors: { 2: 'ConditionalCheckFailedException' }, // optional expected error at zero-based step
    }
    ===================================================================== */
 
@@ -188,17 +190,21 @@ AG.lambdaTiming = function (fn) {
 })();
 
 AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
-  // deep-clone the account so replays start fresh
-  const sim = {
-    account: JSON.parse(JSON.stringify(stage.account || {})),
-    history: [],       // executed commands (normalized)
-    hintsUsed: 0,
-    done: false,
-    stage,
-  };
-  // Clone editable file records per replay; preserve their non-serializable callbacks.
-  sim.files = Object.fromEntries(Object.entries(stage.files || {}).map(([name, f]) => [name, f && typeof f === 'object' ? { ...f } : f]));
-  sim.responses = stage.responses || [];
+  function freshSim() {
+    return {
+      account: JSON.parse(JSON.stringify(stage.account || {})),
+      files: Object.fromEntries(Object.entries(stage.files || {}).map(([name, file]) =>
+        [name, file && typeof file === 'object' ? { ...file } : file])),
+      responses: stage.responses || [], history: [], hintsUsed: 0, done: false, stage,
+    };
+  }
+  let sim = freshSim();
+  const hints = stage.hints || [];
+  // The first seven levels store their command sequences in the hints.
+  const solution = stage.solution || hints.flatMap(line => line.split(/\s+phir\s+/).map(cmd => cmd.split(' — ')[0].trim()));
+  let hintIndex = 0, commandIndex = 0, offeredIndex = -1;
+  let stalled = 0, commandError = '';
+  let previousChecks = [];
 
   /* ---------- UI ---------- */
   const goalBox = AG.el('div', 'term-goal');
@@ -222,11 +228,54 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   const input = term.querySelector('input');
 
   const btns = AG.el('div', 'term-btns');
-  const hintBtn = AG.el('button', 'btn small ghost', `💡 Hint (−${AG.HINT_COST} XP)`);
-  hintBtn.onclick = () => giveHint();
-  btns.appendChild(hintBtn);
+  const hintBtn = AG.el('button', 'btn small ghost');
+  hintBtn.onclick = giveHint;
+  const restart = AG.el('button', 'btn small ghost', 'Mission phir se shuru karo');
+  restart.onclick = () => {
+    if (sim.done || !confirm('Sirf is terminal ke commands aur changes hatenge. Mission dobara shuru karein?')) return;
+    const used = sim.hintsUsed;
+    sim = freshSim();
+    sim.hintsUsed = used;
+    commandIndex = 0;
+    offeredIndex = -1;
+    stalled = 0;
+    previousChecks = [];
+    cmdHistory.length = 0;
+    histIdx = -1;
+    out.innerHTML = '';
+    input.value = '';
+    print('sys', 'Mission phir se taiyaar hai.');
+    updateTasks();
+    showHelpButton();
+  };
+  btns.append(hintBtn, restart);
+  function showHelpButton() {
+    const price = Math.min(AG.HINT_COST, Math.max(0, AG.TERMINAL_XP - 10 - sim.hintsUsed * AG.HINT_COST));
+    const cost = price ? ' (−' + price + ' XP)' : '';
+    hintBtn.textContent = hintIndex < hints.length
+      ? '💡 Hint ' + (hintIndex + 1) + '/' + hints.length + cost
+      : 'Agla command dikhao' + (offeredIndex === commandIndex ? '' : cost);
+    hintBtn.disabled = sim.done || (hintIndex >= hints.length && commandIndex >= solution.length);
+    restart.hidden = sim.done || !sim.history.length;
+  }
+  showHelpButton();
+  updateTasks();
 
   arena.append(goalBox, term, btns);
+  if (solution.length) {
+    const menu = AG.el('details', 'term-palette');
+    menu.appendChild(AG.el('summary', '', 'Is mission ke commands dekho'));
+    const shapes = solution.map(line => {
+      const words = line.split(/\s+/);
+      return words.slice(0, words[0] === 'aws' ? 3 : words[0] === 'terraform' ? 2 : 1).join(' ');
+    });
+    for (const shape of new Set(shapes)) {
+      const code = AG.el('code');
+      code.textContent = shape;
+      menu.appendChild(code);
+    }
+    arena.appendChild(menu);
+  }
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
   // Let PixShare learners read the release goal before scrolling to its prompt.
   setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience || sim.account.pixBoss) }), 100);
@@ -248,16 +297,27 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   });
 
   function print(kind, text) {
+    if (kind === 'err') commandError = String(text);
     const div = AG.el('div', 't-' + kind);
     div.textContent = text;
     out.appendChild(div);
     out.scrollTop = out.scrollHeight;
   }
   function giveHint() {
-    const hints = stage.hints || [];
-    if (sim.hintsUsed >= hints.length) { print('hint', '💡 Aur hints nahi hain — tum kar sakte ho!'); return; }
-    print('hint', `💡 Hint ${sim.hintsUsed + 1}: ${hints[sim.hintsUsed]}`);
-    sim.hintsUsed++;
+    if (sim.done) return;
+    if (hintIndex < hints.length) {
+      print('hint', '💡 ' + hints[hintIndex++]);
+      sim.hintsUsed++;
+    } else if (commandIndex < solution.length) {
+      if (offeredIndex !== commandIndex) sim.hintsUsed++;
+      offeredIndex = commandIndex;
+      input.value = solution[commandIndex];
+      print('hint', 'Command padh lo. Chalaane ke liye Enter dabao.');
+      input.focus();
+    } else {
+      print('hint', 'Saare commands chale. Adhoora kaam dekho ya mission phir se shuru karo.');
+    }
+    showHelpButton();
   }
 
   /* ---------- resource lookup ----------
@@ -457,15 +517,25 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   }
 
   /* ---------- checks after every command ---------- */
-  function refresh() {
-    if (stage.tasks) {
-      stage.tasks.forEach((t, i) => {
-        if (t.check && t.check(sim)) taskList.children[i].classList.add('done');
-        else taskList.children[i].classList.remove('done');
-      });
-    }
+  function updateTasks() {
+    const checks = (stage.tasks || []).map(task => !!(task.check && task.check(sim)));
+    const first = checks.indexOf(false);
+    checks.forEach((done, i) => {
+      const row = taskList.children[i];
+      row.classList[done ? 'add' : 'remove']('done');
+      row.classList[i === first ? 'add' : 'remove']('now');
+    });
+    const advanced = checks.some((done, i) => done && !previousChecks[i]);
+    previousChecks = checks;
+    return advanced;
+  }
+  function refresh(attempt) {
+    const advanced = updateTasks();
+    if (advanced) stalled = 0;
+    if (attempt && stalled === 5 && !advanced) print('hint', 'Koi naya kaam poora nahi hua. Nishaan wala kaam dekho ya hint lo.');
     if (!sim.done && stage.success && stage.success(sim)) {
       sim.done = true;
+      showHelpButton();
       input.disabled = true;
       const xp = Math.max(10, AG.TERMINAL_XP - sim.hintsUsed * AG.HINT_COST);
       AG.addXP(xp);
@@ -487,12 +557,19 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     const norm = raw.replace(/\s+/g, ' ').trim();
     sim.history.push(norm);
     // simulator ka koi bhi crash mission ko freeze na kare — error dikhao aur chalte raho
+    commandError = '';
     try { exec(raw.trim()); }
     catch (e) {
       console.error('awscli sim error:', e);
       print('err', `simulator error: ${e.message} — command dobara try karo ya 'help' dekho`);
     }
-    refresh();   // har command ke baad — error paths ke baad bhi tasks/success update hon
+    const expectedError = stage.solutionErrors?.[commandIndex];
+    if (raw.trim() === solution[commandIndex] &&
+      (expectedError ? commandError.startsWith(expectedError + ':') : !commandError)) commandIndex++;
+    const attempt = !['help', 'hint', 'clear'].includes(norm);
+    if (attempt) stalled++;
+    showHelpButton();
+    refresh(attempt);   // har command ke baad — error paths ke baad bhi tasks/success update hon
   }
 
   function exec(norm) {

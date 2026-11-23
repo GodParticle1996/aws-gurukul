@@ -41,6 +41,7 @@ AG.defaultState = function () {
     stars: {},            // levelId -> 1..3
     dojo: {},             // cardId -> { box, due (ms), front, back, tag }
     streak: { last: null, count: 0, best: 0 },
+    soch: {},             // case id -> best number of first-try answers
     levelStarts: 0,       // for pop-quiz cadence
   };
 };
@@ -57,6 +58,10 @@ AG.readProgress = function (saved) {
     state.completed = [...new Set(saved.completed.filter(id => typeof id === 'string' && id))];
   if (record(saved.stars))
     state.stars = Object.fromEntries(Object.entries(saved.stars).filter(([, stars]) => count(stars) === stars && stars <= 3));
+  if (record(saved.soch)) {
+    state.soch = Object.fromEntries(Object.entries(saved.soch).filter(([, score]) =>
+      Number.isInteger(score) && score >= 0 && score <= 3));
+  }
   if (record(saved.streak)) {
     const { last, best } = saved.streak;
     state.streak.count = count(saved.streak.count);

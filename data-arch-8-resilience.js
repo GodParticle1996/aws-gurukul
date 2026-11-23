@@ -28,7 +28,7 @@
       account:R.seed(repair),files:{'release.txt':{content:'Demo tenant ka photo p7 hai. Operation demo/p7/'+version+' hai. Ledger pix-events ka string partition key pk hai. Source URL '+R.url(R.source)+' hai. pix-worker har invocation mein ek call karta hai. Downstream mein chaar slots hain. pix-feed ki limit 8 rakho. charge-'+version+'.json ke saath DynamoDB transact-write-items do baar chalao. Counter pix-usage mein hai. Aakhir mein counter-key.json ke saath get-item --consistent-read chalao.'},
         ['charge-'+version+'.json']:file(R.transaction(version)),
         'redrive.json':file(R.policy),'counter-key.json':file({pk:{S:'TOTAL#demo'}})},
-      tasks,solution,hints:['ls se files dekho. Redrive policy source queue par lagti hai.',...solution],
+      tasks,solution,solutionErrors:{[solution.lastIndexOf(send)]:'TransactionCanceledException'},hints:['ls se files dekho. Redrive policy source queue par lagti hai.',...solution],
       success:AG.allOf(tasks),successText:'Marker aur counter saath likhe gaye. Replay ki marker condition fail hui. Doosre tenant ki ginti 4 rahi.'};
   }
   const scenario={clients:12,base:4,retries:4,jitter:0,outage:2};

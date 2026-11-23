@@ -56,10 +56,7 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
   function levelChip(levelId) {
     const lvl = AG.findLevel(levelId);
     if (!lvl) return null;
-    const track = AG.trackOf(lvl);
-    const levels = AG.levelsOf(track);
-    const i = levels.indexOf(lvl);
-    const open = AG.trackUnlocked(track) && (i === 0 || AG.state.completed.includes(lvl.id) || AG.state.completed.includes(levels[i - 1].id));
+    const open = AG.levelOpen(lvl);
     const b = el('button', 'dd-chip' + (open ? '' : ' locked'), `${open ? '📚' : '🔒'} ${lvl.icon} ${lvl.title}`);
     b.title = open ? 'Level kholo' : 'Pehle pichle levels complete karo';
     if (open) b.onclick = () => showIntro(lvl);
@@ -119,6 +116,7 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
      SCREEN: 🧭 Decision Dojo — saare trees
      ============================================================ */
   window.showDecisionDojo = function showDecisionDojo() {
+    AG.nav.set('decisions');
     AG.session = null;
     appEl.innerHTML = '';
     window.scrollTo(0, 0);
@@ -163,6 +161,7 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
      SCREEN: ek tree — interactive walk
      ============================================================ */
   window.showDecisionTree = function showDecisionTree(tree) {
+    AG.nav.set('decision/' + tree.id);
     AG.session = null;
     appEl.innerHTML = '';
     window.scrollTo(0, 0);
@@ -325,6 +324,7 @@ AG.decisionsForLevel = levelId => AG.decisions.filter(t => (t.levels || []).incl
   };
 
   window.showDecisionPractice = function showDecisionPractice(tree) {
+    AG.nav.set(tree ? 'practice/' + tree.id : 'practice');
     AG.session = null;
     appEl.innerHTML = '';
     window.scrollTo(0, 0);

@@ -1142,3 +1142,47 @@ pre {
 .lesson-card .review-table.swipe-table { table-layout: auto; }
 .lesson-card .review-table.swipe-table th, .lesson-card .review-table.swipe-table td { overflow-wrap: normal; }
 @media (max-width: 640px) { .tbl-wrap .swipe-table { min-width: 34rem; } }
+
+/* The same controls work on a phone and with a keyboard. */
+.next-card, .scene-player {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  padding: 16px;
+  margin: 16px 0;
+  overflow-wrap: anywhere;
+}
+.next-card { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; border-left: 3px solid var(--accent); }
+.next-card b, .scene-status { color: var(--gold); }
+.soch-link { width: 100%; text-align: left; color: var(--text); font: inherit; cursor: pointer; }
+.soch-link .strip-sub { display: block; }
+.scene-player h3 { margin: 0 0 8px; }
+.scene-status { font-size: .9rem; }
+.scene-canvas { overflow-x: auto; background: var(--bg); border-radius: 10px; margin: 10px 0; }
+.scene-canvas svg { display: block; width: 100%; min-width: 500px; }
+.scene-say { line-height: 1.55; }
+.scene-nav { display: flex; justify-content: space-between; gap: 8px; margin: 12px 0; }
+.scene-player summary, .soch-case summary { color: var(--gold); cursor: pointer; padding: 6px 0; }
+.scene-lines > div { margin: 8px 0; }
+.term-tasks li.now { color: var(--gold); }
+.term-tasks li.now::before { content: '👉 '; }
+.term-btns [hidden] { display: none; }
+.soch-case pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .85rem; }
+.soch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.soch-grid button { text-align: left; white-space: normal; height: 100%; }
+.soch-case .choices { margin: 14px 0; }
+@media (prefers-reduced-motion: reduce) {
+  .scene-canvas .ms-flow { animation: none; }
+}
+
+.scene-mobile { display: none; }
+@media (max-width: 540px) {
+  .scene-canvas svg { min-width: 0; }
+  .scene-mobile { display: grid; gap: 5px; margin: 12px 0; }
+  .scene-path { border-left: 3px solid var(--accent); background: var(--panel2); border-radius: 4px; padding: 7px 10px; }
+}
+
+.term-palette { margin-top: 12px; }
+.term-palette summary { cursor: pointer; color: var(--gold); }
+.term-palette code { display: inline-block; overflow-wrap: anywhere; margin: 6px 6px 0 0; padding: 3px 7px; background: var(--panel2); border-radius: 5px; }
+.terminal ~ .stage-summary { overflow-wrap: anywhere; }
