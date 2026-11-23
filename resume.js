@@ -23,7 +23,7 @@ AG.resume = (() => {
   function label(point, level) {
     if (point.ready) return 'Level ka nateeja';
     const stages = allStages(level);
-    return 'Challenge ' + (point.stageIdx + 1) + ' / ' + stages.length + ' · ' + stages[point.stageIdx].title;
+    return 'Challenge ' + (point.stageIdx + 1) + ' / ' + stages.length + ' · ' + stages[point.stageIdx].title + ' · ' + AG.parts.name(level, point.stageIdx);
   }
 
   function startStage(session) {
@@ -49,7 +49,7 @@ AG.resume = (() => {
       ...session.stagePoint, stageIdx: ready ? session.stageIdx : session.stageIdx + 1,
       firstTry: session.firstTry, total: session.total, earnedXP: 0, ready,
     };
-    AG.saveState();
+    return AG.saveState();
   }
 
   function open(level) {

@@ -1231,3 +1231,8 @@ pre {
   .sheet-entry .pb-col { padding:0; }
   .cheat-sheet :is(h2,h3,h4,h5) { break-after:avoid; }
 }
+
+.parts-overview { display:grid; grid-template-columns:repeat(auto-fit,minmax(145px,1fr)); gap:.6rem; margin:1rem 0; }
+.parts-overview > div,.part-break { background:var(--panel2); border:1px solid var(--border); border-radius:.6rem; padding:.7rem; }
+.parts-overview p,.part-break p { margin:.35rem 0; }
+.part-break { margin:.7rem 0; }

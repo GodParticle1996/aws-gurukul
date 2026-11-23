@@ -233,6 +233,8 @@ function showIntro(level, studyOnly = false) {
   wrap.appendChild(el('div', 'crumb', `${track.icon} ${track.name} — Level ${idx + 1} of ${levels.length}`));
   wrap.appendChild(el('h2', 'level-h', `${level.icon} ${level.title}`));
 
+  if (!studyOnly) wrap.appendChild(AG.parts.overview(level));
+
   // problem pehle — concept ka naam baad mein
   if (level.hook) {
     wrap.appendChild(el('div', 'hook-card', `
@@ -476,7 +478,7 @@ function runStage() {
   const isIv = stage.type === 'interview';
   const wrap = el('section', 'panel' + (stage.bonus ? ' bonus-panel' : '') + (isIv ? ' iv-panel' : ''));
   wrap.appendChild(el('div', 'crumb',
-    `${level.icon} ${level.title} — challenge ${stageIdx + 1}/${stages.length}`));
+    `${level.icon} ${level.title} · ${AG.parts.name(level, stageIdx)} · challenge ${stageIdx + 1}/${stages.length}`));
   if (stage.bonus) wrap.appendChild(el('div', 'bonus-banner', '🎁 BONUS ROUND — Good to Know'));
   if (isIv) wrap.appendChild(el('div', 'iv-banner', '🎤 INTERVIEW ROUND'));
   wrap.appendChild(el('h2', 'stage-h', stage.title));
@@ -516,14 +518,16 @@ function stageDone(stats, wrap) {
   const stages = allStages(AG.session.level);
   const perfect = stats.total > 0 && stats.firstTry === stats.total;
   const bonus = perfect ? AG.addXP(AG.PERFECT_BONUS) : 0;
-  AG.resume.finishStage(AG.session, stages.length);
+  const saved = AG.resume.finishStage(AG.session, stages.length);
+  const atSplit = AG.session.stageIdx + 1 === AG.parts.split(AG.session.level);
 
   const sum = el('div', 'stage-summary pop');
   sum.innerHTML = `
     <div class="sum-emoji">${perfect ? '🌟' : stats.firstTry / (stats.total || 1) >= 0.6 ? '✅' : '😅'}</div>
     <div class="sum-title">${perfect ? (bonus ? 'PERFECT! +' + bonus + ' XP bonus' : 'PERFECT!') : 'Challenge complete'}</div>
     <div class="sum-detail">${stats.firstTry}/${stats.total} first-try sahi</div>`;
-  const btn = el('button', 'btn big',
+  if (atSplit) sum.appendChild(AG.parts.breakNote(AG.session, saved));
+  const btn = el('button', 'btn big', atSplit ? 'Part 2 · Karo shuru karo →' :
     AG.session.stageIdx + 1 < stages.length ? 'Agla challenge →' : 'Level khatam karo 🏁');
   const session = AG.session;
   btn.onclick = () => {

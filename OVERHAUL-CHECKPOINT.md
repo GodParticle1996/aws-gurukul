@@ -1,5 +1,13 @@
 # AWS Gurukul deep pass
 
+## Phase 5 E6 · Part 1 Samjho aur Part 2 Karo (2026-11-23)
+
+Har level ke intro par dono hisson ke challenge numbers dikhte hain. Part 2 pehle triage se shuru hota hai. Part 1 ki aakhri game ke baad score aur agla challenge save ho jaate hain. Learner wahin se aage badh sakta hai ya Home jaakar baad mein laut sakta hai. Final interview ke baad hi badge aur stars milte hain.
+
+Validator ne sabhi 41 levels mein dono hisse aur 41 save points check kiye. Har reload par pehla triage, pehle ke sahi jawaab aur XP mile. Phone aur desktop par Cloud 101 ki aakhri matching game poori ki, Home par ruke, reload kiya aur Part 2 khola. Browser walk mein 444 screens har size par khuli. Is item mein AWS ya Docker lab nahi chali. [Validator](../aws-deep-run/logs/e6-validate.log) · [6 screenshots](../aws-deep-run/browser/shots-e6/) · [Browser walk](../aws-deep-run/browser/e6.json)
+
+Phase 5 ke E1–E6 poore hue. Agla queue item Phase 6 final QA aur docs hai.
+
 ## Phase 5 E5 · Kab kya cheatsheet (2026-11-23)
 
 Home ki cheatsheet mein 41 level playbooks aur 170 Decision Dojo choices ek jagah hain. Subject chunne par sirf uske playbooks aur choices dikhte hain. Screen aur print ek hi filtered list lete hain. Poora syllabus bhi offline print kar sakte hain.
