@@ -46,7 +46,9 @@
       if(!Object.prototype.hasOwnProperty.call(specs[service],op))throw Error('Simulator '+service+' operation not modeled: '+op+'; no live metrics are collected');
       const allowed=specs[service][op].concat(['query','output','region','no-cli-pager!']),seen=new Set();
       for(let i=3;i<toks.length;){const n=toks[i].startsWith('--')?toks[i].slice(2):'',spec=allowed.find(x=>x.replace(/[*!]$/,'')===n);if(!spec)throw Error('Unknown options: '+toks[i]);if(seen.has(n))throw Error('Duplicate option --'+n);seen.add(n);if(spec.endsWith('!')){i++;continue;}if(!toks[i+1]||toks[i+1].startsWith('--'))throw Error('aws: error: --'+n+' expected one argument');i+=2;if(spec.endsWith('*'))while(i<toks.length&&!toks[i].startsWith('--'))i++;}
-      if(flag('region')&&flag('region')!==region)throw Error('Simulator scope: selected fixtures are in '+region);
+      // opt-in (account.alarmRegions): CloudWatch alarm doosre Region mein — jaise DR replica ka metric us Region mein hota hai
+      const cwRegion=flag('region')||region;
+      if(flag('region')&&flag('region')!==region&&!(service==='cloudwatch'&&(sim.account.alarmRegions||[]).includes(flag('region'))))throw Error('Simulator scope: selected fixtures are in '+region);
       if(service==='autoscaling'){
         const name=flag('auto-scaling-group-name'),g=rows('asgs').find(g=>g.name===name);if(name&&!g)throw Error('ValidationError: Auto Scaling group not found');if(op!=='describe-scheduled-actions'&&!name)throw Error('aws: error: required argument --auto-scaling-group-name');
         const all=rows('scheduledActions');
@@ -86,7 +88,7 @@
         if(d.Unit!==undefined&&!['Seconds','Milliseconds','Microseconds','Percent','Count','Bytes','None'].includes(d.Unit))throw Error('Simulator scope: supported Unit Seconds/Milliseconds/Microseconds/Percent/Count/Bytes/None');
         if(d.ActionsEnabled!==undefined&&typeof d.ActionsEnabled!=='boolean')throw Error('ValidationError: ActionsEnabled must be boolean');
         d.ActionsEnabled=d.ActionsEnabled!==false;d.AlarmActions=d.AlarmActions===undefined?[]:d.AlarmActions;if(!Array.isArray(d.AlarmActions)||d.AlarmActions.length>5||d.AlarmActions.some(a=>typeof a!=='string'||!/^arn:aws:sns:[a-z0-9-]+:\d{12}:[A-Za-z0-9_-]+$/.test(a)))throw Error('Simulator alarm action subset: up to5 SNS topic ARNs; other AWS action types not modeled');
-        const old=alarms().find(a=>a.name===d.AlarmName);let a=old;if(!a){const id=(sim.account.capacityAlarmSequence||0)+1;sim.account.capacityAlarmSequence=id;a={name:d.AlarmName,alarmId:'capacity-alarm-'+id,revision:0,state:'INSUFFICIENT_DATA'};alarms().push(a);}a.definition=copy(d);a.metric=d.MetricName;a.namespace=d.Namespace;a.threshold=d.Threshold;a.revision++;delete a.manual;resultJson({});print('sys','Alarm configuration stored; this model evaluates supplied training aggregates on read, not live AWS telemetry or action delivery.');return true;
+        const old=alarms().find(a=>a.name===d.AlarmName&&(a.region||region)===cwRegion);let a=old;if(!a){const id=(sim.account.capacityAlarmSequence||0)+1;sim.account.capacityAlarmSequence=id;a={name:d.AlarmName,alarmId:'capacity-alarm-'+id,revision:0,state:'INSUFFICIENT_DATA'};alarms().push(a);}a.definition=copy(d);if(sim.account.alarmRegions)a.region=cwRegion;a.metric=d.MetricName;a.namespace=d.Namespace;a.threshold=d.Threshold;a.revision++;delete a.manual;resultJson({});print('sys','Alarm configuration stored; this model evaluates supplied training aggregates on read, not live AWS telemetry or action delivery.');return true;
       }
       if(op==='describe-alarms'||op==='describe-alarms-for-metric'){
         const names=flags('alarm-names'),prefix=flag('alarm-name-prefix'),state=flag('state-value'),filterDims=flag('dimensions')===null?null:dimensions(flags('dimensions'));

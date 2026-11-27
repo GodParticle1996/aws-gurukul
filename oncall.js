@@ -169,7 +169,7 @@ AG.oncall = (function () {
     const not = snap.state === 'ALARM' ? '' : 'not ';
     const reason = v == null ? snap.reason : `Threshold Crossed: 1 out of the last 1 datapoints [${Number(v).toFixed(1)} (${stamp(p.Timestamp)})] was ${not}${OPS[d.ComparisonOperator]} the threshold (${Number(d.Threshold).toFixed(1)}) (minimum 1 datapoint for ${snap.state === 'ALARM' ? 'OK -> ALARM' : 'ALARM -> OK'} transition).`;
     // asli DescribeAlarms ka kram; jis shift ne actions nahi likhe uske alarm on-call pager topic ko jaate hain
-    return { AlarmName: al.name, AlarmArn: `arn:aws:cloudwatch:${region}:${account}:alarm:${al.name}`,
+    return { AlarmName: al.name, AlarmArn: `arn:aws:cloudwatch:${al.region || region}:${account}:alarm:${al.name}`,
       ActionsEnabled: d.ActionsEnabled !== false, OKActions: d.OKActions || [], AlarmActions: d.AlarmActions || [`arn:aws:sns:${region}:${account}:oncall-pager`], InsufficientDataActions: [],
       StateValue: snap.state, StateReason: reason,
       MetricName: d.MetricName, Namespace: d.Namespace, [d.ExtendedStatistic ? 'ExtendedStatistic' : 'Statistic']: stat, Dimensions: d.Dimensions,
@@ -179,7 +179,8 @@ AG.oncall = (function () {
   AG.oncall.alarmsResponse = (region, account) => ({ re: /^aws cloudwatch describe-alarms\b/, out: (sim, m) => {
     const cmd = m.input, flag = n => (cmd.match(new RegExp('--' + n + '\\s+(\\S+)')) || [])[1];
     const names = (cmd.match(/--alarm-names\s+(.+?)(?=\s--|$)/) || [, ''])[1].split(/\s+/).filter(Boolean), prefix = flag('alarm-name-prefix'), state = flag('state-value');
-    const rows = (sim.account.alarms || []).filter(al => (!names.length || names.includes(al.name)) && (!prefix || al.name.startsWith(prefix)))
+    const reg = flag('region') || sim.account.region;   // account.alarmRegions ho toh alarms apne Region mein hi dikhte
+    const rows = (sim.account.alarms || []).filter(al => (!sim.account.alarmRegions || (al.region || sim.account.region) === reg) && (!names.length || names.includes(al.name)) && (!prefix || al.name.startsWith(prefix)))
       .map(al => view(sim.account, al, region, account)).filter(v => !state || v.StateValue === state);
     return JSON.stringify({ MetricAlarms: rows, CompositeAlarms: [] }, null, 4);
   } });
