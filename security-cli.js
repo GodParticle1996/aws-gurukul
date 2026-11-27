@@ -17,8 +17,12 @@
     if (!object(doc) || !Array.isArray(doc.Statement) || !doc.Statement.length) throw Error('MalformedPolicyDocumentException: use a nonempty Statement array');
     for (const s of doc.Statement) {
       if (!object(s) || !['Allow','Deny'].includes(s.Effect) || !array(s.Action).every(a=>typeof a==='string'&&a.startsWith('kms:')) || !array(s.Resource).every(r=>typeof r==='string') || !s.Principal) throw Error('MalformedPolicyDocumentException: supported key policy needs Effect, Principal, kms Action and Resource');
-      if (s.Condition && (!object(s.Condition) || Object.keys(s.Condition).some(k=>k!=='StringEquals') || !object(s.Condition.StringEquals) || Object.entries(s.Condition.StringEquals).some(([k,v])=>!k.startsWith('kms:EncryptionContext:')||typeof v!=='string'))) throw Error('Simulator scope: key policy conditions support StringEquals kms:EncryptionContext:<name> only');
-      if (!(s.Principal==='*'||object(s.Principal)&&Object.keys(s.Principal).length===1&&array(s.Principal.AWS).every(p=>typeof p==='string'&&/^arn:aws:iam::[0-9]{12}:(root|role\/|user\/)/.test(p)))) throw Error('MalformedPolicyDocumentException: supported Principal is an AWS IAM ARN or *');
+      const service = object(s.Principal) && Object.keys(s.Principal).length===1 && array(s.Principal.Service).length>0 && array(s.Principal.Service).every(p=>typeof p==='string'&&/^[a-z0-9.-]+\.amazonaws\.com$/.test(p));
+      // AWS service principal (jaise sns.amazonaws.com) ke saath confused-deputy wali aws:SourceArn / aws:SourceAccount condition
+      const sourceCondition = c => object(c) && Object.keys(c).every(op=>['ArnEquals','ArnLike','StringEquals','StringLike'].includes(op)&&object(c[op])&&Object.entries(c[op]).every(([k,v])=>['aws:sourcearn','aws:sourceaccount'].includes(k.toLowerCase())&&array(v).length>0&&array(v).every(x=>typeof x==='string')));
+      const contextCondition = c => object(c) && Object.keys(c).every(k=>k==='StringEquals') && object(c.StringEquals) && Object.entries(c.StringEquals).every(([k,v])=>k.startsWith('kms:EncryptionContext:')&&typeof v==='string');
+      if (s.Condition && !(service ? sourceCondition(s.Condition) : contextCondition(s.Condition))) throw Error('Simulator scope: key policy conditions support StringEquals kms:EncryptionContext:<name>, or aws:SourceArn / aws:SourceAccount for a service principal');
+      if (!(s.Principal==='*'||service||object(s.Principal)&&Object.keys(s.Principal).length===1&&array(s.Principal.AWS).every(p=>typeof p==='string'&&/^arn:aws:iam::[0-9]{12}:(root|role\/|user\/)/.test(p)))) throw Error('MalformedPolicyDocumentException: supported Principal is an AWS IAM ARN, an AWS service principal or *');
       if (Object.keys(s).some(k=>!['Sid','Effect','Principal','Action','Resource','Condition'].includes(k))) throw Error('Simulator scope: unsupported key policy field');
     }
     return copy(doc);
