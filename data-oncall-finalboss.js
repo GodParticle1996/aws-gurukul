@@ -12,7 +12,7 @@
   const MUM_DNS = 'checkout-mum-1427365890.ap-south-1.elb.amazonaws.com', HYD_DNS = 'checkout-hyd-907134256.ap-south-2.elb.amazonaws.com';
   const TG_HYD = `arn:aws:elasticloadbalancing:ap-south-2:${A}:targetgroup/checkout-hyd/5c8e2a1f7d3b9046`;
   const ALB_HYD = `arn:aws:elasticloadbalancing:ap-south-2:${A}:loadbalancer/app/checkout-hyd/2e7b9c4a1d5f8036`;
-  const VPC = 'vpc-0hyd7c2a91', SG_APP = 'sg-0hydapp41', ASG = 'checkout-hyd', DB = 'orders-hyd', LOGS = '/shopkaro/checkout-hyd';
+  const VPC = 'vpc-0a7d7c2a91e4f5b60', SG_APP = 'sg-0a7da9e41c3b5d2f8', ASG = 'checkout-hyd', DB = 'orders-hyd', LOGS = '/shopkaro/checkout-hyd';
   const T0 = Date.parse('2026-11-27T08:30:00Z');                        // 14:00 IST
   const iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z');
   const zone = a => a.hostedZones.find(z => z.id === ZONE);
@@ -67,7 +67,7 @@
     ],
     reconcile,
     build: ({ risky }) => {
-      const subnets = ['a', 'b'].map((z, i) => ({ id: ['subnet-0hyd1a7c3e', 'subnet-0hyd2b9d4f'][i], vpcId: VPC, cidr: `10.60.${11 + i}.0/24`, az: 'ap-south-2' + z, name: 'checkout-hyd-' + z, public: false }));
+      const subnets = ['a', 'b'].map((z, i) => ({ id: ['subnet-0a7d1a7c3e9b2f4d6', 'subnet-0a7d2b9d4f1c3e5a7'][i], vpcId: VPC, cidr: `10.60.${11 + i}.0/24`, az: 'ap-south-2' + z, name: 'checkout-hyd-' + z, public: false }));
       const record = (id, role, dnsName, extra) => ({ Name: 'checkout.shopkaro.in.', Type: 'A', SetIdentifier: id, Failover: role,
         AliasTarget: { HostedZoneId: role === 'PRIMARY' ? 'ZP97RAFLXTNZK' : 'Z0173938T07WNTVAEPZN', DNSName: dnsName, EvaluateTargetHealth: true }, ...extra });
       const records = [{ Name: 'shopkaro.in.', Type: 'NS', TTL: 172800, ResourceRecords: [{ Value: 'ns-1.sim.invalid.' }, { Value: 'ns-2.sim.invalid.' }] },
@@ -80,14 +80,14 @@
           config: { Type: 'HTTPS', FullyQualifiedDomainName: MUM_DNS, Port: 443, ResourcePath: '/healthz', RequestInterval: 30, FailureThreshold: 3, Inverted: false, Disabled: false } }],
         dnsChanges: [], dnsAliases: [{ dnsName: MUM_DNS, healthy: false, addresses: ['13.232.10.10'] }, { dnsName: HYD_DNS, healthy: false, addresses: ['18.60.20.20'] }],
         vpcs: [{ id: VPC, cidr: '10.60.0.0/16', name: 'checkout-hyd' }], subnets, instances: [],
-        securityGroups: [{ id: SG_APP, name: 'checkout-hyd-app', vpcId: VPC, ingress: [{ protocol: 'tcp', fromPort: 8080, toPort: 8080, sourceGroup: 'sg-0hydalb12' }], egress: [] },
-          { id: 'sg-0hydalb12', name: 'checkout-hyd-alb', vpcId: VPC, ingress: [{ protocol: 'tcp', fromPort: 443, toPort: 443, cidr: '0.0.0.0/0' }], egress: [] }],
-        elbs: [{ id: ALB_HYD, arn: ALB_HYD, name: 'checkout-hyd', type: 'application', scheme: 'internet-facing', sgIds: ['sg-0hydalb12'], dns: HYD_DNS,
+        securityGroups: [{ id: SG_APP, name: 'checkout-hyd-app', vpcId: VPC, ingress: [{ protocol: 'tcp', fromPort: 8080, toPort: 8080, sourceGroup: 'sg-0a7dab12c4e6f8091' }], egress: [] },
+          { id: 'sg-0a7dab12c4e6f8091', name: 'checkout-hyd-alb', vpcId: VPC, ingress: [{ protocol: 'tcp', fromPort: 443, toPort: 443, cidr: '0.0.0.0/0' }], egress: [] }],
+        elbs: [{ id: ALB_HYD, arn: ALB_HYD, name: 'checkout-hyd', type: 'application', scheme: 'internet-facing', sgIds: ['sg-0a7dab12c4e6f8091'], dns: HYD_DNS,
           listeners: [{ Port: 443, Protocol: 'HTTPS', DefaultActions: [{ Type: 'forward', TargetGroupArn: TG_HYD }] }] }],
         targetGroups: [{ arn: TG_HYD, name: 'checkout-hyd', vpcId: VPC, loadBalancerArn: ALB_HYD, targetType: 'instance', protocol: 'HTTP', port: 8080,
           healthCheckPath: '/healthz', validHealthPath: '/healthz', matcher: '200', sgAware: true, targets: [] }],
         asgs: [{ name: ASG, min: 0, max: 8, desired: 0, instances: [], vpcZone: subnets.map(s => s.id).join(','), healthCheckType: 'ELB', gracePeriod: 120, warmup: 120,
-          targetGroupARNs: [TG_HYD], activities: [], launchTemplate: { id: 'lt-0hydcheckout7', version: '3', type: 'c6i.large', healthPath: '/healthz', appPort: 8080, sgIds: [SG_APP] } }],
+          targetGroupARNs: [TG_HYD], activities: [], launchTemplate: { id: 'lt-0a7dc4ec6a7f3b291', version: '3', type: 'c6i.large', healthPath: '/healthz', appPort: 8080, sgIds: [SG_APP] } }],
         rds: [{ id: DB, name: 'orders', resourceId: 'db-ORDERSHYD3F8Q', engine: 'postgres', class: 'db.r6g.large', state: 'available', multiAZ: false, storage: 200, maxStorage: 1000,
           backupRetention: 0, encrypted: true, publicAccess: false, deletionProtection: true, source: 'orders-mum',
           endpoint: 'orders-hyd.k3v8x1q2z7aa.ap-south-2.rds.amazonaws.com', latestRestorableTime: '2026-11-27T08:29:00Z' }],
