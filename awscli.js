@@ -1413,7 +1413,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const users = list('users');
           if (!users.length) return print('ok', '{}');
           print('ok', '{\n    "Users": [\n' +
-            users.map(u => `        { "UserName": "${u.name}", "UserId": "${u.id || 'AIDA' + u.name.toUpperCase().slice(0, 8)}", "Arn": "arn:aws:iam::123456789012:user/${u.name}", "CreateDate": "2024-01-15T10:00:00Z" }`).join(',\n') +
+            users.map(u => `        { "UserName": "${u.name}", "UserId": "${u.id || 'AIDA' + u.name.toUpperCase().slice(0, 8)}", "Arn": "arn:aws:iam::123456789012:user/${u.name}", "CreateDate": "${u.created || '2024-01-15T10:00:00Z'}" }`).join(',\n') +
             '\n    ]\n}');
         } else if (op === 'list-roles') {
           const roles = list('roles');
@@ -1820,7 +1820,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           const filtered = insts.filter(i => (!iidFilter || i.id === iidFilter) && (!nameFilter || i.name === nameFilter));
           if (!filtered.length) return print('ok', '{\n    "Reservations": []\n}');
           print('ok', filtered.map(i =>
-            `{ "InstanceId": "${i.id}", "State": { "Name": "${i.state}" }, "InstanceType": "${i.type}", "PublicIpAddress": ${i.publicIp ? `"${i.publicIp}"` : 'null'}, "PrivateIpAddress": "${i.privateIp}", "SubnetId": "${i.subnetId || 'subnet-0a1b2c3d'}", "VpcId": "${i.vpcId || 'vpc-0a1b2c3d'}", "SecurityGroups": [${(i.sgIds || []).map(g => `{ "GroupId": "${g}" }`).join(', ')}], "MetadataOptions": { "HttpTokens": "${i.imds || 'optional'}" }, "BlockDeviceMappings": [${list('volumes').filter(v => v.attachedTo === i.id).map(v => `{ "DeviceName": "${v.device || '/dev/xvda'}", "Ebs": { "VolumeId": "${v.id}", "DeleteOnTermination": ${v.deleteOnTermination ? 'true' : 'false'} } }`).join(', ')}], "Tags": ${sim.account.pixBill ? ec2Tags(i.tags || {}) : `[{ "Key": "Name", "Value": "${i.name}" }]`}, "Placement": { "AvailabilityZone": "${i.az}" } }`).join('\n'));
+            `{ "InstanceId": "${i.id}", "State": { "Name": "${i.state}" }, "InstanceType": "${i.type}", "PublicIpAddress": ${i.publicIp ? `"${i.publicIp}"` : 'null'}, "PrivateIpAddress": "${i.privateIp}", "SubnetId": "${i.subnetId || 'subnet-0a1b2c3d'}", "VpcId": "${i.vpcId || 'vpc-0a1b2c3d'}", "SecurityGroups": [${(i.sgIds || []).map(g => `{ "GroupId": "${g}" }`).join(', ')}], "MetadataOptions": { "HttpTokens": "${i.imds || 'optional'}" }, "BlockDeviceMappings": [${list('volumes').filter(v => v.attachedTo === i.id).map(v => `{ "DeviceName": "${v.device || '/dev/xvda'}", "Ebs": { "VolumeId": "${v.id}", "DeleteOnTermination": ${v.deleteOnTermination ? 'true' : 'false'} } }`).join(', ')}], "Tags": ${sim.account.pixBill ? ec2Tags(i.tags || {}) : i.name ? `[{ "Key": "Name", "Value": "${i.name}" }]` : '[]'}, "Placement": { "AvailabilityZone": "${i.az}" } }`).join('\n'));
         } else if (op === 'describe-vpcs') {
           const vpcs = list('vpcs');
           if (!vpcs.length) return print('ok', '{\n    "Vpcs": []\n}');
