@@ -612,6 +612,14 @@ Model banane ke niyam:
 - Validator: poori `solution` se shift jeetni chahiye; koi solution command error na de; koi alert aate hi pehle se theek na ho;
   khatarnaak regex kisi solution command se na mile; renderer ka report card aur score (bina hint = sab alerts saaf).
 
+**Shift likhne ke sabak (2026-11-27, 14 shifts ke baad):**
+- `fixed()` sirf wahi maange jo probe mein dikhe. Jo jaal dikhta nahi (jaise reserved concurrency, seedha 100% rollout), use `risky()` se roko aur wajah likho.
+- Alarm ka metric aur pager ek saath badlein: jo badlaav alarm ko OK kare, wahi `fixed()` ho (UPDATING/Updating ke dauraan purani config hi lagti hai).
+- `sev`: `🔴 SEV1` | `🟠 SEV2` | `🟡 SEV3` (SEV3 = kaam/cleanup, jaise drill ke baad pilot light).
+- Simulator opt-ins jo shifts ne jode: `account.trailByRegion` + `trailNote` (CloudTrail Event history Region ke hisaab se; IAM events us-east-1),
+  `account.alarmRegions` (alarm doosre Region mein, `describe-alarms --region` se filter), table par `itemCountEstimate`,
+  KMS key policy mein service principal + `aws:SourceArn`. On-call `describe-alarms` asli fields dikhata hai (AlarmActions, TreatMissingData …).
+
 ### 12.3 🎲 `chaos` — Chaos round (`chaos.js`)
 
 Swasth base account + 5–8 cards; har card base par **EK** config badlaav (`break(account)`). Learner ko random card milta hai

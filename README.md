@@ -47,7 +47,7 @@ Diagram gallery: [`gallery.html`](gallery.html) — saare 41 concept visuals ek 
 
 - **Practice** mein bins, order, match, quiz, fill, hotspot, incident aur CLI terminal ke saath dry run, flow lab, triage, real-lab guide aur Decision Dojo ki choices hain. Terminal mein learner command chalaakar simulator ki state badalta hai.
 
-- **Practice labs** (System Gurukul aur Kube Gurukul jaise) — kuch levels ke aakhir mein:
+- **Practice labs** (System Gurukul aur Kube Gurukul jaise) — 42 labs: 14 drills, 14 on-call shifts aur 14 chaos rounds, chaaron bosses aur bade topic levels ke aakhir mein:
   - ⚡ **Lakshan → fix drill:** ek lakshan (CloudWatch number, error line), 3 fixes, ghadi sirf sochne ka samay ginti hai.
   - 📟 **On-call shift:** asli simulator par ek raat ke jude hue alerts. Dekho → theek karo → pakka karo, phir report card.
   - 🎲 **Chaos round:** swasth account mein ek chhupi config galti. Probe se dhoondho, ek badlaav se theek karo, batao kya toota tha.
