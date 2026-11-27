@@ -168,9 +168,13 @@ AG.oncall = (function () {
     const p = series && series.points[series.points.length - 1], stat = d.ExtendedStatistic || d.Statistic, v = p && p[stat];
     const not = snap.state === 'ALARM' ? '' : 'not ';
     const reason = v == null ? snap.reason : `Threshold Crossed: 1 out of the last 1 datapoints [${Number(v).toFixed(1)} (${stamp(p.Timestamp)})] was ${not}${OPS[d.ComparisonOperator]} the threshold (${Number(d.Threshold).toFixed(1)}) (minimum 1 datapoint for ${snap.state === 'ALARM' ? 'OK -> ALARM' : 'ALARM -> OK'} transition).`;
-    return { AlarmName: al.name, AlarmArn: `arn:aws:cloudwatch:${region}:${account}:alarm:${al.name}`, StateValue: snap.state, StateReason: reason,
+    // asli DescribeAlarms ka kram; jis shift ne actions nahi likhe uske alarm on-call pager topic ko jaate hain
+    return { AlarmName: al.name, AlarmArn: `arn:aws:cloudwatch:${region}:${account}:alarm:${al.name}`,
+      ActionsEnabled: d.ActionsEnabled !== false, OKActions: d.OKActions || [], AlarmActions: d.AlarmActions || [`arn:aws:sns:${region}:${account}:oncall-pager`], InsufficientDataActions: [],
+      StateValue: snap.state, StateReason: reason,
       MetricName: d.MetricName, Namespace: d.Namespace, [d.ExtendedStatistic ? 'ExtendedStatistic' : 'Statistic']: stat, Dimensions: d.Dimensions,
-      Period: d.Period, EvaluationPeriods: d.EvaluationPeriods, Threshold: d.Threshold, ComparisonOperator: d.ComparisonOperator };
+      Period: d.Period, EvaluationPeriods: d.EvaluationPeriods, DatapointsToAlarm: d.DatapointsToAlarm || d.EvaluationPeriods, Threshold: d.Threshold,
+      ComparisonOperator: d.ComparisonOperator, TreatMissingData: d.TreatMissingData || 'missing' };
   }
   AG.oncall.alarmsResponse = (region, account) => ({ re: /^aws cloudwatch describe-alarms\b/, out: (sim, m) => {
     const cmd = m.input, flag = n => (cmd.match(new RegExp('--' + n + '\\s+(\\S+)')) || [])[1];
