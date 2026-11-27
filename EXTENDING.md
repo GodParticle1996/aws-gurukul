@@ -587,3 +587,27 @@ Validator ke niyam (`node validate.js`, section 3 + lab walk):
   option sabse lamba aadhe se kam rounds mein ho, aur ~1/5 se zyada mein (warna learner "sabse lamba = galat" seekh leta hai).
 - Galat options lalchaane wale hon, par **kisi haalat mein sahi na ho sakein** (jaise "bada RDS instance" connections bhi badhata hai —
   aisa option galat jawab nahi ban sakta).
+
+### 12.2 📟 `oncall` — On-call shift (`oncall.js`)
+
+Ek raat, asli simulator (`awscli.js`), kai jude hue alerts. Har command = 1 minute. Alert tab resolve hota hai jab haalat theek
+ho **aur** fix ke baad learner ne verify command chalaya. Aakhir mein report card (MTTR, hints, roke gaye khatarnaak commands, grade).
+Poora schema `oncall.js` ke upar wale comment mein. Model: [`data-oncall-boss2.js`](data-oncall-boss2.js) (shift `mahasale`).
+
+Terminal ke hooks (sirf on-call ke liye, baaki missions par asar nahi): `stage.onTick(sim, print)` har command ke baad ghadi chalata hai,
+`stage.hintsFor(sim)` abhi wale alert ke hints deta hai, `stage.onReset(sim)` restart par pager repaint karta hai, `stage.bootLines`
+pehla FIRING alert chhapta hai, `stage.placeholder` input ka placeholder. Pager ki lines `page`/`pageok` kind mein chhapti hain
+(`err` nahi, warna command ka error state bigad jaata).
+
+Model banane ke niyam:
+- **Numbers simulator se.** Shift ka `reconcile(account, sim, clock)` har minute `account.now` aage badhata hai aur
+  `account.capacityMetrics` mein naya point jodta hai. Alarm ka state `AG.capacityAlarmSnapshot` (capacity-cli.js) nikaalta hai.
+  Aisa alarm chuno jo **usi minute** badle (Throttles, HealthyHostCount, CPU) — "queue ki umar" jaise samay ke saath jama hone wale
+  alarm pager ke saath mel nahi khaate.
+- **Fix asli commands se.** Shift sirf woh commands `responses` mein deti hai jo simulator mein nahi (jaise `describe-alarms` ka
+  value-wala StateReason, `start-message-move-task`). Asli output ka format rakho.
+- **ALB health:** target group par `sgAware: true` lagao toh `AG.albReachable` instance ke SG ko ALB ke SG (ya poore VPC CIDR) se
+  jaanchta hai, aur na khule toh asli jawab `Target.Timeout` / `Request timed out` deta hai.
+- `risky(re, why)` = runbook todne wala command roko aur gino (state nahi badalta). Har shift mein 2–4 lalchaane wale khatarnaak raaste.
+- Validator: poori `solution` se shift jeetni chahiye; koi solution command error na de; koi alert aate hi pehle se theek na ho;
+  khatarnaak regex kisi solution command se na mile; renderer ka report card aur score (bina hint = sab alerts saaf).

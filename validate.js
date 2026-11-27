@@ -14,10 +14,10 @@
    ===================================================================== */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const DIR = __dirname;
-const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'drill.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'labs-index.js', 'labhub.js', 'search.js', 'cheatsheet.js', 'parts.js', 'soch.js', 'data-soch.js'];
+const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'drill.js', 'oncall.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'labs-index.js', 'labhub.js', 'search.js', 'cheatsheet.js', 'parts.js', 'soch.js', 'data-soch.js'];
 const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-int-3-cloudfront.js', 'data-int-4-s3adv.js', 'data-int-5-efs.js', 'data-int-6-lambda.js', 'data-int-7-dynamodb.js', 'data-int-8-caching.js', 'data-int-9-sqssns.js', 'data-int-10-events.js', 'data-int-11-security.js', 'data-int-12-boss2.js', 'data-adv-1-wellarch.js', 'data-adv-2-orgs.js', 'data-adv-3-dr.js', 'data-adv-4-advnet.js', 'data-adv-5-containers.js', 'data-adv-6-iac.js', 'data-adv-7-cost.js', 'data-adv-8-observability.js', 'data-adv-9-migration.js', 'data-adv-10-analytics.js', 'data-adv-11-appai.js', 'data-adv-12-finalboss.js', 'data-arch-1-compute.js', 'data-arch-2-datastore.js', 'data-arch-3-messaging.js', 'data-arch-4-eventbridge.js', 'data-arch-5-logsetl.js', 'data-arch-6-edge.js', 'data-arch-7-costdec.js', 'data-arch-8-resilience.js', 'data-arch-9-archboss.js',
   'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js',
-  'data-drill-boss2.js'];
+  'data-drill-boss2.js', 'data-oncall-boss2.js'];
 const ALL = [...ENGINE, ...DATA, 'app.js'];
 let FAIL = 0;
 const bad = m => { console.log('   ✗ ' + m); FAIL++; };
@@ -319,6 +319,21 @@ function chk(s, S) {
       // ulta bias bhi: sahi option lagbhag kabhi sabse lamba na ho toh learner "sabse lamba = galat" seekh leta hai
       if (rounds.length >= 10 && goodLongest < rounds.length / 5) w(S, `sirf ${goodLongest}/${rounds.length} rounds mein sahi option sabse lamba — kam se kam ~1/5 rakho`);
       break; }
+    case 'oncall': {   // 📟 oncall.js — shift ka schema; poora walk lab runner mein
+      labStages.push({ s, S });
+      if (!/^oncall-[a-z0-9-]+$/.test(s.id || '')) w(S, "oncall id 'oncall-…' chahiye");
+      else if (PRACTICE_IDS.has(s.id)) w(S, `practice id '${s.id}' do baar`);
+      else PRACTICE_IDS.add(s.id);
+      const def = AG.oncall && AG.oncall.get(s.shift);
+      if (!def) { w(S, `shift '${s.shift}' registered nahi`); break; }
+      if (!def.INC || def.INC.length < 2) w(S, 'shift mein kam se kam 2 alerts chahiye');
+      (def.INC || []).forEach((inc, i) => {
+        if (!inc.id || !/SEV[12]/.test(inc.sev || '') || !inc.text) w(S, `alert ${i}: id/sev/text`);
+        if (typeof inc.fixed !== 'function' || Object.prototype.toString.call(inc.verify) !== '[object RegExp]' || !inc.verifyText) w(S, `alert ${i}: fixed()/verify/verifyText`);
+        if (!Array.isArray(inc.hints) || inc.hints.length !== 3) w(S, `alert ${i}: 3 hints chahiye`);
+      });
+      if (typeof def.reconcile !== 'function' || typeof def.build !== 'function') w(S, 'shift ko reconcile() aur build() chahiye');
+      break; }
     default: w(S, `UNKNOWN stage type "${s.type}"`);
   }
 }
@@ -529,6 +544,39 @@ for (const { s, S } of labStages) {
       else if (done.firstTry !== n || done.total !== n) LP.push(`${S} — sab sahi par score ${done.firstTry}/${done.total} (rounds ${n})`);
     }
   }
+  if (s.type === 'oncall') {
+    const def = AG.oncall.get(s.shift), INC = def.INC;
+    // (a) headless: solution se poori shift; koi solution command error na de; koi alert aate hi pehle se theek na ho
+    let liveInc = 0;
+    const m = AG.oncall.mission(sh => { liveInc = sh.inc; }, s.shift), orig = m.onTick;
+    if (INC[0].fixed(m.account)) LP.push(`${S} — alert ${INC[0].id} shuru mein hi theek hai`);
+    m.onTick = (sim, print) => {
+      const before = sim.account.shift.inc; orig(sim, print);
+      const k = sim.account.shift.inc;
+      if (k !== before && !sim.account.shift.over && INC[k].fixed(sim.account, sim)) LP.push(`${S} — alert ${INC[k].id} aate hi pehle se theek hai (kuch seekhne ko nahi)`);
+    };
+    const risky = (m.responses || []).filter(r => r.err).map(r => r.re);
+    (m.solution || []).forEach(c => { if (risky.some(re => re.test(c))) LP.push(`${S} — solution command khatarnaak regex se match: ${c}`); });
+    const box = mkNode('div'); let won = false;
+    AG.renderers.terminal(m, box, () => { won = true; });
+    const term = box._kids.find(k => k._cls.has('terminal')), input = term.querySelector('input'), out = term.querySelector('.term-out');
+    let seen = out._kids.length;
+    for (const c of m.solution || []) {
+      input.value = c; input._l.keydown[0]({ key: 'Enter', preventDefault() {} });
+      const errs = out._kids.slice(seen).filter(k => k._cls.has('t-err')); seen = out._kids.length;
+      if (errs.length) LP.push(`${S} — solution command error deta hai: ${c} → ${String(errs[0].textContent).slice(0, 120)}`);
+    }
+    if (!won) LP.push(`${S} — SOFTLOCK, solution se shift poori nahi hui (alert ${liveInc + 1}/${INC.length} par atki)`);
+    // (b) renderer: pager + terminal + report card → onDone (bina hint = sab alerts saaf)
+    const sub = byClass(arena, 'terminal')[0], inp = sub && sub.querySelector('input');
+    if (!inp) LP.push(`${S} — oncall renderer mein terminal nahi`);
+    else {
+      for (const c of arena._oncall.mission.solution || []) { inp.value = c; inp._l.keydown[0]({ key: 'Enter', preventDefault() {} }); }
+      const next = one(arena, 'oc-next');
+      if (!one(arena, 'oc-card') || !next) LP.push(`${S} — report card nahi bana`);
+      else { next.click(); if (!done || done.firstTry !== INC.length || done.total !== INC.length) LP.push(`${S} — bina hint shift par score ${done && done.firstTry}/${done && done.total}`); }
+    }
+  }
   if (s.type === 'docker') {
     byClass(arena, 'dk-tick').forEach(b => b.click());
     if (!clickRight(arena, 'dk-opt', (s.observe || {}).answer)) LP.push(`${S} — observe question not shown after ticking all steps`);
@@ -537,7 +585,7 @@ for (const { s, S } of labStages) {
   }
 }
 LP.forEach(p => bad(p));
-if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker/drill) — no softlocks, no NaN`);
+if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker/drill/oncall) — no softlocks, no NaN`);
 
 /* ================= 4. TERMINAL MISSIONS ================= */
 console.log('\n4️⃣  Terminal missions (real awscli.js simulator)');
@@ -742,6 +790,7 @@ const sxp = s => {
   if (s.type === 'triage') return (s.questions || []).length * per + bon;
   if (s.type === 'docker') return per + bon;
   if (s.type === 'drill') return Math.min(s.pick || 8, (s.rounds || []).length) * per + bon;
+  if (s.type === 'oncall') return AG.TERMINAL_XP + bon;
   return 0;
 };
 AG.tracks.forEach(t => (AG.levelSets[t.id] || []).forEach(l => {

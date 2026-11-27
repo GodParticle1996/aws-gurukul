@@ -110,8 +110,8 @@
       { level: 'boss2',
         sym: 'Lambda concurrency 800 · RDS max_connections 500\nerror: too many connections\nDB CPU sirf 35%',
         good: 'RDS Proxy se connections pool karo, Lambda se seedha nahi',
-        bad: ['RDS instance class 2x bada karo, CPU kam pad raha hai', 'Lambda timeout 3s se 30s karo, connection mil jaayega'],
-        why: 'Har Lambda environment apna connection kholta hai: 800 > 500. CPU 35% hai, toh compute ki kami nahi. <b>RDS Proxy</b> connections pool karke share karta hai. Bada instance thode aur connections deta hai, par Lambda badhte hi phir wahi.' },
+        bad: ['RDS ko Multi-AZ karo taaki standby bhi connections le', 'Lambda timeout 3s se 30s karo, connection mil jaayega'],
+        why: 'Har Lambda environment apna connection kholta hai: 800 > 500. CPU 35% hai, toh compute ki kami nahi. <b>RDS Proxy</b> connections pool karke share karta hai. Multi-AZ ka standby traffic leta hi nahi — woh sirf failover ke liye hai.' },
     ],
   });
 })();

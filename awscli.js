@@ -100,6 +100,26 @@ AG.dnsAnswer = function (account, zone, name, type, cursor = 0) {
 };
 
 // Small S3/OAC teaching fixture, not a general IAM evaluator or HTTP client.
+// ALB → target ka network raasta: instance ke kisi SG ka ingress rule health-check port ko
+// ALB ke SG (source group) se, ya poore VPC CIDR ko dhakne wale CIDR se khole. Sirf un target groups par
+// lagta hai jin par `sgAware: true` ho (purane missions ki fixtures waisi hi rahein). ALB subnets ka
+// alag CIDR model nahi kiya — CIDR rule ko poora VPC dhakna hoga (thoda sakht, kabhi dheela nahi).
+AG.albReachable = function (account, tg, instance, port) {
+  const ip = c => { const m = String(c || '').match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)\/(\d+)$/); return m ? { n: m.slice(1, 5).reduce((x, y) => x * 256 + Number(y), 0), p: Number(m[5]) } : null; };
+  const covers = (outer, inner) => { const o = ip(outer), i = ip(inner); if (!o || !i || o.p > i.p) return false; const size = 2 ** (32 - o.p); return Math.floor(o.n / size) === Math.floor(i.n / size); };
+  const lb = (account.elbs || []).find(l => (l.arn || l.id) === tg.loadBalancerArn), lbSgs = (lb && lb.sgIds) || [];
+  const vpc = (account.vpcs || []).find(v => v.id === tg.vpcId);
+  return (instance.sgIds || []).some(id => {
+    const sg = (account.securityGroups || []).find(g => g.id === id);
+    return ((sg && sg.ingress) || []).some(r => {
+      const proto = r.protocol || 'tcp';
+      if (!(proto === '-1' || (proto === 'tcp' && r.fromPort <= port && port <= r.toPort))) return false;
+      if (r.sourceGroup) return lbSgs.includes(r.sourceGroup);
+      return !!(vpc && covers(r.cidr, vpc.cidr));
+    });
+  });
+};
+
 AG.cdnResponse = function (account, distribution, path, behavior) {
   if(!distribution)return {status:503,reason:'Distribution missing'};
   const cfg=distribution.deployedConfig||(distribution.status==='Deployed'?distribution.config:null);
@@ -224,7 +244,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     </div>
     <div class="term-out"></div>
     <div class="term-in"><span class="ps1">$</span><input type="text" autocomplete="off"
-      spellcheck="false" placeholder="${sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience || sim.account.pixBoss) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
+      spellcheck="false" placeholder="${stage.placeholder ? AG.escapeHtml(stage.placeholder) : sim.account.iacMode ? 'terraform init   (help se commands dekho)' : (sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience || sim.account.pixBoss) ? 'help' : sim.account.regionDrill ? 'cat runbook.txt' : sim.account.costMode ? 'aws ec2 describe-volumes   (help)' : 'aws s3 ls   (madad ke liye: help)'}"></div>`;
   const out = term.querySelector('.term-out');
   const input = term.querySelector('input');
 
@@ -237,6 +257,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     const used = sim.hintsUsed;
     sim = freshSim();
     sim.hintsUsed = used;
+    if (typeof stage.onReset === 'function') stage.onReset(sim);   // on-call: pager bhi naye sire se
     commandIndex = 0;
     offeredIndex = -1;
     failedIndex = -1;
@@ -254,6 +275,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   function showHelpButton() {
     const price = Math.min(AG.HINT_COST, Math.max(0, AG.TERMINAL_XP - 10 - sim.hintsUsed * AG.HINT_COST));
     const cost = price ? ' (−' + price + ' XP)' : '';
+    if (typeof stage.hintsFor === 'function') {   // on-call: abhi wale alert ke hints, har alert ki apni ginti
+      const h = stage.hintsFor(sim) || { key: '_', list: [] }, pos = (sim.hintPos || {})[h.key] || 0;
+      hintBtn.textContent = pos < h.list.length ? '💡 Is alert ka hint ' + (pos + 1) + '/' + h.list.length + cost : '💡 Is alert ke hints khatam';
+      hintBtn.disabled = sim.done || pos >= h.list.length;
+      return;
+    }
     hintBtn.textContent = hintIndex < hints.length
       ? '💡 Hint ' + (hintIndex + 1) + '/' + hints.length + cost
       : 'Agla command dikhao' + (offeredIndex === commandIndex ? '' : cost);
@@ -279,6 +306,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     arena.appendChild(menu);
   }
   print('sys', `Mock AWS account ready. Commands type karo — 'help' se list milegi.`);
+  (stage.bootLines || []).forEach(([kind, text]) => print(kind, text));   // jaise on-call ka pehla pager alert
   // Let PixShare learners read the release goal before scrolling to its prompt.
   setTimeout(() => input.focus({ preventScroll: !!(sim.account.pixCompute || sim.account.pixData || sim.account.pixMessaging || sim.account.pixBridge || sim.account.pixLogs || sim.account.pixEdge || sim.account.pixBill || sim.account.pixResilience || sim.account.pixBoss) }), 100);
 
@@ -307,6 +335,15 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   }
   function giveHint() {
     if (sim.done) return;
+    if (typeof stage.hintsFor === 'function') {
+      const h = stage.hintsFor(sim) || { key: '_', list: [] };
+      sim.hintPos = sim.hintPos || {};
+      const pos = sim.hintPos[h.key] || 0;
+      if (pos >= h.list.length) print('hint', '💡 Is alert ke saare hints dikh chuke. Runbook aur pichhle outputs dobara padho.');
+      else { print('hint', '💡 ' + h.list[pos]); sim.hintPos[h.key] = pos + 1; sim.hintsUsed++; }
+      showHelpButton();
+      return;
+    }
     if (hintIndex < hints.length) {
       print('hint', '💡 ' + hints[hintIndex++]);
       sim.hintsUsed++;
@@ -545,7 +582,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   function refresh(attempt) {
     const advanced = updateTasks();
     if (advanced) stalled = 0;
-    if (attempt && stalled === 5 && !advanced) print('hint', 'Koi naya kaam poora nahi hua. Nishaan wala kaam dekho ya hint lo.');
+    if (attempt && stalled === 5 && !advanced && !stage.oncall) print('hint', 'Koi naya kaam poora nahi hua. Nishaan wala kaam dekho ya hint lo.');
     if (!sim.done && stage.success && stage.success(sim)) {
       sim.done = true;
       showHelpButton();
@@ -575,6 +612,13 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
     catch (e) {
       console.error('awscli sim error:', e);
       print('err', `simulator error: ${e.message} — command dobara try karo ya 'help' dekho`);
+    }
+    // on-call shift ki ghadi: har command = 1 minute (UI wale 'hint'/'clear' nahi gine jaate)
+    if (typeof stage.onTick === 'function' && !['hint', 'clear'].includes(norm)) {
+      const before = commandError;
+      try { stage.onTick(sim, print); }
+      catch (e) { console.error('oncall tick error:', e); print('sys', 'on-call ghadi error: ' + e.message); }
+      commandError = before;
     }
     const expectedError = stage.solutionErrors?.[commandIndex];
     if (commandIndex < solution.length && sameCommand(norm, solution[commandIndex])) {
@@ -1139,6 +1183,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       if (!i || i.state !== 'running') return { State: 'unused', Reason: 'Target.InvalidState' };
       if (i.appHealthy === false) return { State: 'unhealthy', Reason: 'Target.FailedHealthChecks', Description: 'Application process failed the modeled health check.' };
       const port = tg.healthCheckPort && tg.healthCheckPort !== 'traffic-port' ? Number(tg.healthCheckPort) : target.port || tg.port;
+      if (tg.sgAware && !AG.albReachable(sim.account, tg, i, port)) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Request timed out' };
       if (i.appPort && port !== i.appPort) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Modeled app is not listening on the health-check port.' };
       const code = (tg.healthCheckPath || '/') === (i.healthPath || tg.validHealthPath || '/') ? 200 : 404;
       const matches = String(tg.matcher || '200').split(',').some(part => { const range = part.split('-').map(Number); return code >= range[0] && code <= (range[1] == null ? range[0] : range[1]); });
