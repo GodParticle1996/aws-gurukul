@@ -8,7 +8,8 @@
    Model (reconcile, har minute): deploy-bot ki key Active = foreign calls; key band + support-ops ki koi key Active =
    ek RunInstances call (2 × c5.4xlarge). Admin hata ho toh UnauthorizedOperation; vCPU quota 96 bhar jaaye toh
    VcpuLimitExceeded (asli EC2 error). Har call CloudTrail Event history (managementEvents) mein asli shape mein judti hai.
-   Inactive key ki request authentication par hi ruk jaati hai — woh Event history mein nahi aati. Alarms capacity-cli se. */
+   Is fixture mein inactive key ki nayi calls Event history mein nahi dikhayi gayi (asli AWS mein pehle se bane temporary sessions
+   alag se jaancho). Alarms capacity-cli se. Review: Codex 2026-11-27 (admin detach zaroori, stop ka jaal, CloudTrail text). */
 (function () {
   const R = 'ap-south-1', A = '123456789012';
   const T0 = Date.parse('2026-11-27T20:30:00Z');                     // 28 Nov 02:00 IST
@@ -61,7 +62,7 @@
         L.miners.push(...ids);
       }
       a.managementEvents.unshift(event(100 + clock, ms, 'RunInstances', 'ec2.amazonaws.com', BACKDOOR, key.id, ATTACKER_IP, { req, err,
-        res: ids.length ? { instancesSet: { items: ids.map(instanceId => ({ instanceId, instanceType: 'c5.4xlarge', currentState: { code: 0, name: 'pending' } })) } } : null,
+        res: ids.length ? { instancesSet: { items: ids.map(instanceId => ({ instanceId, instanceType: 'c5.4xlarge', instanceState: { code: 0, name: 'pending' } })) } } : null,
         resources: ids.map(id => ({ ResourceType: 'AWS::EC2::Instance', ResourceName: id })) }));
     }
     const values = { foreign, run, vcpu: vcpu(a) };
@@ -98,15 +99,15 @@ Jaankari:
         fixed: a => active(a, DEPLOY).length === 0,
         verify: /^aws cloudwatch describe-alarms\b|^aws iam list-access-keys\b(?=.*--user-name\s+deploy-bot\b)/, verifyText: 'alarms ya deploy-bot ki keys dobara dekho',
         hints: [`cat runbook.md, phir aws cloudtrail lookup-events --lookup-attributes AttributeKey=Username,AttributeValue=${DEPLOY} — sourceIPAddress kya hai, aur 01:47 ke baad kaunse EventName hue?`,
-          'Pehle khoon roko: leak hui key turant Inactive karo. Inactive key ki har request ruk jaati hai, par key aur uska saboot bachta hai. User ya policy abhi mat chhedo.',
+          'Pehle deploy-bot ki leak hui key Inactive karo. Inactive key se nayi request authenticate nahi hoti, par key ID bachta hai — CloudTrail mein uski purani calls dhoondh sakoge. User ya policy abhi mat chhedo.',
           `aws iam list-access-keys --user-name ${DEPLOY}, phir aws iam update-access-key --user-name ${DEPLOY} --access-key-id ${DEPLOY_KEY} --status Inactive, phir aws cloudwatch describe-alarms --state-value ALARM`] },
-      { id: 'RunInstancesByIamUser', sev: '🔴 SEV1', text: 'Ek IAM user har minute RunInstances chala raha hai. Hamare servers sirf Auto Scaling launch karta hai, koi IAM user nahi.',
-        fixed: a => !user(a, BACKDOOR) || active(a, BACKDOOR).length === 0,
-        verify: /^aws iam list-access-keys\b(?=.*--user-name\s+support-ops\b)|^aws cloudwatch describe-alarms\b/, verifyText: 'support-ops ki keys ya alarms dobara dekho',
+      { id: 'RunInstancesByIamUser', sev: '🔴 SEV1', text: 'Ek IAM user har minute RunInstances chala raha hai. Hamare servers sirf Auto Scaling launch karta hai, koi IAM user nahi. Us user ki keys AUR admin power, dono hatao.',
+        fixed: a => !user(a, BACKDOOR) || (active(a, BACKDOOR).length === 0 && !(user(a, BACKDOOR).attachedPolicies || []).includes('AdministratorAccess')),
+        verify: /^aws iam (list-access-keys|list-attached-user-policies)\b(?=.*--user-name\s+support-ops\b)|^aws cloudwatch describe-alarms\b/, verifyText: 'support-ops ki keys / policies ya alarms dobara dekho',
         hints: [`aws cloudtrail lookup-events --lookup-attributes AttributeKey=EventName,AttributeValue=RunInstances — Username aur AccessKeyId kaun hai? Yeh user kisne banaya? IAM ke events us-east-1 mein hain: ${'aws cloudtrail lookup-events --lookup-attributes AttributeKey=Username,AttributeValue=' + DEPLOY} --region us-east-1`,
           'deploy-bot par AdministratorAccess tha, isliye attacker ne us key se backdoor user support-ops bana liya — admin policy aur 2 access keys ke saath. Ek user ki 2 keys ho sakti hain: DONO band karo, phir admin policy hatao.',
           `aws iam list-access-keys --user-name ${BACKDOOR}, phir update-access-key --status Inactive dono keys par (${K1}, ${K2}), phir aws iam detach-user-policy --user-name ${BACKDOOR} --policy-arn ${ADMIN}, phir aws iam list-access-keys --user-name ${BACKDOOR}`] },
-      { id: 'Ec2VcpuUsageHigh', sev: '🟠 SEV2', text: 'EC2 vCPU usage 70 — hamara normal 6 hai. Attacker ke chalaye instances abhi bhi chal rahe hain, aur har ghante ka paisa lag raha hai.',
+      { id: 'Ec2VcpuUsageHigh', sev: '🟠 SEV2', text: 'ec2-vcpu-usage: attacker ke launch kiye instances (agar koi bache hain) dhoondho aur terminate karo — har ghante ka paisa lagta hai.',
         fixed: a => a.leak.miners.every(id => (a.instances.find(i => i.id === id) || {}).state === 'terminated'),
         verify: /^aws ec2 describe-instances\b|^aws cloudwatch describe-alarms\b/, verifyText: 'instances ya alarms dobara dekho',
         hints: ['aws ec2 describe-instances — kaunse instances c5.4xlarge hain aur bina Name tag ke? RunInstances ke CloudTrail events ke Resources mein bhi wahi instance IDs hain.',
@@ -167,7 +168,8 @@ Jaankari:
       const KEYS = 'AKIA4SHOPDEPLOYB7Q2X|AKIA4SUPPORTK1N8WZ3R|AKIA4SUPPORTK2Q5HV7T';
       const responses = [
         risky(new RegExp(`^aws ec2 terminate-instances\\b(?=.*\\b(${WEB.join('|')})\\b)`), 'prod ka shopkaro-web instance terminate karna — site gir jaati, attacker ka kuch nahi bigadta.'),
-        risky(/^aws cloudtrail (stop-logging|delete-trail)\b/, 'CloudTrail band karna — attacker ka saboot hi mit jaata. Yahi kaam attacker khud karna chahta hai.'),
+        risky(/^aws cloudtrail (stop-logging|delete-trail)\b/, 'CloudTrail trail band karna — naye logs ki delivery ruk jaati (pehle ke logs aur 90 din ki Event history bachi rehti hai). Incident ke beech saboot ka raasta band mat karo.'),
+        risky(new RegExp(`^aws ec2 stop-instances\\b`), 'stop kaafi nahi — stopped instance ki EBS ka paisa lagta rehta hai aur koi phir start kar sakta hai. Attacker ke instances terminate karo.'),
         risky(new RegExp(`^aws iam update-access-key\\b(?=.*\\b(${KEYS})\\b)(?=.*--status\\s+Active\\b)`), 'leak hui key wapas Active karna — attacker ka darwaza phir khul jaata.'),
         risky(/^aws iam attach-user-policy\b(?=.*AdministratorAccess)/, 'kisi user ko AdministratorAccess dena — incident ke beech nayi power nahi, kam karni hai.'),
         { re: /^help$/, out: 'On-call: cat runbook.md se shuru karo. aws cloudwatch describe-alarms · aws cloudtrail lookup-events · aws iam list-users / list-access-keys / update-access-key / detach-user-policy · aws ec2 describe-instances / terminate-instances. Har command = 1 minute.' },

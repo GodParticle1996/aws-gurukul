@@ -7,7 +7,8 @@
      2 InvoiceDownload404     alert aate hi Ravi ghabra kar leak hue 2 invoices "delete" kar deta hai (versioning ON → sirf
                               delete marker) → marker ki version-id se marker hatao, file wapas
      3 GstExportFailed        Ravi ne ek purana invoice version-id ke saath delete kiya = hamesha ke liye. Replication ne
-                              copy rakhi thi (version-id wala delete aur delete marker replica tak nahi jaate) → backup se copy
+                              copy rakhi thi: version-id wala delete replica tak nahi jaata, aur is rule mein delete-marker
+                              replication band hai → backup se usi key ki copy
    Model (reconcile, har minute): anonymous reads = scrapers (policy khuli ~110/min, ACL khule ~14/min); 404 = jin 2 invoices
    ka latest delete marker hai unke customers (6/min har ek); GST export har minute retry, file na mile toh fail.
    curl (bina login) aur get-object-acl shift ke responses hain, asli S3 shape mein. */
@@ -26,9 +27,12 @@
   const ACL_PUBLIC = [VID[8817], VID[8818]];                           // purane app ne public-read ACL se upload kiye
   const bucket = (a, n) => a.buckets.find(b => b.name === n);
   const current = (b, key) => { const vs = (b.versions || {})[key]; return Array.isArray(vs) && vs[0] && !vs[0].deleteMarker ? vs[0] : null; };
-  const policyOpen = b => !(b.bpa || {}).RestrictPublicBuckets && ((b.policy || {}).Statement || []).some(s => s.Effect === 'Allow'
+  const policyPublic = b => ((b.policy || {}).Statement || []).some(s => s.Effect === 'Allow'
     && (s.Principal === '*' || (s.Principal || {}).AWS === '*') && [].concat(s.Action).some(x => ['s3:GetObject', 's3:*', '*'].includes(x)));
-  const aclOpen = (b, key) => { const v = current(b, key); return !!v && !(b.bpa || {}).IgnorePublicAcls && ACL_PUBLIC.includes(v.versionId); };
+  // RestrictPublicBuckets: public policy wali bucket tak sirf account ke log aur AWS services — ACL wala raasta bhi band
+  const restricted = b => !!(b.bpa || {}).RestrictPublicBuckets && policyPublic(b);
+  const policyOpen = b => policyPublic(b) && !restricted(b);
+  const aclOpen = (b, key) => { const v = current(b, key); return !!v && !(b.bpa || {}).IgnorePublicAcls && !restricted(b) && ACL_PUBLIC.includes(v.versionId); };
   const readable = (b, key) => !!current(b, key) && (policyOpen(b) || aclOpen(b, key));
   const anyAcl = b => Object.keys(b.versions || {}).some(k => aclOpen(b, k));
 
@@ -70,8 +74,10 @@
     return head ? hdr.join('\n') : inc ? hdr.join('\n') + '\n\n' + body : body;
   }
   const objectAcl = { re: /^aws s3api get-object-acl\b(.*)$/, err: false, out(sim, m) {
-    const bn = (m[1].match(/--bucket\s+(\S+)/) || [])[1], key = (m[1].match(/--key\s+(\S+)/) || [])[1], b = bn && bucket(sim.account, bn), v = b && key && current(b, key);
+    const bn = (m[1].match(/--bucket\s+(\S+)/) || [])[1], key = (m[1].match(/--key\s+(\S+)/) || [])[1], vid = (m[1].match(/--version-id\s+(\S+)/) || [])[1], b = bn && bucket(sim.account, bn);
+    const all = b && key && Array.isArray((b.versions || {})[key]) ? b.versions[key] : [], v = vid ? all.find(x => x.versionId === vid && !x.deleteMarker) : b && key && current(b, key);
     this.err = !v;
+    if (vid && b && key && !v) return `An error occurred (NoSuchVersion) when calling the GetObjectAcl operation: The specified version does not exist.`;
     if (!bn || !key) return 'aws: error: the following arguments are required: --bucket, --key';
     if (!b) return 'An error occurred (NoSuchBucket) when calling the GetObjectAcl operation: The specified bucket does not exist';
     if (!v) return 'An error occurred (NoSuchKey) when calling the GetObjectAcl operation: The specified key does not exist.';
@@ -104,7 +110,7 @@ Jaankari:
   AG.oncall.add({
     id: 'invoices', start: 22 * 60,
     INC: [
-      { id: 'InvoicesAnonymousRead', sev: '🔴 SEV1', text: `Customer ka email: "INV-10231 ke link mein number badla, kisi aur ka invoice khul gaya." ${BUCKET} par anonymous reads ~120/min.`,
+      { id: 'InvoicesAnonymousRead', sev: '🔴 SEV1', text: `Customer ka email: "Link se lambe signing parameters hata diye, number 10231 se 10232 kiya — bina login kisi aur ka invoice khul gaya." ${BUCKET} par anonymous reads ~120/min.`,
         fixed: a => { const b = bucket(a, BUCKET); return !policyOpen(b) && !anyAcl(b); },
         verify: /^curl\b|^aws cloudwatch describe-alarms\b/, verifyText: 'bina login curl ya alarms dobara dekho',
         hints: [`cat runbook.md, phir aws s3api get-bucket-policy --bucket ${BUCKET} aur aws s3api get-public-access-block --bucket ${BUCKET}. Phir curl -I se bina login ek 2026 aur ek 2025 invoice kholo.`,
@@ -112,16 +118,16 @@ Jaankari:
           `aws s3api delete-bucket-policy --bucket ${BUCKET}, phir aws s3api put-public-access-block --bucket ${BUCKET} --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true, phir curl -I https://${BUCKET}.s3.ap-south-1.amazonaws.com/${K(8818)}`] },
       { id: 'InvoiceDownload404', sev: '🟠 SEV2', text: 'Ravi ne Slack par likha: "leak hue invoices maine delete kar diye." Ab INV-10231 aur INV-10232 ke customers ko download par 404.',
         onFire: panic,
-        fixed: a => HOT.every(k => !!current(bucket(a, BUCKET), k)),
+        fixed: a => HOT.every(k => (current(bucket(a, BUCKET), k) || {}).versionId === VID[k.match(/INV-0*(\d+)/)[1]]),
         verify: /^aws s3api (head-object|list-object-versions)\b|^aws cloudwatch describe-alarms\b/, verifyText: 'head-object, list-object-versions ya alarms dobara dekho',
         hints: [`aws s3api list-object-versions --bucket ${BUCKET} --prefix invoices/2026/ — DeleteMarkers mein IsLatest: true kiska hai?`,
           'Versioning ON hai: bina version-id ka delete sirf delete marker lagata hai, file neeche bachi hai. Marker ko USKI VersionId se delete karo — file phir current ho jaati hai. Asli data wale version ko mat chhuo.',
           `aws s3api delete-object --bucket ${BUCKET} --key ${HOT[0]} --version-id ${MARK[HOT[0]]}, wahi ${HOT[1]} ke liye --version-id ${MARK[HOT[1]]}, phir aws s3api head-object --bucket ${BUCKET} --key ${HOT[1]}`] },
       { id: 'GstExportFailed', sev: '🟠 SEV2', text: `Raat ka GST export job har minute fail: NoSuchKey ${OLD}. Finance ko yeh invoice kal subah audit mein chahiye.`,
-        fixed: a => !!current(bucket(a, BUCKET), OLD),
+        fixed: a => (current(bucket(a, BUCKET), OLD) || {}).size === SIZE[8817],
         verify: /^aws s3api head-object\b|^aws cloudwatch describe-alarms\b/, verifyText: 'head-object ya alarms dobara dekho',
         hints: [`aws s3api list-object-versions --bucket ${BUCKET} --prefix invoices/2025/ — INV-08817 ka koi version ya delete marker bacha hai?`,
-          'Ravi ne yeh file version-id ke saath delete ki — woh delete hamesha ke liye hai, versioning bhi nahi bachata. Par replication chalu thi, aur version-id wala delete replica tak nahi jaata. get-bucket-replication se backup bucket dekho aur wahan se copy wapas lao.',
+          'Ravi ne yeh file version-id ke saath delete ki — woh delete hamesha ke liye hai, versioning bhi nahi bachata. Par replication chalu thi, aur version-id wala delete replica tak nahi jaata. get-bucket-replication se backup bucket dekho aur wahan se USI key ki copy wapas lao (doosre invoice ki nahi).',
           `aws s3 cp s3://${BACKUP}/${OLD} s3://${BUCKET}/${OLD}, phir aws s3api head-object --bucket ${BUCKET} --key ${OLD}`] },
     ],
     reconcile,
@@ -158,7 +164,7 @@ Jaankari:
         risky(/^aws s3 rm\b/, 'invoices delete karna — exposure nahi rukta, customer ka invoice gayab hota hai (yahi Ravi ki galti thi).'),
         risky(new RegExp(`^aws s3api delete-object\\b(?=.*--version-id\\s+(${DATA})\\b)`), 'asli data wale version ko version-id se delete karna — woh hamesha ke liye jaata hai.'),
         risky(/^aws s3api delete-object\b(?!.*--version-id)/, 'bina version-id ka delete — ek aur delete marker lagta hai, invoice aur chhup jaata hai.'),
-        risky(/^aws s3api put-bucket-versioning\b(?=.*Suspended)/, 'versioning band karna — agli galti ka delete wapas nahi aayega.'),
+        risky(/^aws s3api put-bucket-versioning\b(?=.*Suspended)/, 'versioning suspend karna — aage ke uploads null version par overwrite ho sakte hain (pehle ke numbered versions bache rehte hain). Incident ke beech mat chhedo.'),
         { re: /^curl((?:\s+-[a-zA-Z]+)*)\s+(\S+)\s*$/, out: curl },
         objectAcl,
         { re: /^help$/, out: 'On-call: cat runbook.md se shuru karo. aws cloudwatch describe-alarms · aws s3api get-bucket-policy / get-public-access-block / get-object-acl / list-object-versions / head-object / get-bucket-replication · curl -I <url> (bina login). Har command = 1 minute.' },

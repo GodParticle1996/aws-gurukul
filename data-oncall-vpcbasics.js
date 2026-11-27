@@ -24,10 +24,12 @@
   const tables = a => a.routeTables || [];
   const effective = (a, sid) => tables(a).find(t => (t.associations || []).some(x => x.subnetId === sid)) || tables(a).find(t => t.main);
   const route = (t, dst) => ((t || {}).routes || []).find(r => r.destination === dst);
-  const webOk = a => { const r = route(effective(a, SN_WEB), '0.0.0.0/0'), w = a.instances.find(i => i.id === WEB_I);
-    return !!r && r.target === IGW && (a.internetGateways || []).some(g => g.id === IGW && g.vpcId === VPC) && !!w && w.state === 'running' && !!w.publicIp; };
+  const igwRoute = (a, sid) => { const r = route(effective(a, sid), '0.0.0.0/0'); return !!r && r.target === IGW && (a.internetGateways || []).some(g => g.id === IGW && g.vpcId === VPC); };
+  const https = a => (a.securityGroups.find(g => g.id === 'sg-0a1b2c3d4e5f60718') || {}).ingress?.some(r => r.protocol === 'tcp' && r.fromPort <= 443 && r.toPort >= 443 && r.cidr === '0.0.0.0/0');
+  const webOk = a => { const w = a.instances.find(i => i.id === WEB_I);
+    return igwRoute(a, SN_WEB) && !!https(a) && !!w && w.state === 'running' && !!w.publicIp; };
   const natOk = a => { const r = route(effective(a, SN_APP), '0.0.0.0/0'); const n = r && (a.natGateways || []).find(x => x.id === r.target);
-    return !!n && n.state === 'available'; };
+    return !!n && n.state === 'available' && igwRoute(a, n.subnetId); };   // NAT ka apna subnet bhi IGW tak jaaye
   const s3Endpoint = a => { const t = effective(a, SN_APP);
     return (t.routes || []).some(r => r.type === 'endpoint' && (a.vpcEndpoints || []).some(e => e.id === r.target && e.serviceName === S3SVC && e.state === 'available')); };
 
@@ -141,13 +143,15 @@ Niyam:
       };
       const responses = [
         risky(new RegExp(`^aws ec2 create-route\\b(?=.*--route-table-id\\s+${RT_MAIN}\\b)(?=.*--gateway-id\\s+igw-)`), 'MAIN table mein IGW route — har naya ya bina-association subnet (DB bhi) chupchaap public ho jaata.'),
-        risky(new RegExp(`^aws ec2 create-route\\b(?=.*--route-table-id\\s+${RT_APP}\\b)(?=.*--gateway-id\\s+igw-)`), 'private app table mein IGW route — workers ke paas public IP nahi, kaam nahi karega, aur subnet public ban jaata.'),
-        risky(new RegExp(`^aws ec2 replace-route-table-association\\b(?=.*--association-id\\s+${AS_APP}\\b)(?=.*--route-table-id\\s+${RT_PUB}\\b)`), 'private app subnet ko public table par daalna — workers internet ke saamne.'),
+        risky(new RegExp(`^aws ec2 create-route\\b(?=.*--route-table-id\\s+${RT_APP}\\b)(?=.*--gateway-id\\s+igw-)`), 'app table par IGW route runbook ke khilaaf hai — workers ke paas public IPv4 nahi, isliye payments phir bhi nahi chalenge.'),
+        risky(new RegExp(`^aws ec2 replace-route-table-association\\b(?=.*--association-id\\s+${AS_APP}\\b)(?=.*--route-table-id\\s+${RT_PUB}\\b)`), 'private app subnet ko public table par daalna runbook ke khilaaf hai — workers ke paas public IPv4 nahi, payments phir bhi nahi chalenge.'),
         risky(/^aws ec2 delete-nat-gateway\b/, 'NAT delete karna — payments ka bahar ka raasta phir band.'),
-        risky(/^aws ec2 (allocate-address|associate-address)\b/, 'worker ko public IP dena — private subnet ka matlab hi khatam.'),
-        { re: /^curl((?:\s+-[a-zA-Z]+)*)\s+https:\/\/www\.shopkaro\.example\/?\s*$/, out: sim => webOk(sim.account)
-          ? `HTTP/2 200\ndate: ${new Date(sim.account.now).toUTCString()}\ncontent-type: text/html; charset=utf-8\nserver: nginx\ncache-control: no-cache`
-          : 'curl: (28) Failed to connect to www.shopkaro.example port 443 after 10002 ms: Timeout was reached' },
+        risky(new RegExp(`^aws ec2 associate-address\\b(?=.*--instance-id\\s+${APP_I}\\b)`), 'private worker ko public IP dena — private subnet ka matlab hi khatam.'),
+        { re: /^curl((?:\s+-[a-zA-Z]+)*)\s+https:\/\/www\.shopkaro\.example\/?\s*$/, out: (sim, m) => {
+          if (!webOk(sim.account)) return 'curl: (28) Failed to connect to www.shopkaro.example port 443 after 10002 ms: Timeout was reached';
+          const head = `HTTP/2 200\ndate: ${new Date(sim.account.now).toUTCString()}\ncontent-type: text/html; charset=utf-8\nserver: nginx\ncache-control: no-cache`;
+          const body = '<!doctype html><html><head><title>ShopKaro</title></head><body>… ShopKaro home …</body></html>';
+          return /I/.test(m[1] || '') ? head : /i/.test(m[1] || '') ? head + '\n\n' + body : body; } },
         { re: /^help$/, out: 'On-call: cat runbook.md se shuru karo. aws cloudwatch describe-alarms · aws cloudtrail lookup-events · aws ec2 describe-route-tables / describe-nat-gateways / describe-vpc-endpoints / associate-route-table / create-route / create-vpc-endpoint · curl -I <site>. Har command = 1 minute.' },
         AG.oncall.alarmsResponse(R, A),
       ];
@@ -155,7 +159,7 @@ Niyam:
         account, files: { 'runbook.md': { desc: 'On-call runbook', content: RUNBOOK } }, responses,
         placeholder: 'cat runbook.md   (phir: aws cloudwatch describe-alarms --state-value ALARM)',
         goal: 'Raat 23:10. Ek "cleanup" change ke baad pager baja. Har alert ko <b>dhoondho, theek karo, phir pakka karo</b>. Har alert pichhle fix ke baad aata hai. Runbook todne wale commands simulator rok dega.',
-        successText: 'Web subnet phir <b>rtb-public</b> par (main table private hi rahi), workers ka bahar ka raasta <b>NAT</b> se, aur S3 ka traffic <b>gateway endpoint</b> se — NAT ka bill nahi. Sabak: association hatane se subnet chupchaap MAIN table par aa jaata hai.',
+        successText: 'Web subnet phir <b>rtb-public</b> par (main table private hi rahi), workers ka bahar ka raasta <b>NAT</b> se, aur S3 sync ka traffic ab <b>gateway endpoint</b> se. NAT ka hourly charge aur payment traffic ka processing charge ab bhi lagta hai. Sabak: association hatane se subnet chupchaap MAIN table par aa jaata hai.',
         solution: ['cat runbook.md', 'aws cloudwatch describe-alarms --state-value ALARM', `curl -I ${SITE}`,
           'aws cloudtrail lookup-events --lookup-attributes AttributeKey=Username,AttributeValue=ravi', 'aws ec2 describe-route-tables',
           `aws ec2 associate-route-table --subnet-id ${SN_WEB} --route-table-id ${RT_PUB}`, `curl -I ${SITE}`,

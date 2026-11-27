@@ -32,14 +32,19 @@
     a.now = iso(T0 + clock * 60000);
     const f = fn(a), L = a.refunds, t = timing(f), tmo = f.timeout * 1000;
     let errors = 0, dropped = 0, r429 = 0, conc;
-    if (t > tmo) { conc = 5; errors = conc * Math.round(60000 / tmo); L.backlog += L.incoming; }
+    const m = esm(a);
+    if (m.state === 'Enabled') L.eff = { cap: (m.scalingConfig || {}).MaximumConcurrency || null, partial: (m.responseTypes || []).includes('ReportBatchItemFailures'), on: true };
+    else if (m.state === 'Disabled') L.eff = { ...L.eff, on: false };   // Updating: pichhli chalti config hi lagti hai
+    if (!L.eff.on) { L.backlog += L.incoming; }
+    else if (t > tmo) { conc = 5; errors = conc * Math.round(60000 / tmo); L.backlog += L.incoming; }
     else {
-      const m = live(a), cap = (m && (m.scalingConfig || {}).MaximumConcurrency) || DEFAULT_SCALE;
+      const cap = L.eff.cap || DEFAULT_SCALE, work = L.backlog + L.incoming;
       conc = L.backlog > 0 ? cap : 3;
       const perConc = Math.round(600000 / t);                          // refund calls har minute, har invocation slot
-      r429 = Math.max(0, conc - GATEWAY_MAX) * perConc;
-      const served = Math.min(conc, GATEWAY_MAX) * perConc, failed5xx = Math.round(served * 0.02);
-      if (!partial(a)) dropped = failed5xx + r429;                     // flag OFF: poora batch "safal" → fail hue bhi delete
+      const tries = Math.min(work, conc * perConc), share = Math.min(conc, GATEWAY_MAX) / conc;
+      const served = Math.round(tries * share); r429 = tries - served;
+      const failed5xx = Math.round(served * 0.02);
+      if (!L.eff.partial) dropped = failed5xx + r429;                  // flag OFF: poora batch "safal" → fail hue bhi delete
       L.paid += served - failed5xx;
       L.backlog = Math.max(0, L.backlog + L.incoming - (served - failed5xx) - dropped);
       errors = t > 0.5 * tmo ? Math.round(conc * 60000 / t * 0.15) : 0;   // p99 tail abhi bhi timeout ke paas
@@ -80,7 +85,7 @@ Jaankari:
         fixed: healthy,
         verify: /^aws cloudwatch (describe-alarms|get-metric-statistics)\b|^aws lambda get-function-configuration\b/, verifyText: 'alarms, Duration ya function config dobara dekho',
         hints: [`cat runbook.md, phir aws lambda get-function-configuration --function-name ${FN} — Timeout aur MemorySize kitne hain? Duration ka Maximum dekho (runbook ka get-metric-statistics).`,
-          'Duration ka maximum theek timeout (3000 ms) par ruk raha hai = "Task timed out". Ek batch mein 10 gateway calls ek ke baad ek — yeh intezaar hai, CPU nahi. Memory badhane se yeh kam nahi hota. Timeout badhao, par queue visibility (180 s) ka 1/6 tak.',
+          'Duration ka maximum theek timeout (3000 ms) par ruk raha hai = "Task timed out". Ek batch mein 10 gateway calls ek ke baad ek — yeh intezaar hai. Memory badhane se CPU wala hissa ghatta hai, gateway ka intezaar nahi. Timeout badhao, par queue visibility (180 s) ka 1/6 tak (30 s).',
           `aws lambda update-function-configuration --function-name ${FN} --timeout 30, phir aws lambda wait function-updated-v2 --function-name ${FN}, phir aws cloudwatch describe-alarms --alarm-names refund-worker-errors`] },
       { id: 'RefundsDroppedUnpaid', sev: '🔴 SEV1', text: 'Worker chal pada — par reconciliation job keh raha hai: kuch refunds queue se DELETE hue, aur customer ko paisa gaya hi nahi.',
         fixed: partial,
@@ -121,13 +126,15 @@ Jaankari:
         alarms: [alarm('refund-worker-errors', 'errors', 'AWS/Lambda', 'Errors', dims, 0),
           alarm('refunds-dropped-unpaid', 'dropped', 'ShopKaro/Refunds', 'RefundsDroppedUnpaid', recon, 0),
           alarm('gateway-rate-limited', 'r429', 'ShopKaro/Payments', 'GatewayRateLimited', gw, 50)],
-        refunds: { backlog: 150000, incoming: 150, paid: 0 },
+        refunds: { backlog: 150000, incoming: 150, paid: 0, eff: { cap: null, partial: false, on: true } },
       };
       const responses = [
         risky(/^aws sqs purge-queue\b/, 'refund queue purge karna — 1.5 lakh customers ke refund hamesha ke liye gaye.'),
         risky(/^aws lambda delete-event-source-mapping\b/, 'mapping delete karna — refunds bilkul rukk jaate, backlog aur badhta.'),
-        risky(/^aws lambda put-function-concurrency\b/, 'refund-worker par reserved concurrency — SQS mapping ke saath throttle hue messages laut kar receive count badhate, refunds DLQ mein. Source ki speed mapping ke MaximumConcurrency se roko.'),
-        risky(/^aws lambda update-function-configuration\b(?=.*--timeout\s+(18[1-9]|19\d|[2-9]\d\d|\d{4,})\b)/, 'timeout queue ki visibility (180 s) se zyada — refund chalte-chalte message phir dikhega aur doosra worker wahi refund dobara bhejega.'),
+        risky(/^aws lambda put-function-concurrency\b(?=.*--reserved-concurrent-executions\s+[0-5]?\d\b)/, 'reserved concurrency mapping ki demand (60) se kam — SQS mapping throttle hoti, messages laut kar receive count badhate, refunds DLQ tak ja sakte. Is source ki speed mapping ke MaximumConcurrency se roko.'),
+        risky(/^aws lambda update-function-configuration\b(?=.*--timeout\s+(3[1-9]|[4-9]\d|\d{3,})\b)/, 'timeout 30 s se zyada — runbook: queue visibility (180 s) ≥ 6 × timeout. Warna refund chalte-chalte message phir dikh sakta aur doosra worker wahi refund dobara bhejta.'),
+        { re: new RegExp(`^aws sqs get-queue-attributes\\b(?=.*${SRC.name}(?!-dlq))`), out: sim => JSON.stringify({ Attributes: { ...sim.account.queues[0].attributes, QueueArn: SRC.arn,
+          ApproximateNumberOfMessages: String(sim.account.refunds.backlog), ApproximateNumberOfMessagesNotVisible: String(sim.account.refunds.backlog ? 600 : 30), ApproximateNumberOfMessagesDelayed: '0' } }, null, 4) },
         risky(/^aws sqs (set-queue-attributes|delete-queue)\b(?=.*refund-queue(?!-dlq))/, 'raat ko refund queue ki settings/queue chhedna — runbook mein nahi; masla function aur mapping mein hai.'),
         { re: /^help$/, out: 'On-call: cat runbook.md se shuru karo. aws cloudwatch describe-alarms / get-metric-statistics · aws lambda get-function-configuration / update-function-configuration / wait function-updated-v2 / get-event-source-mapping / update-event-source-mapping · aws sqs get-queue-attributes. Har command = 1 minute.' },
         AG.oncall.alarmsResponse(R, A),
@@ -137,7 +144,7 @@ Jaankari:
         account, files: { 'runbook.md': { desc: 'On-call runbook', content: RUNBOOK } }, responses,
         placeholder: 'cat runbook.md   (phir: aws cloudwatch describe-alarms --state-value ALARM)',
         goal: 'Raat 01:00, refunds ki raat. Har alert ko <b>dhoondho, theek karo, phir pakka karo</b>. Har alert pichhle fix ke baad aata hai. Runbook todne wale commands simulator rok dega.',
-        successText: 'Timeout kaam ke hisaab se (memory nahi — kaam gateway ka intezaar tha), mapping par <b>ReportBatchItemFailures</b> taaki sirf fail hue refunds dobara aayein, aur <b>MaximumConcurrency</b> se gateway ki limit ki izzat. Kal ka kaam: refund idempotency key, taaki retry kabhi do baar paisa na bheje.',
+        successText: 'Timeout kaam ke hisaab se (memory nahi — kaam gateway ka intezaar tha), mapping par <b>ReportBatchItemFailures</b> taaki sirf fail hue refunds dobara aayein, aur <b>MaximumConcurrency</b> se gateway ki limit ki izzat. Handover: flag ON hone se pehle jo refunds queue se delete hue, woh wapas nahi aayenge — payment ledger se milao aur sirf unpaid IDs idempotency key ke saath dobara bhejo.',
         solution: ['cat runbook.md', 'aws cloudwatch describe-alarms --state-value ALARM', `aws lambda get-function-configuration --function-name ${FN}`,
           `aws cloudwatch get-metric-statistics --namespace AWS/Lambda --metric-name Duration --dimensions Name=FunctionName,Value=${FN} --start-time ${t1} --end-time ${t2} --period 60 --statistics Maximum`,
           `aws lambda update-function-configuration --function-name ${FN} --timeout 30`, `aws lambda wait function-updated-v2 --function-name ${FN}`,

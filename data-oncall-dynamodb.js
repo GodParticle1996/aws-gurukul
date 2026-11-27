@@ -2,8 +2,8 @@
    29 Nov, 00:00 flash sale. Table stock-holds (cart mein rakhe stock ke "hold", 15 min ke liye; key holdId).
    Teen JUDE alerts:
      1 StockHoldsWriteThrottled  table PROVISIONED 100 WCU, sale ki demand 900 se shuru hokar har minute badhti → WriteThrottleEvents.
-                                 Fix: on-demand (traffic ka andaza nahi). WCU badhana bhi chalta hai jab tak demand se upar ho —
-                                 par demand badhti rehti hai.
+                                 Fix: on-demand (traffic ka andaza pakka nahi). Provisioned rakhna ho toh sale ke peak (2,400) tak WCU.
+                                 Badlaav UPDATING ke dauraan purani capacity hi lagti hai — ACTIVE hone par nayi.
      2 SellerDashboardSlow       writes chalte hi table tezi se badhi; seller dashboard Scan + FilterExpression(sellerId) chalata hai —
                                  filter padhne ke BAAD lagta hai, poori table padhi jaati hai. Fix: GSI bySeller (sellerId, createdAt);
                                  app index ACTIVE hote hi Query par chala jaata hai. Provisioned table par GSI ko apni throughput
@@ -19,18 +19,23 @@
   const iso = ms => new Date(ms).toISOString().replace('.000Z', 'Z');
   const table = a => a.tables.find(t => t.name === T);
   const demand = clock => Math.min(2400, 900 + 60 * clock);
-  const gsiReady = t => (t.gsis || []).some(i => i.name === 'bySeller' && i.partitionKey === 'sellerId' && i.status === 'ACTIVE');
+  // dashboard ki Query: sellerId par, createdAt se sort, sku/qty bhi chahiye → keys + ProjectionType ALL
+  const gsiReady = t => (t.gsis || []).some(i => i.name === 'bySeller' && i.partitionKey === 'sellerId' && i.sortKey === 'createdAt'
+    && (i.projection || {}).ProjectionType === 'ALL' && i.status === 'ACTIVE');
   const writeCap = t => {
     if (t.billing === 'PAY_PER_REQUEST') return 4000;
     const idx = (t.gsis || []).filter(i => i.status === 'ACTIVE' || i.status === 'CREATING');
     return Math.min(t.wcu || 5, ...idx.map(i => i.wcu || Infinity));   // GSI ki WCU kam = base table ke writes bhi ruke
   };
-  const writesOk = a => writeCap(table(a)) >= demand(a.holds.clock);
+  // UPDATING ke dauraan purani capacity hi lagti hai; ACTIVE hone par nayi. Provisioned ho toh sale ke peak (2,400) tak.
+  const writesOk = a => { const t = table(a); return t.status === 'ACTIVE' && (t.billing === 'PAY_PER_REQUEST' ? writeCap(t) >= demand(a.holds.clock) : writeCap(t) >= 2400); };
 
   function reconcile(a, sim, clock) {
     a.now = iso(T0 + clock * 60000);
-    const t = table(a), L = a.holds, d = demand(clock), cap = writeCap(t);
+    const t = table(a), L = a.holds, d = demand(clock);
     L.clock = clock;
+    if (t.status === 'ACTIVE') L.activeCap = writeCap(t);
+    const cap = L.activeCap;
     const accepted = Math.min(d, cap), throttled = Math.max(0, d - cap) * 60;
     if (clock > 0) L.items += Math.max(0, accepted - 100) * 60;
     const p99 = gsiReady(t) ? 80 + (clock * 7) % 15 : Math.round(400 + L.items / 200);
@@ -58,11 +63,11 @@ Badlaav:  aws dynamodb update-table --table-name ${T} --billing-mode PAY_PER_REQ
           (badlaav ke baad describe-table se Status / IndexStatus ACTIVE hone tak dekho)
 
 Jaankari:
-- Sale ka traffic pehli baar itna hai — andaza nahi. Writes har minute badhenge.
+- Sale ka traffic pehli baar itna hai. Marketing ka andaza: peak ~2,400 writes/s tak (pakka nahi). Writes har minute badhenge.
 - Seller dashboard abhi Scan + FilterExpression (sellerId = :s) chalata hai. App ka v7: GSI "bySeller" ACTIVE hote hi Query.
 - Index files: seller-index.json (on-demand table ke liye), seller-index-provisioned.json (provisioned table ke liye, GSI throughput ke saath).
 - 01:30 par stale-holds cleanup job (bulk delete). Bulk delete se pehle PITR ON, 35 din — warna galti ka ilaaj nahi.
-- Kabhi nahi: table delete, PITR band, sale ke beech table wapas PROVISIONED.
+- Kabhi nahi: table delete, PITR band.
 `;
 
   AG.oncall.add({
@@ -72,7 +77,7 @@ Jaankari:
         fixed: a => writesOk(a),
         verify: /^aws cloudwatch (describe-alarms|get-metric-statistics)\b|^aws dynamodb describe-table\b/, verifyText: 'alarms, consumed WCU ya table dobara dekho',
         hints: [`cat runbook.md, phir ${describe} — BillingModeSummary aur ProvisionedThroughput kya hai? Phir ConsumedWriteCapacityUnits (runbook) dekho.`,
-          'Table 100 WCU par PROVISIONED hai, sale ki demand 900 se upar aur badh rahi hai. Traffic ka andaza nahi — on-demand (PAY_PER_REQUEST) yahin ke liye hai. Badlaav ke baad Status UPDATING se ACTIVE hone tak describe-table.',
+          'Table 100 WCU par PROVISIONED hai, sale ki demand 900 se upar aur badh rahi hai. Andaza pakka nahi — on-demand (PAY_PER_REQUEST) yahin ke liye hai (provisioned rakho toh peak 2,400 tak WCU). Badlaav ke dauraan purani capacity lagti hai: Status UPDATING se ACTIVE hone tak describe-table.',
           `aws dynamodb update-table --table-name ${T} --billing-mode PAY_PER_REQUEST, phir ${describe} (Status ACTIVE), phir aws cloudwatch describe-alarms --alarm-names stock-holds-write-throttles`] },
       { id: 'SellerDashboardSlow', sev: '🟠 SEV2', text: 'Seller dashboard p99 2.5 s se upar aur har minute badh raha hai. Writes chalte hi table tezi se badi ho rahi hai.',
         fixed: a => gsiReady(table(a)),
@@ -80,11 +85,11 @@ Jaankari:
         hints: [`${describe} — GlobalSecondaryIndexes hai? Runbook: dashboard Scan + FilterExpression chalata hai.`,
           'FilterExpression padhne ke BAAD lagta hai — Scan poori table padhta hai aur read units bhi poore lagte hain. sellerId ke liye GSI banao; app ACTIVE index par Query karega. Table on-demand hai toh seller-index.json, provisioned hai toh seller-index-provisioned.json.',
           `aws dynamodb update-table --table-name ${T} --attribute-definitions ${ATTRS} --global-secondary-index-updates file://seller-index.json, phir ${describe} do baar (Status, phir IndexStatus ACTIVE), phir aws cloudwatch describe-alarms --alarm-names seller-dashboard-p99`] },
-      { id: 'PitrDisabled', sev: '🟠 SEV2', text: 'Security Hub DynamoDB.2 FAILED: stock-holds par point-in-time recovery band. 01:30 ka stale-holds cleanup (bulk delete) isse pehle nahi chalega.',
+      { id: 'PitrDisabled', sev: '🟠 SEV2', text: 'Security Hub DynamoDB.2 FAILED: stock-holds par PITR band. Cleanup runbook (01:30 ka bulk delete) PITR ON aur 35 din ki window maangta hai.',
         fixed: a => { const p = table(a).pitr || {}; return p.enabled === true && (p.days == null ? 35 : p.days) >= 35; },
         verify: /^aws dynamodb describe-continuous-backups\b/, verifyText: 'describe-continuous-backups dobara dekho',
         hints: [`aws dynamodb describe-continuous-backups --table-name ${T} — PointInTimeRecoveryStatus kya hai?`,
-          'Bulk delete galat chala toh PITR hi rasta hai: chuni hui second tak ki copy nayi table mein restore. Runbook 35 din maangta hai. PITR on karna restore ka saboot nahi — par bina iske koi raasta hi nahi.',
+          'Bulk delete galat chala toh PITR se chuni hui second ki copy nayi table mein restore hoti hai (purana on-demand backup ho toh woh bhi ek raasta). PITR abhi ON karne se pichhle din wapas nahi milte — window aaj se banti hai. Runbook 35 din maangta hai; Security Hub sirf ON/OFF dekhta hai.',
           `aws dynamodb update-continuous-backups --table-name ${T} --point-in-time-recovery-specification PointInTimeRecoveryEnabled=true,RecoveryPeriodInDays=35, phir aws dynamodb describe-continuous-backups --table-name ${T}`] },
     ],
     reconcile,
@@ -99,13 +104,13 @@ Jaankari:
       const account = {
         region: R, now: iso(T0), callerIdentity: { Account: A, UserId: 'AIDA4NEHAONCALL2K8P', Arn: `arn:aws:iam::${A}:user/neha` },
         tables: [{ name: T, tableId: '6f1c2a9e-3b4d-4e5f-8a7b-9c0d1e2f3a4b', partitionKey: 'holdId', sortKey: null, billing: 'PROVISIONED', rcu: 200, wcu: 100,
-          attributeTypes: { holdId: 'S' }, status: 'ACTIVE', revision: 1, gsis: [], lsis: [], pitr: { enabled: false }, ttl: { attribute: 'expiresAt', status: 'ENABLED' },
+          attributeTypes: { holdId: 'S' }, status: 'ACTIVE', revision: 1, itemCountEstimate: 380000, gsis: [], lsis: [], pitr: { enabled: false }, ttl: { attribute: 'expiresAt', status: 'ENABLED' },
           items: [hold('8f21c0', 's-104', 'IPH16-128', t0 - 41), hold('8f21c7', 's-221', 'TV-55-QLED', t0 - 37), hold('8f21d3', 's-104', 'IPH16-256', t0 - 12)] }],
         capacityMetrics: [series('throttles', 'AWS/DynamoDB', 'WriteThrottleEvents', 'Count', dims), series('latency', 'ShopKaro/Dashboard', 'LatencyP99', 'Milliseconds', dash),
           series('wcu', 'AWS/DynamoDB', 'ConsumedWriteCapacityUnits', 'Count', dims)],
         alarms: [alarm('stock-holds-write-throttles', 'throttles', 'AWS/DynamoDB', 'WriteThrottleEvents', dims, 'Sum', 0),
           alarm('seller-dashboard-p99', 'latency', 'ShopKaro/Dashboard', 'LatencyP99', dash, 'Maximum', 2500)],
-        holds: { items: 380000, clock: 0 },
+        holds: { items: 380000, clock: 0, activeCap: 100 },
       };
       const files = {
         'runbook.md': { desc: 'On-call runbook', content: RUNBOOK },
@@ -115,7 +120,6 @@ Jaankari:
       const responses = [
         risky(/^aws dynamodb delete-table\b/, 'stock-holds delete karna — sale ke saare carts ka stock hold gaya.'),
         risky(/^aws dynamodb update-continuous-backups\b(?=.*PointInTimeRecoveryEnabled=false)/, 'PITR band karna — bulk delete se pehle hi ilaaj ka raasta khatam.'),
-        risky(/^aws dynamodb update-table\b(?=.*--billing-mode\s+PROVISIONED\b)/, 'sale ke beech table wapas PROVISIONED — demand abhi bhi badh rahi hai.'),
         risky(/^aws dynamodb batch-write-item\b|^aws dynamodb delete-item\b/, 'raat ko holds haath se delete karna — cleanup job ka kaam hai, aur PITR abhi band hai.'),
         { re: /^help$/, out: 'On-call: cat runbook.md se shuru karo. aws cloudwatch describe-alarms / get-metric-statistics · aws dynamodb describe-table / update-table / describe-continuous-backups / update-continuous-backups. Har command = 1 minute.' },
         AG.oncall.alarmsResponse(R, A),
