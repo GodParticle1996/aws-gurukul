@@ -522,6 +522,8 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   let s3seq = 0;
   const vid = () => 'v' + String(++s3seq).padStart(3, '0') + '-' + Math.random().toString(36).slice(2, 8);
   const s3Now = () => new Date(sim.account.now || '2026-10-26T00:00:00Z');
+  // naye object / delete marker ka LastModified: account ki ghadi ho toh wahi (on-call shift), warna purana fixture din
+  const s3Stamp = () => sim.account.now ? new Date(sim.account.now).toISOString().replace('T', ' ').slice(0, 19) : '2026-10-23 ' + new Date().toTimeString().slice(0, 8);
   const s3Encryption = b => ({ serverSideEncryption: b.encryption === 'kms' ? 'aws:kms' : 'AES256', ...(b.encryption === 'kms' ? { kmsKey: b.kmsKey || 'alias/aws/s3', bucketKey: !!b.bucketKey } : {}) });
   function s3VersionLocked(v, bypass) {
     if(v.legalHold==='ON')return true;
@@ -547,7 +549,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
       .map(([key, vs]) => ({ ...vs[0], key }));
   }
   function putObject(b, key, size, body) {
-    const now = '2026-10-23 ' + new Date().toTimeString().slice(0, 8);
+    const now = s3Stamp();
     if (b.versioning === true || b.versions) {
       const vs = ensureVersions(b);
       const fresh={ versionId: b.versioning === true ? vid() : 'null', deleteMarker: false, size, body, lastModified: now, ...s3Encryption(b) };
@@ -1632,9 +1634,9 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           if (!b) return print('err', `NoSuchBucket: ${bname}`);
           if (b.versioning === true) {
             const vs = ensureVersions(b);
-            (vs[key] = vs[key] || []).unshift({ versionId: vid(), deleteMarker: true, lastModified: '2026-10-23 ' + new Date().toTimeString().slice(0, 8) });
+            (vs[key] = vs[key] || []).unshift({ versionId: vid(), deleteMarker: true, lastModified: s3Stamp() });
           } else if (b.versions && b.versioning === false) {   // Suspended: "null" delete marker; purane versions rehte hain
-            replaceNullVersion(ensureVersions(b), key, { versionId: 'null', deleteMarker: true, lastModified: '2026-10-23 ' + new Date().toTimeString().slice(0, 8) });
+            replaceNullVersion(ensureVersions(b), key, { versionId: 'null', deleteMarker: true, lastModified: s3Stamp() });
           } else if (b.versions) { delete b.versions[key]; }
           else b.objects = (b.objects || []).filter(o => o.key !== key);
           print('ok', `delete: s3://${bname}/${key}`);
