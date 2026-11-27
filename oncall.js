@@ -151,3 +151,32 @@ AG.oncall = (function () {
     AG.renderers.terminal(m, sub, () => finish());
   };
 })();
+
+/* ---------- saajhe helpers: shifts CloudWatch alarms aur metrics aise dikhati hain ----------
+   AG.oncall.point(iso, v)              → ek minute ka metric point (saare statistics = v)
+   AG.oncall.alarmsResponse(region, id) → `aws cloudwatch describe-alarms` ka response entry: state
+       AG.capacityAlarmSnapshot (capacity-cli.js) se, StateReason asli CloudWatch jaisa — aakhri datapoint ki value ke saath.
+       --alarm-names / --alarm-name-prefix / --state-value samajhta hai. */
+(function () {
+  const OPS = { LessThanThreshold: 'less than', GreaterThanThreshold: 'greater than', LessThanOrEqualToThreshold: 'less than or equal to', GreaterThanOrEqualToThreshold: 'greater than or equal to' };
+  const stamp = t => { const d = new Date(t), p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${String(d.getUTCFullYear()).slice(2)} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:00`; };
+  const dims = x => JSON.stringify((x || []).map(d => [d.Name, d.Value]).sort());
+  AG.oncall.point = (iso, v) => ({ Timestamp: iso, SampleCount: 1, Average: v, Minimum: v, Maximum: v, Sum: v });
+  function view(a, al, region, account) {
+    const d = al.definition, snap = AG.capacityAlarmSnapshot(a, al);
+    const series = (a.capacityMetrics || []).find(x => x.namespace === d.Namespace && x.metric === d.MetricName && dims(x.dimensions) === dims(d.Dimensions));
+    const p = series && series.points[series.points.length - 1], stat = d.ExtendedStatistic || d.Statistic, v = p && p[stat];
+    const not = snap.state === 'ALARM' ? '' : 'not ';
+    const reason = v == null ? snap.reason : `Threshold Crossed: 1 out of the last 1 datapoints [${Number(v).toFixed(1)} (${stamp(p.Timestamp)})] was ${not}${OPS[d.ComparisonOperator]} the threshold (${Number(d.Threshold).toFixed(1)}) (minimum 1 datapoint for ${snap.state === 'ALARM' ? 'OK -> ALARM' : 'ALARM -> OK'} transition).`;
+    return { AlarmName: al.name, AlarmArn: `arn:aws:cloudwatch:${region}:${account}:alarm:${al.name}`, StateValue: snap.state, StateReason: reason,
+      MetricName: d.MetricName, Namespace: d.Namespace, [d.ExtendedStatistic ? 'ExtendedStatistic' : 'Statistic']: stat, Dimensions: d.Dimensions,
+      Period: d.Period, EvaluationPeriods: d.EvaluationPeriods, Threshold: d.Threshold, ComparisonOperator: d.ComparisonOperator };
+  }
+  AG.oncall.alarmsResponse = (region, account) => ({ re: /^aws cloudwatch describe-alarms\b/, out: (sim, m) => {
+    const cmd = m.input, flag = n => (cmd.match(new RegExp('--' + n + '\\s+(\\S+)')) || [])[1];
+    const names = (cmd.match(/--alarm-names\s+(.+?)(?=\s--|$)/) || [, ''])[1].split(/\s+/).filter(Boolean), prefix = flag('alarm-name-prefix'), state = flag('state-value');
+    const rows = (sim.account.alarms || []).filter(al => (!names.length || names.includes(al.name)) && (!prefix || al.name.startsWith(prefix)))
+      .map(al => view(sim.account, al, region, account)).filter(v => !state || v.StateValue === state);
+    return JSON.stringify({ MetricAlarms: rows, CompositeAlarms: [] }, null, 4);
+  } });
+})();

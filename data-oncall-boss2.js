@@ -79,25 +79,12 @@
       s.ordersDone += done;
       if (s.moving) { s.backlog += s.moving.count; s.moving.moved = s.moving.count; s.moving.status = 'COMPLETED'; s.moving = null; }
     }
-    const point = v => ({ Timestamp: a.now, SampleCount: 1, Average: v, Minimum: v, Maximum: v, Sum: v });
     const values = { hosts: m.h, cpu: m.cpu, throttles: m.throttles, dlq: s.dlq };
-    a.capacityMetrics.forEach(series => { series.points.push(point(values[series.key])); if (series.points.length > 40) series.points.shift(); });
+    a.capacityMetrics.forEach(series => { series.points.push(AG.oncall.point(a.now, values[series.key])); if (series.points.length > 40) series.points.shift(); });
     s.last = m;
   }
 
-  /* ---------- CloudWatch / SQS views (asli AWS CLI ke format mein) ---------- */
-  const STATS = { LessThanThreshold: 'less than', GreaterThanThreshold: 'greater than' };
-  const stamp = t => { const d = new Date(t); const p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${String(d.getUTCFullYear()).slice(2)} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:00`; };
-  function alarmView(a, al) {
-    const d = al.definition, snap = AG.capacityAlarmSnapshot(a, al), series = a.capacityMetrics.find(x => x.metric === d.MetricName);
-    const p = series.points[series.points.length - 1], v = p[d.Statistic];
-    const reason = snap.state === 'ALARM'
-      ? `Threshold Crossed: 1 out of the last 1 datapoints [${v.toFixed(1)} (${stamp(p.Timestamp)})] was ${STATS[d.ComparisonOperator]} the threshold (${d.Threshold.toFixed(1)}) (minimum 1 datapoint for OK -> ALARM transition).`
-      : `Threshold Crossed: 1 out of the last 1 datapoints [${v.toFixed(1)} (${stamp(p.Timestamp)})] was not ${STATS[d.ComparisonOperator]} the threshold (${d.Threshold.toFixed(1)}) (minimum 1 datapoint for ALARM -> OK transition).`;
-    return { AlarmName: al.name, AlarmArn: `arn:aws:cloudwatch:${R}:${A}:alarm:${al.name}`, StateValue: snap.state, StateReason: reason,
-      MetricName: d.MetricName, Namespace: d.Namespace, Statistic: d.Statistic, Dimensions: d.Dimensions, Period: 60,
-      EvaluationPeriods: 1, Threshold: d.Threshold, ComparisonOperator: d.ComparisonOperator };
-  }
+  /* ---------- SQS views (asli AWS CLI ke format mein); alarms AG.oncall.alarmsResponse se ---------- */
   const json = v => JSON.stringify(v, null, 4);
   const flagOf = (norm, name) => { const m = norm.match(new RegExp('--' + name + '\\s+(\\S+)')); return m ? m[1] : null; };
 
@@ -206,13 +193,7 @@ Agla kadam: ALB ke SG (${SG_ALB}) se tcp 8080 ka rule jodna — "kal subah kar d
         risky(/^aws lambda put-function-concurrency\b(?=.*--reserved-concurrent-executions\s+(?:5[1-9]|[6-9]\d|\d{3,})\b)/, 'reserved concurrency 50 se upar — orders DB ka budget 50 connections hai (runbook).'),
         risky(/^aws sqs purge-queue\b/, 'purge-queue — queue mein customers ke PAID orders hain; purge = orders hamesha ke liye gayab.'),
         { re: /^help$/, out: 'On-call: cat runbook.md se shuru karo (ls se files). aws cloudwatch describe-alarms · aws elbv2 describe-target-health · aws ec2 describe-security-groups / authorize-security-group-ingress · aws autoscaling describe-auto-scaling-groups / update-auto-scaling-group / describe-scaling-activities · aws lambda get-function / put-function-concurrency / list-event-source-mappings · aws sqs get-queue-attributes / set-queue-attributes / start-message-move-task / list-message-move-tasks. Har command = 1 minute.' },
-        { re: /^aws cloudwatch describe-alarms\b/, out: (sim, mm) => {
-          const norm = mm.input, a = sim.account, state = flagOf(norm, 'state-value'), prefix = flagOf(norm, 'alarm-name-prefix');
-          const names = (norm.match(/--alarm-names\s+(.+?)(?=\s--|$)/) || [, ''])[1].split(/\s+/).filter(Boolean);
-          const rows = a.alarms.filter(al => (!names.length || names.includes(al.name)) && (!prefix || al.name.startsWith(prefix))).map(al => alarmView(a, al))
-            .filter(v => !state || v.StateValue === state);
-          return json({ MetricAlarms: rows, CompositeAlarms: [] });
-        } },
+        AG.oncall.alarmsResponse(R, A),
         { re: /^aws sqs get-queue-attributes\b/, out: (sim, mm) => {
           const norm = mm.input, a = sim.account, url = flagOf(norm, 'queue-url'), q = a.queues.find(x => x.url === url);
           if (!q) return 'An error occurred (AWS.SimpleQueueService.NonExistentQueue) when calling the GetQueueAttributes operation: The specified queue does not exist.';
