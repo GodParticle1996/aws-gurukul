@@ -35,7 +35,7 @@
   const deck = id => DECKS[id];
   const ids = () => Object.keys(DECKS);
   // state badalne wale commands (report ke "kitne badlaav" ke liye)
-  const WRITE = /^aws \S+ (create|put|update|modify|authorize|revoke|delete|set|attach|detach|enable|disable|register|deregister|start|stop|terminate|reboot|associate|disassociate|replace|change|add|remove|tag|untag|restore|promote|reset|purge|send|publish|subscribe|unsubscribe)-|^apply -f\b|^terraform apply\b/;
+  const WRITE = /^aws \S+ (create|put|update|modify|authorize|revoke|delete|set|attach|detach|enable|disable|register|deregister|start|stop|terminate|reboot|associate|disassociate|replace|change|add|remove|tag|untag|restore|promote|reset|purge|send|publish|subscribe|unsubscribe|release|allocate|copy|cancel|accept|reject|rotate|import)-|^aws s3 (cp|mv|rm|sync)\b|^apply -f\b|^terraform apply\b/;
   const writes = cmds => (cmds || []).filter(c => WRITE.test(c)).length;
 
   /* pichhle 2 cards chhod kar random; AG.state.practice.seen['chaos:<deck>'] */
