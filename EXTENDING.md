@@ -611,3 +611,21 @@ Model banane ke niyam:
 - `risky(re, why)` = runbook todne wala command roko aur gino (state nahi badalta). Har shift mein 2–4 lalchaane wale khatarnaak raaste.
 - Validator: poori `solution` se shift jeetni chahiye; koi solution command error na de; koi alert aate hi pehle se theek na ho;
   khatarnaak regex kisi solution command se na mile; renderer ka report card aur score (bina hint = sab alerts saaf).
+
+### 12.3 🎲 `chaos` — Chaos round (`chaos.js`)
+
+Swasth base account + 5–8 cards; har card base par **EK** config badlaav (`break(account)`). Learner ko random card milta hai
+(pichhle 2 nahi): probe → lakshan → kaaran → ek badlaav → pakka karo → "kya toota tha?" (3 options). Report mein "tumne kitne badlaav
+kiye, hal mein kitne chahiye the". Poora schema `chaos.js` ke upar. Model: [`data-chaos-elbasg.js`](data-chaos-elbasg.js).
+Chaos mein terminal ki "commands dekho" list band rehti hai (`noPalette`), warna woh galti bata deti.
+
+Deck ke niyam (System Gurukul se):
+- **Ek badlaav, aur woh dikhe.** Har card ka lakshan runbook ke probe mein alag dikhe (alag Reason, field ya HTTP code).
+- **Masking nahi.** Base mein koi doosra guard us galti ko chhupaye nahi (jaise app SG par VPC CIDR ka extra rule SG card ko bekaar kar deta).
+- **Dhaka hua fix `fixed()` nahi.** Jaise path ki galti par matcher 200-499 karna, ya SG par 0.0.0.0/0 — `fixed()` asli config maange.
+- **Asli AWS niyam.** Simulator ke saath milta jawab do (jaise ALB fail-open: saare targets laal hon toh bhi traffic jaata hai).
+- Validator: base par har card ki `fixed()` sach; `break()` ke baad jhooth; solution bina error ke aur **aakhri command** par jeete;
+  sirf probes (bina badlaav) se card na jeete; renderer mein bina hint + sahi jawab = 2/2.
+
+Practice labs level ke `stages` ke aakhir mein judte hain. Kisi validator ko lesson ka kram jaanchna ho toh
+`level.stages.filter(s => !AG.PRACTICE_TYPES.includes(s.type))` se jaanche.

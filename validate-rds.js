@@ -28,7 +28,7 @@ const level = AG.findLevel('rds'), mission = level.stages.find(s => s.type === '
 const interview = level.interview.questions.find(q => q.terminal).terminal;
 const commands = [...mission.hints];
 check(level.steps.length === 8 && level.cards.length === 8, 'eight lesson cards and flashcards');
-check(level.stages.map(s => s.type).join(',') === 'dryrun,flowlab,bins,order,triage,terminal,docker,quiz', 'required stage order');
+check(level.stages.filter(s => !AG.PRACTICE_TYPES.includes(s.type)).map(s => s.type).join(',') === 'dryrun,flowlab,bins,order,triage,terminal,docker,quiz', 'required stage order');
 check(run(mission, commands).trace.join(',') === '0,0,0,0,0,1', 'HA/backup/replica mission requires final availability waiter');
 for (let i = 0; i < commands.length; i++) check(!run(mission, commands.filter((_, j) => j !== i)).done, 'cannot omit mission action ' + i);
 check(run(interview, interview.hints).trace.join(',') === '0,1', 'restore mission waits for new target');

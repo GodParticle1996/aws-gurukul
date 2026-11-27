@@ -1287,3 +1287,10 @@ pre {
 .term-out .t-page { color: #ff8f8f; font-weight: 600; }
 .term-out .t-pageok { color: var(--good); font-weight: 600; }
 @media (max-width: 700px) { .oc-pager { position: static; } }
+
+/* 🎲 Chaos round (chaos.js) */
+.cx-head { background: var(--panel2); border: 1px solid var(--border); border-left: 4px solid var(--gold); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; line-height: 1.55; }
+.cx-intro { color: var(--muted); font-size: .92rem; margin-top: 4px; }
+.cx-q { margin: 14px 0 8px; font-size: 1.02rem; }
+.cx-term + .lab-after { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.cx-term + .lab-after > .cx-q, .cx-term + .lab-after > .choices, .cx-term + .lab-after > .feedback { flex: 1 1 100%; }

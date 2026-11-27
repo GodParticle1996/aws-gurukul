@@ -31,7 +31,7 @@ const probe = { ...mission, success: () => false };
 const inspect = (commands, account) => run({ ...probe, ...(account ? { account } : {}) }, commands);
 const group = r => r.state.account.asgs[0], target = r => r.state.account.targetGroups[0];
 check(level.steps.length === 8 && level.cards.length === 8, 'eight lesson cards and flashcards');
-check(level.stages.map(s => s.type).join(',') === 'dryrun,flowlab,match,bins,triage,terminal,docker,quiz', 'stage order');
+check(level.stages.filter(s => !AG.PRACTICE_TYPES.includes(s.type)).map(s => s.type).join(',') === 'dryrun,flowlab,match,bins,triage,terminal,docker,quiz', 'stage order');
 check(run(mission, solution).trace.join(',') === '0,0,0,1', 'mission wins only after final drain attribute');
 for (let i = 0; i < solution.length; i++) check(!run(mission, solution.filter((_, j) => i !== j)).done, 'cannot omit step ' + i);
 check(run(interview, interview.hints).trace.join(',') === '0,1', 'interview needs scale-out and replacement');

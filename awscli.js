@@ -120,6 +120,21 @@ AG.albReachable = function (account, tg, instance, port) {
   });
 };
 
+// Ek target ki ALB health (describe-target-health, ASG ELB health, on-call/chaos probes sab yahi use karte hain).
+AG.targetHealth = function (account, tg, target) {
+  if (target.draining) return { State: 'draining', Reason: 'Target.DeregistrationInProgress' };
+  const i = (account.instances || []).find(i => i.id === target.id);
+  if (!i || i.state !== 'running') return { State: 'unused', Reason: 'Target.InvalidState' };
+  if (i.appHealthy === false) return { State: 'unhealthy', Reason: 'Target.FailedHealthChecks', Description: 'Application process failed the modeled health check.' };
+  const port = tg.healthCheckPort && tg.healthCheckPort !== 'traffic-port' ? Number(tg.healthCheckPort) : target.port || tg.port;
+  if (tg.sgAware && !AG.albReachable(account, tg, i, port)) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Request timed out' };
+  if (i.appPort && port !== i.appPort) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Modeled app is not listening on the health-check port.' };
+  const code = (tg.healthCheckPath || '/') === (i.healthPath || tg.validHealthPath || '/') ? 200 : 404;
+  const matches = String(tg.matcher || '200').split(',').some(part => { const range = part.split('-').map(Number); return code >= range[0] && code <= (range[1] == null ? range[0] : range[1]); });
+  if (!matches) return { State: 'unhealthy', Reason: 'Target.ResponseCodeMismatch', Description: `Health checks failed with these codes: [${code}]` };
+  return { State: 'healthy' };
+};
+
 AG.cdnResponse = function (account, distribution, path, behavior) {
   if(!distribution)return {status:503,reason:'Distribution missing'};
   const cfg=distribution.deployedConfig||(distribution.status==='Deployed'?distribution.config:null);
@@ -291,7 +306,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   updateTasks();
 
   arena.append(goalBox, term, btns);
-  if (solution.length) {
+  if (solution.length && !stage.noPalette) {   // chaos: commands ki list chhupi galti bata deti
     const menu = AG.el('details', 'term-palette');
     menu.appendChild(AG.el('summary', '', 'Is mission ke commands dekho'));
     const shapes = solution.map(line => {
@@ -1177,19 +1192,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
 
     // Deterministic configuration model, not real EC2 boot/HTTP/time simulation.
     function groupTargets() { return list('targetGroups'); }
-    function targetHealth(tg, target) {
-      if (target.draining) return { State: 'draining', Reason: 'Target.DeregistrationInProgress' };
-      const i = list('instances').find(i => i.id === target.id);
-      if (!i || i.state !== 'running') return { State: 'unused', Reason: 'Target.InvalidState' };
-      if (i.appHealthy === false) return { State: 'unhealthy', Reason: 'Target.FailedHealthChecks', Description: 'Application process failed the modeled health check.' };
-      const port = tg.healthCheckPort && tg.healthCheckPort !== 'traffic-port' ? Number(tg.healthCheckPort) : target.port || tg.port;
-      if (tg.sgAware && !AG.albReachable(sim.account, tg, i, port)) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Request timed out' };
-      if (i.appPort && port !== i.appPort) return { State: 'unhealthy', Reason: 'Target.Timeout', Description: 'Modeled app is not listening on the health-check port.' };
-      const code = (tg.healthCheckPath || '/') === (i.healthPath || tg.validHealthPath || '/') ? 200 : 404;
-      const matches = String(tg.matcher || '200').split(',').some(part => { const range = part.split('-').map(Number); return code >= range[0] && code <= (range[1] == null ? range[0] : range[1]); });
-      if (!matches) return { State: 'unhealthy', Reason: 'Target.ResponseCodeMismatch', Description: `Health checks failed with these codes: [${code}]` };
-      return { State: 'healthy' };
-    }
+    function targetHealth(tg, target) { return AG.targetHealth(sim.account, tg, target); }
     function activity(a, description, extra) {
       a.activities = a.activities || [];
       const id = '00000000-0000-4000-8000-' + String(sim.activitySeq = (sim.activitySeq || 0) + 1).padStart(12, '0');

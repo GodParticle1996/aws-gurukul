@@ -32,7 +32,7 @@ const repair = [
   'aws ec2 replace-route-table-association --association-id rtbassoc-db-a --route-table-id rtb-private',
 ];
 check(level.steps.length === 7 && level.cards.length === 8, 'seven lesson cards, eight flashcards');
-check(level.stages.map(s => s.type).join(',') === 'dryrun,flowlab,order,bins,triage,terminal,docker,quiz', 'interaction-first stage order');
+check(level.stages.filter(s => !AG.PRACTICE_TYPES.includes(s.type)).map(s => s.type).join(',') === 'dryrun,flowlab,order,bins,triage,terminal,docker,quiz', 'interaction-first stage order');
 const good = run(mission, repair);
 check(good.trace.join(',') === '0,1', 'mission wins only after both associations are repaired');
 check(good.done === 1, 'one completion callback');

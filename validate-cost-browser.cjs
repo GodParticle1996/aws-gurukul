@@ -12,7 +12,7 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
   await context.route(/^https?:/,r=>r.abort());page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
   await page.goto(pathToFileURL(path.join(__dirname,'index.html')).href);
   await page.addStyleTag({content:'*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}'});
-  const types=await page.evaluate(()=>AG.findLevel('cost').stages.map(s=>s.type));assert.deepEqual(types,['dryrun','flowlab','bins','order','triage','terminal','docker','quiz'],'stage order');
+  const types=await page.evaluate(()=>AG.findLevel('cost').stages.filter(s=>!AG.PRACTICE_TYPES.includes(s.type)).map(s=>s.type));assert.deepEqual(types,['dryrun','flowlab','bins','order','triage','terminal','docker','quiz'],'stage order');
   for(const stage of ['intro',0,1,2,3,4,5,6,7]){
    await page.evaluate(stage=>{const level=AG.findLevel('cost');if(stage==='intro')return showIntro(level);AG.session={level,stageIdx:stage,firstTry:0,total:0,replay:true};runStage();},stage);
    const dimensions=await overflow(page,width+'-stage-'+stage);reports.push({width,stage,dimensions});

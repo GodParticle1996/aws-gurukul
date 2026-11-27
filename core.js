@@ -37,6 +37,7 @@ AG.registerLevels = function (trackId, levels) {
    kyunki app interview ko allStages() mein sabse aakhir mein lagaata hai. Data file level file ke BAAD load ho.
      AG.addLab('boss2', { type: 'drill', id: 'drill-boss2', ... })
    Level na mile toh ERROR, taaki galat id ya galat file order chup-chaap na chhoote. */
+AG.PRACTICE_TYPES = ['drill', 'oncall', 'chaos'];   // level ke aakhir mein jude practice labs (lesson ke kram ka hissa nahi)
 AG.addLab = function (levelId, stage) {
   const level = AG.findLevel(levelId);
   if (!level) throw new Error(`AG.addLab: level '${levelId}' nahi mila — file order check karo`);

@@ -28,10 +28,7 @@
   const esm = a => a.eventSourceMappings.find(m => m.uuid === ESM);
   const queue = (a, q) => a.queues.find(x => x.arn === q.arn);
   const redrive = a => { try { return JSON.parse(queue(a, SRC).attributes.RedrivePolicy || '{}'); } catch (e) { return {}; } };
-  const healthy = a => { const g = tg(a); return (g.targets || []).filter(t => {
-    const i = a.instances.find(x => x.id === t.id);
-    return i && i.state === 'running' && i.appHealthy !== false && AG.albReachable(a, g, i, t.port || g.port);
-  }).length; };
+  const healthy = a => { const g = tg(a); return (g.targets || []).filter(t => AG.targetHealth(a, g, t).State === 'healthy').length; };
 
   /* ---------- ek minute ka hisaab (sirf padhta hai) ---------- */
   function model(a) {

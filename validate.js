@@ -14,10 +14,10 @@
    ===================================================================== */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const DIR = __dirname;
-const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'drill.js', 'oncall.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'labs-index.js', 'labhub.js', 'search.js', 'cheatsheet.js', 'parts.js', 'soch.js', 'data-soch.js'];
+const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'drill.js', 'oncall.js', 'chaos.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'labs-index.js', 'labhub.js', 'search.js', 'cheatsheet.js', 'parts.js', 'soch.js', 'data-soch.js'];
 const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-int-3-cloudfront.js', 'data-int-4-s3adv.js', 'data-int-5-efs.js', 'data-int-6-lambda.js', 'data-int-7-dynamodb.js', 'data-int-8-caching.js', 'data-int-9-sqssns.js', 'data-int-10-events.js', 'data-int-11-security.js', 'data-int-12-boss2.js', 'data-adv-1-wellarch.js', 'data-adv-2-orgs.js', 'data-adv-3-dr.js', 'data-adv-4-advnet.js', 'data-adv-5-containers.js', 'data-adv-6-iac.js', 'data-adv-7-cost.js', 'data-adv-8-observability.js', 'data-adv-9-migration.js', 'data-adv-10-analytics.js', 'data-adv-11-appai.js', 'data-adv-12-finalboss.js', 'data-arch-1-compute.js', 'data-arch-2-datastore.js', 'data-arch-3-messaging.js', 'data-arch-4-eventbridge.js', 'data-arch-5-logsetl.js', 'data-arch-6-edge.js', 'data-arch-7-costdec.js', 'data-arch-8-resilience.js', 'data-arch-9-archboss.js',
   'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js',
-  'data-drill-boss2.js', 'data-drill-boss1.js', 'data-drill-finalboss.js', 'data-oncall-boss2.js'];
+  'data-drill-boss2.js', 'data-drill-boss1.js', 'data-drill-finalboss.js', 'data-oncall-boss2.js', 'data-chaos-elbasg.js'];
 const ALL = [...ENGINE, ...DATA, 'app.js'];
 let FAIL = 0;
 const bad = m => { console.log('   ✗ ' + m); FAIL++; };
@@ -334,6 +334,26 @@ function chk(s, S) {
       });
       if (typeof def.reconcile !== 'function' || typeof def.build !== 'function') w(S, 'shift ko reconcile() aur build() chahiye');
       break; }
+    case 'chaos': {   // 🎲 chaos.js — deck ka schema; har card ka walk lab runner mein
+      labStages.push({ s, S });
+      if (!/^chaos-[a-z0-9-]+$/.test(s.id || '')) w(S, "chaos id 'chaos-…' chahiye");
+      else if (PRACTICE_IDS.has(s.id)) w(S, `practice id '${s.id}' do baar`);
+      else PRACTICE_IDS.add(s.id);
+      const d = AG.chaos && AG.chaos.deck(s.deck);
+      if (!d) { w(S, `deck '${s.deck}' registered nahi`); break; }
+      if (!d.cards || d.cards.length < 4) w(S, 'deck mein kam se kam 4 cards chahiye');
+      if (!d.alert || !d.runbook || !d.account) w(S, 'deck ko alert, runbook aur account chahiye');
+      const titles = new Set();
+      (d.cards || []).forEach((c, i) => {
+        const C = `${S} card[${c.id || i}]`;
+        if (!c.id || !c.title || typeof c.break !== 'function' || typeof c.fixed !== 'function') w(C, 'id/title/break()/fixed()');
+        if (Object.prototype.toString.call(c.verify) !== '[object RegExp]' || !c.verifyText) w(C, 'verify (RegExp) + verifyText');
+        if (!Array.isArray(c.hints) || c.hints.length !== 3) w(C, '3 hints chahiye');
+        if (!Array.isArray(c.solution) || !c.solution.length || !AG.chaos.writes(c.solution)) w(C, 'solution mein kam se kam ek badlaav wala command');
+        if (!c.why || c.why.replace(/<[^>]+>/g, '').length > 260) w(C, `why chahiye, 260 chars tak`);
+        if (titles.has(c.title)) w(C, 'title do baar'); titles.add(c.title);
+      });
+      break; }
     default: w(S, `UNKNOWN stage type "${s.type}"`);
   }
 }
@@ -577,6 +597,46 @@ for (const { s, S } of labStages) {
       else { next.click(); if (!done || done.firstTry !== INC.length || done.total !== INC.length) LP.push(`${S} — bina hint shift par score ${done && done.firstTry}/${done && done.total}`); }
     }
   }
+  if (s.type === 'chaos') {
+    const d = AG.chaos.deck(s.deck), clone = x => JSON.parse(JSON.stringify(x));
+    const feed = (m, cmds) => {   // terminal mein commands; errors aur jeet ka pal lautao
+      const box = mkNode('div'); let wonAt = -1;
+      AG.renderers.terminal(m, box, () => { if (wonAt < 0) wonAt = k; });
+      const term = box._kids.find(x => x._cls.has('terminal')), input = term.querySelector('input'), out = term.querySelector('.term-out');
+      let seen = out._kids.length, k = 0; const errs = [];
+      for (; k < cmds.length; k++) {
+        input.value = cmds[k]; input._l.keydown[0]({ key: 'Enter', preventDefault() {} });
+        const e = out._kids.slice(seen).filter(x => x._cls.has('t-err')); seen = out._kids.length;
+        if (e.length) errs.push(cmds[k] + ' → ' + String(e[0].textContent).slice(0, 100));
+      }
+      return { wonAt, errs };
+    };
+    // (a) swasth base: har card ki fixed() base par sach; base par probes (runbook ke commands) error nahi dete
+    d.cards.forEach(c => { const base = clone(d.account); if (!c.fixed(base)) LP.push(`${S} card ${c.id}: swasth base par fixed() jhooth — base mein bhi galti hai`); });
+    d.cards.forEach(c => {
+      const broken = clone(d.account); c.break(broken);
+      if (c.fixed(broken)) LP.push(`${S} card ${c.id}: break() ke baad bhi fixed() sach — galti dikhti hi nahi`);
+      // (b) card ka solution: koi error nahi, aur jeet AAKHRI command par (verify fix ke baad hi)
+      const r = feed(AG.chaos.mission(d.id, c.id), c.solution);
+      r.errs.forEach(e => LP.push(`${S} card ${c.id}: solution command error — ${e}`));
+      if (r.wonAt < 0) LP.push(`${S} card ${c.id}: SOFTLOCK — solution se card nahi jeeta`);
+      else if (r.wonAt !== c.solution.length - 1) LP.push(`${S} card ${c.id}: card aakhri command se pehle (step ${r.wonAt + 1}) jeet gaya`);
+      // (c) probes-only (solution ke badlaav hata kar) se card nahi jeetna chahiye
+      const probes = c.solution.filter(x => !AG.chaos.WRITE.test(x));
+      if (feed(AG.chaos.mission(d.id, c.id), probes).wonAt >= 0) LP.push(`${S} card ${c.id}: bina badlaav ke jeet gaya`);
+    });
+    // (d) renderer: chhupi galti → solution → sahi jawab → onDone 2/2
+    const live = arena._chaos;
+    const sub = byClass(arena, 'terminal')[0], inp = sub && sub.querySelector('input');
+    if (!live || !inp) LP.push(`${S} — chaos renderer mein terminal nahi`);
+    else {
+      for (const c of live.card.solution) { inp.value = c; inp._l.keydown[0]({ key: 'Enter', preventDefault() {} }); }
+      const right = byClass(arena, 'cx-opt').find(b => b.dataset.id === live.card.id);
+      if (!right) LP.push(`${S} — "kya toota tha?" mein sahi option nahi`);
+      else { right.click(); const nx = one(arena, 'cx-next'); if (nx) nx.click();
+        if (!done || done.firstTry !== 2 || done.total !== 2) LP.push(`${S} — bina hint + sahi jawab par score ${done && done.firstTry}/${done && done.total}`); }
+    }
+  }
   if (s.type === 'docker') {
     byClass(arena, 'dk-tick').forEach(b => b.click());
     if (!clickRight(arena, 'dk-opt', (s.observe || {}).answer)) LP.push(`${S} — observe question not shown after ticking all steps`);
@@ -585,7 +645,7 @@ for (const { s, S } of labStages) {
   }
 }
 LP.forEach(p => bad(p));
-if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker/drill/oncall) — no softlocks, no NaN`);
+if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker/drill/oncall/chaos) — no softlocks, no NaN`);
 
 /* ================= 4. TERMINAL MISSIONS ================= */
 console.log('\n4️⃣  Terminal missions (real awscli.js simulator)');
@@ -791,6 +851,7 @@ const sxp = s => {
   if (s.type === 'docker') return per + bon;
   if (s.type === 'drill') return Math.min(s.pick || 8, (s.rounds || []).length) * per + bon;
   if (s.type === 'oncall') return AG.TERMINAL_XP + bon;
+  if (s.type === 'chaos') return AG.TERMINAL_XP + per + bon;
   return 0;
 };
 AG.tracks.forEach(t => (AG.levelSets[t.id] || []).forEach(l => {
