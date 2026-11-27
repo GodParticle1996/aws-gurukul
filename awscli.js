@@ -1997,7 +1997,12 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
           a.instanceId = inst.id; inst.eip = a.publicIp; inst.publicIp = a.publicIp;
           print('ok', prettyJson({ AssociationId: 'eipassoc-' + Date.now().toString(16).slice(-10) }));
         } else if (op === 'describe-addresses') {
-          print('ok', prettyJson({ Addresses: list('addresses').map(a => ({ PublicIp: a.publicIp, AllocationId: a.allocationId, InstanceId: a.instanceId || undefined, Domain: 'vpc' })) }));
+          // asli DescribeAddresses shape: association (instance ya NAT ka ENI), pool, border group, tags
+          print('ok', prettyJson({ Addresses: list('addresses').map(a => ({ AllocationId: a.allocationId, PublicIp: a.publicIp, Domain: 'vpc',
+            ...(a.instanceId ? { InstanceId: a.instanceId } : {}), ...(a.associationId || a.instanceId || a.natId ? { AssociationId: a.associationId || 'eipassoc-' + String(a.allocationId).slice(9) } : {}),
+            ...(a.natId ? { NetworkInterfaceId: a.eni || 'eni-' + String(a.natId).slice(4), NetworkInterfaceOwnerId: sim.account.callerIdentity?.Account || '123456789012' } : {}),
+            PublicIpv4Pool: 'amazon', NetworkBorderGroup: sim.account.region || 'us-east-1',
+            ...(a.tags ? { Tags: Object.entries(a.tags).map(([Key, Value]) => ({ Key, Value })) } : {}) })) }));
         } else if (op === 'run-instances' || op === 'create-vpc' || op === 'create-subnet' || op === 'create-security-group') {
           print('err', `'${op}' is mission mein scripted nahi hai — file apply karo (ls dekho).`);
         } else if (op === 'describe-route-tables') {
