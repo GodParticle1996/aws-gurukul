@@ -14,9 +14,10 @@
    ===================================================================== */
 const fs = require('fs'), path = require('path'), vm = require('vm');
 const DIR = __dirname;
-const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'labs-index.js', 'labhub.js', 'search.js', 'cheatsheet.js', 'parts.js', 'soch.js', 'data-soch.js'];
+const ENGINE = ['core.js', 'data-core.js', 'visuals.js', 'games.js', 'awscli.js', 'security-cli.js', 'capacity-cli.js', 'audit-cli.js', 'orgs-cli.js', 'dr-cli.js', 'hybrid-cli.js', 'containers-cli.js', 'iac-cli.js', 'cost-cli.js', 'observability-cli.js', 'migration-cli.js', 'analytics-cli.js', 'appai-cli.js', 'finalboss-cli.js', 'datastore-cli.js', 'messaging-cli.js', 'eventbridge-cli.js', 'logsetl-cli.js', 'edge-cli.js', 'costdec-cli.js', 'resilience-cli.js', 'archboss-cli.js', 'labs.js', 'drill.js', 'decisions.js', 'navigation.js', 'resume.js', 'mockexam.js', 'labs-index.js', 'labhub.js', 'search.js', 'cheatsheet.js', 'parts.js', 'soch.js', 'data-soch.js'];
 const DATA = ['data-beg-1-cloud101.js', 'data-beg-2-iam.js', 'data-beg-3-ec2.js', 'data-beg-4-s3.js', 'data-beg-5-vpcbasics.js', 'data-beg-6-rds.js', 'data-beg-7-elbasg.js', 'data-beg-8-boss1.js', 'data-int-1-vpcdeep.js', 'data-int-2-route53.js', 'data-int-3-cloudfront.js', 'data-int-4-s3adv.js', 'data-int-5-efs.js', 'data-int-6-lambda.js', 'data-int-7-dynamodb.js', 'data-int-8-caching.js', 'data-int-9-sqssns.js', 'data-int-10-events.js', 'data-int-11-security.js', 'data-int-12-boss2.js', 'data-adv-1-wellarch.js', 'data-adv-2-orgs.js', 'data-adv-3-dr.js', 'data-adv-4-advnet.js', 'data-adv-5-containers.js', 'data-adv-6-iac.js', 'data-adv-7-cost.js', 'data-adv-8-observability.js', 'data-adv-9-migration.js', 'data-adv-10-analytics.js', 'data-adv-11-appai.js', 'data-adv-12-finalboss.js', 'data-arch-1-compute.js', 'data-arch-2-datastore.js', 'data-arch-3-messaging.js', 'data-arch-4-eventbridge.js', 'data-arch-5-logsetl.js', 'data-arch-6-edge.js', 'data-arch-7-costdec.js', 'data-arch-8-resilience.js', 'data-arch-9-archboss.js',
-  'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js'];
+  'data-decisions-compute.js', 'data-decisions-data.js', 'data-decisions-network.js', 'data-decisions-integration.js', 'data-decisions-security.js', 'data-decisions-ops.js',
+  'data-drill-boss2.js'];
 const ALL = [...ENGINE, ...DATA, 'app.js'];
 let FAIL = 0;
 const bad = m => { console.log('   ✗ ' + m); FAIL++; };
@@ -151,6 +152,7 @@ console.log('\n3️⃣  Structure');
 const P = []; const w = (...a) => P.push(a.join(' '));
 let nStage = 0, terminals = [], fills = [];
 const labStages = [];
+const PRACTICE_IDS = new Set();   // drill / oncall / chaos stage ids — poore app mein unique
 function chk(s, S) {
   switch (s.type) {
     case 'decide': {
@@ -282,6 +284,41 @@ function chk(s, S) {
       if (!s.steps || !s.steps.length) w(S, 'docker no steps');
       if (!s.observe) w(S, 'docker no observe question'); else chkQ(s.observe, `${S} observe`);
       break;
+    case 'drill': {   // ⚡ drill.js — lakshan → fix
+      labStages.push({ s, S });
+      if (!/^drill-[a-z0-9-]+$/.test(s.id || '')) w(S, "drill id 'drill-…' chahiye");
+      else if (PRACTICE_IDS.has(s.id)) w(S, `practice id '${s.id}' do baar (best score isi id par save hota hai)`);
+      else PRACTICE_IDS.add(s.id);
+      const rounds = s.rounds || [], pick = s.pick || 8;
+      if (pick < 5) w(S, `pick ${pick} — kam se kam 5 rounds per run`);
+      if (rounds.length < pick + 4) w(S, `pool mein ${rounds.length} rounds — pick (${pick}) + 4 chahiye, taaki dobara khelne par naye rounds aayein`);
+      if (!(s.par > 0)) w(S, 'drill par (second) chahiye');
+      const plain = x => String(x == null ? '' : x).replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+      const syms = new Set();
+      let goodLongest = 0;
+      rounds.forEach((r, ri) => {
+        const R = `${S} round[${ri}]`;
+        if (!r.sym || !r.good || !r.why || !r.level) return w(R, 'sym/good/why/level missing');
+        if (!Array.isArray(r.bad) || r.bad.length < 2 || r.bad.length > 3) return w(R, 'bad mein 2–3 galat options chahiye');
+        if (/<[a-z]/i.test(r.sym + r.good + r.bad.join(''))) w(R, 'sym/good/bad saada text hon (HTML sirf why mein)');
+        if (String(r.sym).length > 200) w(R, `sym ${String(r.sym).length} chars — 200 tak (ek nazar mein padha jaaye)`);
+        [r.good].concat(r.bad).forEach(c => { if (String(c).length > 90) w(R, `option "${String(c).slice(0, 40)}…" ${String(c).length} chars — 90 tak`); });
+        if (plain(r.why).length > 260) w(R, `why ${plain(r.why).length} chars — 260 tak`);
+        if (!AG.findLevel(r.level)) w(R, `level '${r.level}' nahi mila`);
+        const all = [r.good].concat(r.bad).map(c => plain(c).toLowerCase());
+        if (new Set(all).size !== all.length) w(R, 'do options ek jaise');
+        if (syms.has(plain(r.sym))) w(R, 'yahi lakshan pehle bhi hai'); syms.add(plain(r.sym));
+        // length bias: sahi option sabse lamba ya sabse chhota na dikhe
+        const L = all.map(c => [...c].length), g = L[0], o = L.slice(1);
+        if (g > Math.max(...o)) goodLongest++;
+        if (g >= 1.15 * Math.max(...o)) w(R, `sahi option sabse lamba (${g} vs ${Math.max(...o)}) — lambai se jawab dikh jaata hai`);
+        else if (g <= 0.85 * Math.min(...o)) w(R, `sahi option sabse chhota (${g} vs ${Math.min(...o)})`);
+      });
+      // poore drill mein: sahi option aadhe se zyada rounds mein sabse lamba ho toh learner "lamba = sahi" seekh leta hai
+      if (rounds.length && goodLongest > rounds.length / 2) w(S, `${goodLongest}/${rounds.length} rounds mein sahi option sabse lamba — aadhe se kam rakho`);
+      // ulta bias bhi: sahi option lagbhag kabhi sabse lamba na ho toh learner "sabse lamba = galat" seekh leta hai
+      if (rounds.length >= 10 && goodLongest < rounds.length / 5) w(S, `sirf ${goodLongest}/${rounds.length} rounds mein sahi option sabse lamba — kam se kam ~1/5 rakho`);
+      break; }
     default: w(S, `UNKNOWN stage type "${s.type}"`);
   }
 }
@@ -474,6 +511,24 @@ for (const { s, S } of labStages) {
     if (!done) LP.push(`${S} — SOFTLOCK, triage never finished`);
     else if (done.firstTry !== (s.questions || []).length) LP.push(`${S} — right answers gave ${done.firstTry}/${done.total}`);
   }
+  if (s.type === 'drill') {
+    const start = one(arena, 'dl-start');
+    if (!start) LP.push(`${S} — start button (dl-start) nahi mila`);
+    else {
+      start.click();
+      const n = Math.min(s.pick || 8, (s.rounds || []).length);
+      for (let i = 0; i < n + 2 && !done; i++) {
+        const right = byClass(arena, 'dl-opt').filter(b => b.dataset.i === '0' && !b.disabled)[0];
+        if (right) right.click();
+        const nx = byClass(arena, 'dl-next').filter(b => b.style.display !== 'none').pop();
+        if (nx) nx.click();
+        const fin = one(arena, 'dl-done');
+        if (fin) fin.click();
+      }
+      if (!done) LP.push(`${S} — SOFTLOCK, har round sahi par bhi drill poori nahi hui`);
+      else if (done.firstTry !== n || done.total !== n) LP.push(`${S} — sab sahi par score ${done.firstTry}/${done.total} (rounds ${n})`);
+    }
+  }
   if (s.type === 'docker') {
     byClass(arena, 'dk-tick').forEach(b => b.click());
     if (!clickRight(arena, 'dk-opt', (s.observe || {}).answer)) LP.push(`${S} — observe question not shown after ticking all steps`);
@@ -482,7 +537,7 @@ for (const { s, S } of labStages) {
   }
 }
 LP.forEach(p => bad(p));
-if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker) — no softlocks, no NaN`);
+if (!LP.length) ok(`${nLab} labs rendered and won (dryrun/flowlab/decide/triage/docker/drill) — no softlocks, no NaN`);
 
 /* ================= 4. TERMINAL MISSIONS ================= */
 console.log('\n4️⃣  Terminal missions (real awscli.js simulator)');
@@ -686,6 +741,7 @@ const sxp = s => {
   if (s.type === 'flowlab') return (s.quiz ? 2 : 1) * per + bon;
   if (s.type === 'triage') return (s.questions || []).length * per + bon;
   if (s.type === 'docker') return per + bon;
+  if (s.type === 'drill') return Math.min(s.pick || 8, (s.rounds || []).length) * per + bon;
   return 0;
 };
 AG.tracks.forEach(t => (AG.levelSets[t.id] || []).forEach(l => {

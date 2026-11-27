@@ -558,3 +558,32 @@ Naya command jodte waqt yeh teen sawaal poochho:
 1. Yeh command kis-kis resource ka state badalta hai? Asli AWS mein **kya nahi badalta** (purane versions, doosre resources)?
 2. Teen haalat alag hain kya — "kabhi set nahi hua" (`undefined`), "on" (`true`), "on karke band" (`false`)? Inko ek hi `else` mein mat daalo.
 3. Is niyam ka ek test `validate-*.js` mein hai jo galat state par fail ho? Sirf output text ka test kaafi nahi.
+
+---
+
+## 12. ⚡📟🎲 Practice labs — drill, on-call shift, chaos deck (2026-11-26)
+
+Yeh teen lab types System Gurukul aur Kube Gurukul se aaye hain. `triage` mein learner sirf wajah chunta hai;
+in labs mein learner **jaldi pehchanta** (drill) ya **khud theek karta** hai (on-call, chaos).
+
+**Jodna:** har lab apni `data-<type>-<level>.js` file mein rehta hai (IIFE ke andar) aur `AG.addLab(levelId, stage)` se
+level ke `stages` ke aakhir mein judta hai — interview se pehle, kyunki app interview ko `allStages()` mein aakhir mein lagaata hai.
+File ko level files ke **baad** load karo (`index.html` aur `validate.js` ki `DATA` list, dono mein ek hi kram).
+Stage ki `id` poore app mein unique ho (best score usi par `AG.state.practice` mein save hota hai).
+
+**Saved data:** `AG.state.practice = { drill: {}, oncall: {}, chaos: {}, seen: {} }`. `core.js` ka `readProgress` aur
+`resume.js` ka backup check, dono is field ko jaanchte hain. Naya field jodo toh dono jagah jodo.
+
+### 12.1 ⚡ `drill` — Lakshan → fix (`drill.js`)
+
+Ek lakshan (CloudWatch number, CLI output, error line) → 3 options mein se sahi wajah + fix. Ghadi sirf sochne ka samay ginti hai.
+Poora schema `drill.js` ke upar wale comment mein hai. Model: [`data-drill-boss2.js`](data-drill-boss2.js).
+
+Validator ke niyam (`node validate.js`, section 3 + lab walk):
+- `id` = `drill-…`, `pick` ≥ 5, pool ≥ `pick + 4`, `par` (second) zaroori.
+- `sym` ≤ 200 chars, har option ≤ 90, `why` ≤ 260 (HTML sirf `why` mein). `level` asli level id ho — woh level jahan yeh baat
+  **sach mein sikhayi gayi** (level file mein grep karke pakka karo).
+- **Lambai ka bias:** sahi option kabhi ≥ 1.15× sabse lambe galat ya ≤ 0.85× sabse chhote galat na ho. Poore drill mein sahi
+  option sabse lamba aadhe se kam rounds mein ho, aur ~1/5 se zyada mein (warna learner "sabse lamba = galat" seekh leta hai).
+- Galat options lalchaane wale hon, par **kisi haalat mein sahi na ho sakein** (jaise "bada RDS instance" connections bhi badhata hai —
+  aisa option galat jawab nahi ban sakta).

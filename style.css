@@ -1236,3 +1236,25 @@ pre {
 .parts-overview > div,.part-break { background:var(--panel2); border:1px solid var(--border); border-radius:.6rem; padding:.7rem; }
 .parts-overview p,.part-break p { margin:.35rem 0; }
 .part-break { margin:.7rem 0; }
+
+/* ⚡ Lakshan → fix drill (drill.js) */
+.dl-box { display: flex; flex-direction: column; gap: 12px; }
+.dl-intro { line-height: 1.6; }
+.dl-rules { color: var(--muted); font-size: .9rem; margin-top: 6px; line-height: 1.55; }
+.dl-top { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: .95rem; color: var(--muted); }
+.dl-top b { color: var(--text); }
+.dl-clock { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--gold); }
+.dl-sym { background: #05080f; color: #d7e3f7; border: 1px solid var(--border); border-left: 4px solid var(--bad);
+  border-radius: 10px; padding: 12px 14px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .92rem; line-height: 1.55; overflow-wrap: anywhere; }
+.dl-sym-h { font-family: inherit; color: var(--muted); font-size: .8rem; margin-bottom: 4px; }
+.dl-key { display: inline-block; min-width: 1.5em; text-align: center; border: 1px solid var(--border); border-radius: 6px;
+  margin-right: 6px; color: var(--muted); font-size: .85rem; }
+.dl-secs { color: var(--muted); font-weight: normal; }
+.dl-where { color: var(--muted); font-size: .88rem; margin-top: 6px; }
+.dl-nav { display: flex; justify-content: flex-end; }
+.dl-card { text-align: left; line-height: 1.6; display: flex; flex-direction: column; gap: 8px; }
+.dl-stars { font-size: 1.5rem; }
+.dl-miss div { margin-top: 4px; overflow-wrap: anywhere; }
+.dl-box .lab-after { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.dl-box .lab-after .stage-summary { flex: 1 1 100%; margin-top: 0; }

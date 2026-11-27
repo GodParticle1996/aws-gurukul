@@ -86,7 +86,13 @@ AG.resume = (() => {
     const validDecision = d => isRecord(d) && listOfIds(d.seen) && listOfIds(d.solved) && count(d.best);
     const validStreak = s => isRecord(s) && (s.last === null || (text(s.last) && /^\d{4}-\d{2}-\d{2}$/.test(s.last))) &&
       count(s.count) && count(s.best) && s.best >= s.count;
+    // drill/oncall/chaos ke best score: chhote numbers ya chhote text. seen: dekhe hue round ids.
+    const flatBest = b => isRecord(b) && Object.values(b).every(x => Number.isFinite(x) || (typeof x === 'string' && x.length <= 40));
+    const validPractice = p => isRecord(p) && Object.keys(p).every(k => ['drill', 'oncall', 'chaos', 'seen'].includes(k)) &&
+      ['drill', 'oncall', 'chaos'].every(k => p[k] === undefined || mapOf(p[k], flatBest)) &&
+      (p.seen === undefined || mapOf(p.seen, ids => Array.isArray(ids) && ids.length <= 64 && ids.every(x => typeof x === 'string')));
     const fields = {
+      practice: validPractice,
       labs: v => AG.labHub.valid(v),
       mock: v => AG.mock.valid(v),
       xp: count, completed: ids => listOfIds(ids) && ids.every(id => AG.findLevel(id)) && new Set(ids).size === ids.length,

@@ -33,6 +33,18 @@ AG.registerLevels = function (trackId, levels) {
   AG.levelSets[trackId].push(...levels);
 };
 
+/* Practice lab (drill / oncall / chaos) ko kisi maujooda level ke aakhir mein jodo — interview se pehle,
+   kyunki app interview ko allStages() mein sabse aakhir mein lagaata hai. Data file level file ke BAAD load ho.
+     AG.addLab('boss2', { type: 'drill', id: 'drill-boss2', ... })
+   Level na mile toh ERROR, taaki galat id ya galat file order chup-chaap na chhoote. */
+AG.addLab = function (levelId, stage) {
+  const level = AG.findLevel(levelId);
+  if (!level) throw new Error(`AG.addLab: level '${levelId}' nahi mila — file order check karo`);
+  level.stages = level.stages || [];
+  level.stages.push(stage);
+  return level;
+};
+
 /* ---------------- persistence ---------------- */
 AG.defaultState = function () {
   return {
@@ -44,6 +56,7 @@ AG.defaultState = function () {
     soch: {},             // case id -> best number of first-try answers
     resume: null,
     labs: [],
+    practice: { drill: {}, oncall: {}, chaos: {}, seen: {} },   // drill/oncall/chaos ke best score + dekhe hue rounds
     mock: { active: null, history: [] },
     levelStarts: 0,       // for pop-quiz cadence
   };
@@ -91,6 +104,17 @@ AG.readProgress = function (saved) {
     state.decisions = Object.fromEntries(Object.entries(saved.decisions).filter(([, progress]) =>
       record(progress) && Array.isArray(progress.seen) && Array.isArray(progress.solved)).map(([id, progress]) =>
         [id, { seen: progress.seen, solved: progress.solved, best: count(progress.best) }]));
+  }
+  if (record(saved.practice)) {
+    // Har best score sirf chhote numbers ya chhote text ka record ho. Kharab record hatao, baaki bachao.
+    const flat = v => record(v) && Object.values(v).every(x => Number.isFinite(x) || (typeof x === 'string' && x.length <= 40));
+    ['drill', 'oncall', 'chaos'].forEach(kind => {
+      if (record(saved.practice[kind]))
+        state.practice[kind] = Object.fromEntries(Object.entries(saved.practice[kind]).filter(([, best]) => flat(best)));
+    });
+    if (record(saved.practice.seen))
+      state.practice.seen = Object.fromEntries(Object.entries(saved.practice.seen).filter(([, ids]) =>
+        Array.isArray(ids) && ids.length <= 64 && ids.every(x => typeof x === 'string')));
   }
   return state;
 };
