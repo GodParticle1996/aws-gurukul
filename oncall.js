@@ -12,7 +12,7 @@
    🧩 Nayi shift jodna:
    AG.oncall.add({
      id: 'mahasale', start: 20 * 60,               // ghadi 20:00 se (minutes)
-     INC: [ { id, sev: '🔴 SEV1' | '🟠 SEV2', text,
+     INC: [ { id, sev: '🔴 SEV1' | '🟠 SEV2' | '🟡 SEV3', text,
               fixed: (account, sim) => bool,       // haalat theek hai?
               verify: /regex/, verifyText,         // fix ke BAAD kaunsa command "pakka karna" ginta hai
               hints: [3],                          // is alert ke hints (aakhri = poora command)
