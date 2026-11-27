@@ -597,7 +597,7 @@ AG.renderers.terminal = function renderTerminal(stage, arena, onDone) {
   function refresh(attempt) {
     const advanced = updateTasks();
     if (advanced) stalled = 0;
-    if (attempt && stalled === 5 && !advanced && !stage.oncall) print('hint', 'Koi naya kaam poora nahi hua. Nishaan wala kaam dekho ya hint lo.');
+    if (attempt && stalled === 5 && !advanced && !stage.oncall && !stage.chaos) print('hint', 'Koi naya kaam poora nahi hua. Nishaan wala kaam dekho ya hint lo.');
     if (!sim.done && stage.success && stage.success(sim)) {
       sim.done = true;
       showHelpButton();
